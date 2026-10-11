@@ -1,3 +1,4 @@
+// † extinct in season 10.
 // venomke: branched from the wanderers in season 3.
 function behave(me, world) {
   // Find the closest food.
