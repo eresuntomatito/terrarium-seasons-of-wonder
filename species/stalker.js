@@ -1,8 +1,8 @@
-// ↺ returned in season 11.
-// † extinct in season 10.
-// ↺ returned in season 5.
-// † extinct in season 4.
+// † extinct in season 2.
 function behave(me, world) {
+  // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims.
+  const generosity = me.genes[0], foresight = me.genes[1];
+
   // Pursue the nearest prey, aiming where it is going to be.
   let target = null, best = Infinity;
   for (const f of world.food) {
@@ -12,7 +12,7 @@ function behave(me, world) {
 
   let x = 0, y = 0;
   if (target) {
-    const ahead = Math.min(best / 3, 20);
+    const ahead = Math.min(best / 3, 10 + foresight * 20);
     const tx = target.x + target.vx * ahead - me.x;
     const ty = target.y + target.vy * ahead - me.y;
     const d = Math.hypot(tx, ty) || 1;
@@ -25,9 +25,9 @@ function behave(me, world) {
     y += Math.sin(a) * 0.4;
   }
 
-  // Stalkers hunt alone.
+  // Stalkers keep away from their own kind, so they mostly breed alone.
   for (const o of world.others) {
-    if (o.species !== 'stalker') continue;
+    if (!o.kin) continue;
     const d = Math.hypot(o.x - me.x, o.y - me.y);
     if (d > 0 && d < 40) {
       x -= (o.x - me.x) / d * 0.5;
@@ -35,5 +35,5 @@ function behave(me, world) {
     }
   }
 
-  return { x, y };
+  return { x, y, mate: me.fertile && me.energy > 1.6, give: 0.4 + generosity * 0.3 };
 }
