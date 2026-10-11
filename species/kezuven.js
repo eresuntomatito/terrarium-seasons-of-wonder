@@ -1,3 +1,4 @@
+// † extinct in season 2.
 // kezuven: branched from the stalkers in season 2.
 // Fithu: Seeker
 function behave(me, world) {
