@@ -1,3 +1,4 @@
+// † extinct in season 10.
 // zunaven: branched from the venomkes in season 9.
 function behave(me, world) {
   // Find the closest food.
