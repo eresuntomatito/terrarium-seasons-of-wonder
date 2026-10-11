@@ -1,3 +1,4 @@
+// † extinct in season 25.
 // ↺ returned in season 25.
 // † extinct in season 24.
 // chromi (S.1.1): written by the god after the stalkzoes (S.1) collapsed, in season 24.
