@@ -1,3 +1,4 @@
+// † extinct in season 13.
 // bumblebee: branched from the wanderers in season 10.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1];
