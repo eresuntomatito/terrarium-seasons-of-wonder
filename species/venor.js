@@ -1,3 +1,4 @@
+// † extinct in season 13.
 // venor (W.1.1): branched from the galysathus (W.1) in season 13.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 20 + me.genes[2] * 40;
