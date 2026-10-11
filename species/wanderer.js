@@ -1,7 +1,8 @@
-// † extinct in season 13.
+// † extinct in season 1.
 function behave(me, world) {
-  // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how eagerly it courts.
-  const generosity = me.genes[0], ardour = me.genes[1];
+  // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how eagerly it courts,
+  // gene 2 how early it takes fright.
+  const generosity = me.genes[0], ardour = me.genes[1], fright = 20 + me.genes[2] * 40;
 
   // Find the closest food.
   let target = null, best = Infinity;
@@ -21,12 +22,16 @@ function behave(me, world) {
     y += Math.sin(a) * 0.5;
   }
 
-  // When well fed, look for a willing partner of its own kind; otherwise keep a little distance.
+  // Flee anything big enough to eat it. When well fed, look for a willing partner of its own kind;
+  // otherwise keep a little distance.
   const ready = me.fertile && me.energy > 0.9;
   for (const o of world.others) {
     const d = Math.hypot(o.x - me.x, o.y - me.y);
     if (d === 0) continue;
-    if (ready && o.kin && o.willing) {
+    if (!o.kin && o.size >= me.size * 1.2 && d < fright) {
+      x -= (o.x - me.x) / d * 2;
+      y -= (o.y - me.y) / d * 2;
+    } else if (ready && o.kin && o.willing) {
       x += (o.x - me.x) / d * (0.5 + ardour);
       y += (o.y - me.y) / d * (0.5 + ardour);
     } else if (d < 15) {
