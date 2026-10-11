@@ -1,3 +1,4 @@
+// † extinct in season 40.
 // scurry (W.1.8): branched from the galysathus (W.1) in season 40, written by claude-haiku.
 function behave(me, world) {
   const generosity = me.genes[0], fright = 15.6 + me.genes[2] * 34.8;
