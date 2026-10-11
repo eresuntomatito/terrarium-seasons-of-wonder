@@ -1,3 +1,4 @@
+// ↺ returned in season 6.
 // † extinct in season 5.
 // ↺ returned in season 4.
 // † extinct in season 3.
@@ -11,10 +12,10 @@ function behave(me, world) {
   // gene 2 how full it must be before it spares the prey it touches, gene 3 how keen its eye is.
   const generosity = me.genes[0], foresight = me.genes[1], appetite = 1.2 + me.genes[2] * 0.8, keenness = me.genes[3];
 
-  // Pursue the nearest creature it could eat (never its own kind), aiming where it is going to be.
+  // Pursue the nearest creature it could eat, aiming where it is going to be. Its own kind only when starving.
   let target = null, best = Infinity, prey = 0;
   for (const f of world.food) {
-    if (f.plant || f.kin) continue;
+    if (f.plant || (f.kin && me.energy > 0.5)) continue;
     prey++;
     const d = Math.hypot(f.x - me.x, f.y - me.y);
     if (d < best) { best = d; target = f; }
