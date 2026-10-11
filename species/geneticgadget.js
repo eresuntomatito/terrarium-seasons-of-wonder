@@ -1,3 +1,4 @@
+// † extinct in season 46.
 // geneticgadget (S.5.1): written by claude-haiku after the galacticraptors (S.5) collapsed, in season 46.
 // lesson the mystics (S.3) lasted 0.3 days, grew to 4, killed 4; then 4 starved, 0 were eaten, 0 died old. 229 plant-eaters were left.
 // lesson the zephyrs (S.3.1) lasted 0.2 days, grew to 4, killed 0; then 4 starved, 0 were eaten, 0 died old. 159 plant-eaters were left.
