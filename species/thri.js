@@ -1,3 +1,4 @@
+// † extinct in season 10.
 // thri: branched from the wanderers in season 8.
 function behave(me, world) {
   const generosity = me.genes[0];
