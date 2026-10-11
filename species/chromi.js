@@ -1,3 +1,4 @@
+// † extinct in season 24.
 // chromi (S.1.1): written by the god after the stalkzoes (S.1) collapsed, in season 24.
 // lesson the stalkers (S) lasted 1.5 days, grew to 5, killed 36; then 7 starved, 0 were eaten, 0 died old. 292 plant-eaters were left.
 // lesson the stalkers (S) lasted 0.8 days, grew to 5, killed 11; then 5 starved, 0 were eaten, 0 died old. 169 plant-eaters were left.
