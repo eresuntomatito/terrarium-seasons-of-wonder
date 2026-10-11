@@ -1,3 +1,4 @@
+// ↺ returned in season 23.
 // † extinct in season 23.
 // stalkzoe (S.1): written by the god after the stalkers (S) collapsed, in season 22.
 // lesson the stalkers (S) lasted 1.5 days, grew to 5, killed 36; then 7 starved, 0 were eaten, 0 died old. 292 plant-eaters were left.
