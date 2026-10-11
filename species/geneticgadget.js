@@ -1,3 +1,4 @@
+// † extinct in season 48.
 // ↺ returned in season 47.
 // † extinct in season 46.
 // geneticgadget (S.5.1): written by claude-haiku after the galacticraptors (S.5) collapsed, in season 46.
