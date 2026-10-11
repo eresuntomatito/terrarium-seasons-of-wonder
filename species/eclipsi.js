@@ -1,3 +1,4 @@
+// † extinct in season 48.
 // ↺ returned in season 48.
 // † extinct in season 48.
 // eclipsi (S.5.2): written by claude-haiku after the galacticraptors (S.5) collapsed, in season 47.
