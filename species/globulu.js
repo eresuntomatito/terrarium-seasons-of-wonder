@@ -1,3 +1,4 @@
+// † extinct in season 55.
 // ↺ returned in season 55.
 // † extinct in season 55.
 // globulu (W.1.10): held by the god after the galysathus (W.1) in season 49, written by claude-haiku.
