@@ -1,8 +1,10 @@
+// † extinct in season 13.
 // ↺ returned in season 3.
 // † extinct in season 2.
 function behave(me, world) {
-  // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims.
-  const generosity = me.genes[0], foresight = me.genes[1];
+  // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
+  // gene 2 how full it must be before it spares the prey it touches.
+  const generosity = me.genes[0], foresight = me.genes[1], appetite = 1.2 + me.genes[2] * 0.8;
 
   // Pursue the nearest prey, aiming where it is going to be.
   let target = null, best = Infinity;
@@ -36,5 +38,5 @@ function behave(me, world) {
     }
   }
 
-  return { x, y, mate: me.fertile && me.energy > 1.6, give: 0.4 + generosity * 0.3 };
+  return { x, y, eat: me.energy < appetite, mate: me.fertile && me.energy > 1.3, give: 0.4 + generosity * 0.3 };
 }
