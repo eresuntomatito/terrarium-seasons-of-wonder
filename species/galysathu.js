@@ -1,3 +1,4 @@
+// † extinct in season 11.
 // galysathu (W.1): branched from the wanderers (W) in season 11.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how eagerly it courts,
