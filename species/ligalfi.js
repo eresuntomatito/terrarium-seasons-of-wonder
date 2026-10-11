@@ -1,3 +1,4 @@
+// † extinct in season 8.
 // ligalfi: branched from the wanderers in season 6.
 function behave(me, world) {
   // Find the closest food.
