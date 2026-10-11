@@ -1,3 +1,4 @@
+// † extinct in season 42.
 // gigaplex (W.1.9): branched from the galysathus (W.1) in season 42, written by claude-haiku.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 20.3 + me.genes[2] * 32.2;
