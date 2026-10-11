@@ -1,3 +1,4 @@
+// † extinct in season 36.
 // zephyr (S.3.1): written by claude-haiku after the mystics (S.3) collapsed, in season 36.
 // lesson the stalkzoes (S.1) lasted 0.7 days, grew to 5, killed 16; then 6 starved, 0 were eaten, 0 died old. 77 plant-eaters were left.
 // lesson the chromis (S.1.1) lasted 0.5 days, grew to 4, killed 9; then 4 starved, 0 were eaten, 0 died old. 305 plant-eaters were left.
