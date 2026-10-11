@@ -1,3 +1,4 @@
+// † extinct in season 5.
 // drona: branched from the venomkes in season 4.
 function behave(me, world) {
   // Find the closest food.
