@@ -1,3 +1,4 @@
+// † extinct in season 10.
 // omthufi: branched from the wanderers in season 9.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how eagerly it courts.
