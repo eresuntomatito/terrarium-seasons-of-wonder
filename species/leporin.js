@@ -1,3 +1,4 @@
+// † extinct in season 5.
 // leporin: branched from the drosavens in season 5.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1];
