@@ -1,3 +1,4 @@
+// † extinct in season 54.
 // † extinct in season 53.
 // † extinct in season 52.
 function behave(me, world) {
