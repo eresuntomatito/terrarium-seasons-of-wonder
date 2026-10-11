@@ -1,3 +1,4 @@
+// ↺ returned in season 12.
 // † extinct in season 11.
 // galysathu (W.1): branched from the wanderers (W) in season 11.
 function behave(me, world) {
