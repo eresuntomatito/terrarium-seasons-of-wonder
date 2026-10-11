@@ -1,3 +1,4 @@
+// † extinct in season 31.
 // ephemeridian (W.1.3): branched from the galysathus (W.1) in season 31.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 19.8 + me.genes[2] * 43;
