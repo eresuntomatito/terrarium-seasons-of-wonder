@@ -1,4 +1,5 @@
 // † extinct in season 1.
+// † extinct in season 1.
 // ↺ returned in season 1.
 // † extinct in season 1.
 function behave(me, world) {
