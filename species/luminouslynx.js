@@ -1,3 +1,4 @@
+// † extinct in season 38.
 // luminouslynx (S.4): written by claude-haiku after the stalkers (S) collapsed, in season 38.
 // lesson the chromis (S.1.1) lasted 0.5 days, grew to 4, killed 9; then 4 starved, 0 were eaten, 0 died old. 305 plant-eaters were left.
 // lesson the chromis (S.1.1) lasted 0.3 days, grew to 4, killed 4; then 4 starved, 0 were eaten, 0 died old. 236 plant-eaters were left.
