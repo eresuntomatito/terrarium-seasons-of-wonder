@@ -1,3 +1,4 @@
+// † extinct in season 8.
 // libelzu: branched from the ligalfis in season 7.
 function behave(me, world) {
   // Find the closest food.
