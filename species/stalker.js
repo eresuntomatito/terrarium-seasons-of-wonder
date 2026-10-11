@@ -7,16 +7,22 @@
 // † extinct in season 1.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
-  // gene 2 how full it must be before it spares the prey it touches.
-  const generosity = me.genes[0], foresight = me.genes[1], appetite = 1.2 + me.genes[2] * 0.8;
+  // gene 2 how full it must be before it spares the prey it touches, gene 3 how keen its eye is.
+  const generosity = me.genes[0], foresight = me.genes[1], appetite = 1.2 + me.genes[2] * 0.8, keenness = me.genes[3];
 
   // Pursue the nearest creature it could eat (never its own kind), aiming where it is going to be.
-  let target = null, best = Infinity;
+  let target = null, best = Infinity, prey = 0;
   for (const f of world.food) {
     if (f.plant || f.kin) continue;
+    prey++;
     const d = Math.hypot(f.x - me.x, f.y - me.y);
     if (d < best) { best = d; target = f; }
   }
+
+  // Search image: a stalker learns to spot the prey it meets often, and stops noticing prey that has
+  // become rare. Its eye sharpens when prey is plentiful and fades when it is not.
+  const eye = me.memory.eye = (me.memory.eye ?? 0.5) * 0.99 + 0.01 * Math.min(1, prey / 4);
+  const focus = Math.min(1, eye * (0.5 + keenness)) ** 2;
 
   let x = 0, y = 0;
   if (target) {
@@ -24,14 +30,13 @@ function behave(me, world) {
     const tx = target.x + target.vx * ahead - me.x;
     const ty = target.y + target.vy * ahead - me.y;
     const d = Math.hypot(tx, ty) || 1;
-    x += tx / d;
-    y += ty / d;
-  } else {
-    // Nothing to hunt: prowl in slow loops.
-    const a = world.noise(me.x * 0.5, me.y * 0.5) * Math.PI * 4;
-    x += Math.cos(a) * 0.4;
-    y += Math.sin(a) * 0.4;
+    x += tx / d * focus;
+    y += ty / d * focus;
   }
+  // Whatever its eye misses, it prowls past in slow loops.
+  const a = world.noise(me.x * 0.5, me.y * 0.5) * Math.PI * 4;
+  x += Math.cos(a) * 0.4 * (1 - focus);
+  y += Math.sin(a) * 0.4 * (1 - focus);
 
   // Stalkers keep away from their own kind, so they mostly breed alone.
   for (const o of world.others) {
