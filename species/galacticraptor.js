@@ -1,3 +1,4 @@
+// † extinct in season 43.
 // ↺ returned in season 42.
 // † extinct in season 42.
 // galacticraptor (S.5): written by claude-haiku after the stalkers (S) collapsed, in season 41.
