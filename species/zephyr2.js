@@ -1,3 +1,4 @@
+// † extinct in season 40.
 // zephyr2 (S.4.1): written by claude-haiku after the luminouslynxs (S.4) collapsed, in season 39.
 // lesson the chromis (S.1.1) lasted 0.3 days, grew to 4, killed 4; then 4 starved, 0 were eaten, 0 died old. 236 plant-eaters were left.
 // lesson the shroudeds (S.2) lasted 0.4 days, grew to 4, killed 4; then 4 starved, 0 were eaten, 0 died old. 126 plant-eaters were left.
