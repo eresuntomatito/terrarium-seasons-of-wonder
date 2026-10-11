@@ -1,3 +1,4 @@
+// ↺ returned in season 42.
 // † extinct in season 42.
 // galacticraptor (S.5): written by claude-haiku after the stalkers (S) collapsed, in season 41.
 // lesson the shroudeds (S.2) lasted 0.4 days, grew to 4, killed 4; then 4 starved, 0 were eaten, 0 died old. 126 plant-eaters were left.
