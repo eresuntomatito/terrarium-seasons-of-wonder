@@ -1,3 +1,4 @@
+// † extinct in season 36.
 // mystic (S.3): written by claude-haiku after the stalkers (S) collapsed, in season 35.
 // lesson the stalkzoes (S.1) lasted 0.8 days, grew to 4, killed 8; then 4 starved, 0 were eaten, 0 died old. 221 plant-eaters were left.
 // lesson the stalkzoes (S.1) lasted 0.7 days, grew to 5, killed 16; then 6 starved, 0 were eaten, 0 died old. 77 plant-eaters were left.
