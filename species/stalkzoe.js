@@ -1,3 +1,4 @@
+// † extinct in season 23.
 // ↺ returned in season 23.
 // † extinct in season 23.
 // stalkzoe (S.1): written by the god after the stalkers (S) collapsed, in season 22.
