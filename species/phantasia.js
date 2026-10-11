@@ -1,3 +1,4 @@
+// † extinct in season 36.
 // phantasia (W.1.4): branched from the galysathus (W.1) in season 36, written by claude-haiku.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 16.7 + me.genes[2] * 37.6;
