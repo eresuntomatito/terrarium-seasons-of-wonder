@@ -1,3 +1,4 @@
+// † extinct in season 39.
 // luminou (W.1.7): branched from the galysathus (W.1) in season 39, written by claude-haiku.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 16.7 + me.genes[2] * 37.3;
