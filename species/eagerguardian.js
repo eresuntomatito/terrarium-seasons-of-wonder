@@ -1,3 +1,4 @@
+// † extinct in season 24.
 // eagerguardian (W.1.2): branched from the galysathus (W.1) in season 23.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how eagerly it courts,
