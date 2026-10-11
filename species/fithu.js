@@ -1,3 +1,4 @@
+// † extinct in season 8.
 // fithu: branched from the venomkes in season 8.
 function behave(me, world) {
   // Find the closest food.
