@@ -1,3 +1,4 @@
+// † extinct in season 8.
 // † extinct in season 2.
 function behave(me, world) {
   // Find the closest food.
