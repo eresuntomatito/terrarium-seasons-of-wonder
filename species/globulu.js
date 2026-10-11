@@ -1,3 +1,4 @@
+// † extinct in season 55.
 // globulu (W.1.10): held by the god after the galysathus (W.1) in season 49, written by claude-haiku.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1],
