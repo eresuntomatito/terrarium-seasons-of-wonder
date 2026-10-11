@@ -1,3 +1,4 @@
+// † extinct in season 38.
 // tecna (W.1.6): branched from the galysathus (W.1) in season 38, written by claude-haiku.
 function behave(me, world) {
   // Genes: gene 0 is generosity, gene 1 is ardour, gene 2 is fright threshold
