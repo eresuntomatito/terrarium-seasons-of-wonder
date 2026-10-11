@@ -1,3 +1,4 @@
+// ↺ returned in season 48.
 // † extinct in season 48.
 // eclipsi (S.5.2): written by claude-haiku after the galacticraptors (S.5) collapsed, in season 47.
 // lesson the luminouslynxs (S.4) lasted 2.3 days, grew to 4, killed 55; then 0 starved, 0 were eaten, 4 died old. 36 plant-eaters were left.
