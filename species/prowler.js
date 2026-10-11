@@ -1,3 +1,4 @@
+// † extinct in season 32.
 // ↺ returned in season 31.
 // † extinct in season 28.
 // prowler (S.2.1): written by the god after the shroudeds (S.2) collapsed, in season 28.
