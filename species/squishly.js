@@ -1,3 +1,4 @@
+// † extinct in season 37.
 // squishly (W.1.5): branched from the galysathus (W.1) in season 37, written by claude-haiku.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 17.5 + me.genes[2] * 36.4;
