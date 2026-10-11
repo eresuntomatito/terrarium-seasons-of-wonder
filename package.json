@@ -1,0 +1,6 @@
+{
+  "name": "terrarium",
+  "private": true,
+  "type": "module",
+  "description": "A world with a small, dumb local god. Must not be useful."
+}

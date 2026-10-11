@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>God in Miniature</title>
+<style>
+  body { margin: 0; padding: 20px; background: #0b0d0c; color: #b9c4bc; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+  main { display: flex; gap: 20px; flex-wrap: wrap; }
+  figure { margin: 0; }
+  figcaption { display: flex; justify-content: space-between; margin-bottom: 6px; }
+  canvas { display: block; background: #0b0d0c; border: 1px solid #1f2622; }
+  button { font: inherit; background: #1d2a22; color: #d8f0de; border: 1px solid #3a5a45; padding: 6px 14px; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: wait; }
+  #status { margin-left: 12px; }
+  pre { background: #111513; border: 1px solid #1f2622; padding: 12px; max-width: 980px; overflow: auto; font-size: 12px; }
+</style>
+</head>
+<body>
+<p><button id="pray">Pray for a mutation</button><span id="status"></span></p>
+<main>
+  <figure><figcaption><span>ancestor</span><span id="stats0"></span></figcaption><canvas id="c0" width="480" height="480"></canvas></figure>
+  <figure><figcaption><span>mutant</span><span id="stats1"></span></figcaption><canvas id="c1" width="480" height="480"></canvas></figure>
+</main>
+<pre id="code"></pre>
+
+<script>
+const W = 480, H = 480, CREATURES = 30, FOOD = 40, MAX_FORCE = 0.25, MAX_SPEED = 3;
+
+const compile = src => new Function('Math', src + '\n;return behave;')(Math);
+
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+
+function makePane(canvas, statsEl, behave) {
+  const r = rng(42);
+  return {
+    ctx: canvas.getContext('2d'), statsEl, behave, t: 0, eaten: 0, errors: 0, rnd: r,
+    food: Array.from({ length: FOOD }, () => ({ x: r() * W, y: r() * H })),
+    creatures: Array.from({ length: CREATURES }, () => ({
+      x: r() * W, y: r() * H, vx: 0, vy: 0, energy: 1, age: 0, memory: {}, hue: 140, broken: false,
+    })),
+  };
+}
+
+function step(p) {
+  p.t++;
+  const t = p.t;
+  const noise = (x, y) => Math.sin(x * 0.01 + t * 0.01) * Math.cos(y * 0.013 - t * 0.007);
+  for (const c of p.creatures) {
+    if (c.broken) continue;
+    const others = p.creatures.filter(o => o !== c).map(({ x, y, vx, vy }) => ({ x, y, vx, vy }));
+    let f;
+    try {
+      f = p.behave(c, { width: W, height: H, t, food: p.food.map(({ x, y }) => ({ x, y })), others, noise });
+      if (!f || !Number.isFinite(f.x) || !Number.isFinite(f.y)) throw new Error('bad force');
+    } catch (e) {
+      c.broken = true; p.errors++; continue;
+    }
+    if (Number.isFinite(f.hue)) c.hue = f.hue;
+    const m = Math.hypot(f.x, f.y);
+    if (m > MAX_FORCE) { f.x *= MAX_FORCE / m; f.y *= MAX_FORCE / m; }
+    c.vx += f.x; c.vy += f.y;
+    const s = Math.hypot(c.vx, c.vy);
+    if (s > MAX_SPEED) { c.vx *= MAX_SPEED / s; c.vy *= MAX_SPEED / s; }
+    c.x = (c.x + c.vx + W) % W; c.y = (c.y + c.vy + H) % H;
+    c.age++; c.energy = Math.max(0, c.energy - 0.001);
+    for (const food of p.food) {
+      if (Math.hypot(food.x - c.x, food.y - c.y) < 6) {
+        p.eaten++; c.energy = Math.min(1, c.energy + 0.2);
+        food.x = p.rnd() * W; food.y = p.rnd() * H;
+      }
+    }
+  }
+}
+
+function draw(p) {
+  const g = p.ctx;
+  g.fillStyle = 'rgba(11,13,12,0.18)'; // fading background leaves trails
+  g.fillRect(0, 0, W, H);
+  g.fillStyle = '#d9c36a';
+  for (const f of p.food) g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3);
+  for (const c of p.creatures) {
+    const a = Math.atan2(c.vy, c.vx);
+    g.save(); g.translate(c.x, c.y); g.rotate(a);
+    g.fillStyle = c.broken ? '#444' : `hsl(${c.hue}, 60%, ${35 + c.energy * 30}%)`;
+    g.beginPath(); g.moveTo(6, 0); g.lineTo(-4, 3); g.lineTo(-4, -3); g.fill();
+    g.restore();
+  }
+  p.statsEl.textContent = `eaten ${p.eaten}` + (p.errors ? ` · broken ${p.errors}` : '');
+}
+
+let panes = [];
+async function load() {
+  const ancestor = await (await fetch('/species/wanderer.js')).text();
+  const res = await fetch('/species/wanderer.mutant.js');
+  const mutant = res.ok ? await res.text() : ancestor;
+  document.getElementById('code').textContent = res.ok ? mutant : '// no mutant yet: both panes run the ancestor';
+  panes = [
+    makePane(document.getElementById('c0'), document.getElementById('stats0'), compile(ancestor)),
+    makePane(document.getElementById('c1'), document.getElementById('stats1'), compile(mutant)),
+  ];
+}
+
+function frame() { for (const p of panes) { step(p); draw(p); } requestAnimationFrame(frame); }
+
+document.getElementById('pray').onclick = async () => {
+  const btn = document.getElementById('pray'), status = document.getElementById('status');
+  btn.disabled = true; status.textContent = 'the god is thinking…';
+  try {
+    const r = await (await fetch('/pray?species=wanderer', { method: 'POST' })).json();
+    if (r.error && r.born === undefined) status.textContent = 'no answer: ' + r.error;
+    else if (r.born) { status.textContent = `a mutant is born (${r.seconds.toFixed(1)}s)`; await load(); }
+    else { status.textContent = `stillborn: ${r.error} (${r.seconds.toFixed(1)}s)`; }
+  } finally { btn.disabled = false; }
+};
+
+load().then(frame);
+</script>
+</body>
+</html>
