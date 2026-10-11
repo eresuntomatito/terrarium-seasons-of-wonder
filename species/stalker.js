@@ -1,3 +1,4 @@
+// ↺ returned in season 5.
 // † extinct in season 4.
 function behave(me, world) {
   // Pursue the nearest prey, aiming where it is going to be.
