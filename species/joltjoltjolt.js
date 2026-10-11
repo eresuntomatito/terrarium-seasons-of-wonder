@@ -1,3 +1,4 @@
+// † extinct in season 7.
 // joltjoltjolt: branched from the wanderers in season 6.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1];
