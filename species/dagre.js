@@ -1,3 +1,4 @@
+// † extinct in season 70.
 // ↺ returned in season 70.
 // † extinct in season 60.
 // dagre (S.4): branched from the stalkers (S) in season 59, written by qwen2.5-coder:1.5b.
