@@ -1,3 +1,4 @@
+// † extinct in season 85.
 // jade (S.4.1): written by qwen2.5-coder:1.5b after the dagres (S.4) collapsed, in season 80.
 // lesson the gastronomics (S.2.1.1.1.1.1.1) lasted 0.3 days, grew to 9, killed 4; then 9 starved, 0 were eaten, 0 died old. 166 plant-eaters were left.
 // lesson the gastronomics (S.2.1.1.1.1.1.1) lasted 0.3 days, grew to 9, killed 4; then 9 starved, 0 were eaten, 0 died old. 155 plant-eaters were left.
