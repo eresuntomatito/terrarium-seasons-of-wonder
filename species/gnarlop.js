@@ -1,3 +1,4 @@
+// † extinct in season 9.
 // gnarlop (W.6): branched from the wanderers (W) in season 9, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how eagerly it courts,
