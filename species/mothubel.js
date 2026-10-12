@@ -1,3 +1,4 @@
+// † extinct in season 102.
 // mothubel (S.4.1.2.1.1.2): drifted apart from the ordros (S.4.1.2.1.1) in season 100; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
