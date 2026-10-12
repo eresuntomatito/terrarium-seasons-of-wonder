@@ -1,3 +1,4 @@
+// † extinct in season 88.
 // sabel (S.15.1): drifted apart from the sagals (S.15) in season 88; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
