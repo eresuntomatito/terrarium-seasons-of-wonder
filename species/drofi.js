@@ -1,3 +1,4 @@
+// † extinct in season 92.
 // drofi (S.19): drifted apart from the stalkers (S) in season 91; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
