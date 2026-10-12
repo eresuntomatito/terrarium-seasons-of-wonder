@@ -1,3 +1,4 @@
+// † extinct in season 78.
 // aurora (B.1): branched from the beetles (B) in season 78, written by claude-haiku.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 25.1 + me.genes[2] * 31.2;
