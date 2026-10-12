@@ -1,3 +1,4 @@
+// † extinct in season 90.
 // nafi (S.18): drifted apart from the stalkers (S) in season 90; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
