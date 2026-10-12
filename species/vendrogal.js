@@ -1,3 +1,4 @@
+// † extinct in season 90.
 // vendrogal (S.17): drifted apart from the stalkers (S) in season 89; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
