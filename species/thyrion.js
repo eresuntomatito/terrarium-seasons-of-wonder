@@ -1,3 +1,4 @@
+// † extinct in season 145.
 // thyrion (S.4.1.2.1.4.2.1): branched from the huntlings (S.4.1.2.1.4.2) in season 145, written by qwen2.5-coder:1.5b.
 // Field notes: these creatures now live as hunters (trophic level 2.99), gut 0.59 (0 = plant-eater … 1 = flesh-eater), body size 7.33.
 // Field notes: these creatures now live as hunters (trophic level 2.78), gut 0.53 (0 = plant-eater … 1 = flesh-eater), body size 7.99.
