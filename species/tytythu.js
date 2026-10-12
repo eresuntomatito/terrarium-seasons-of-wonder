@@ -1,3 +1,4 @@
+// † extinct in season 77.
 // tytythu (S.6): drifted apart from the stalkers (S) in season 76; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
