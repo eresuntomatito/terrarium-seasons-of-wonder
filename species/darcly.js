@@ -1,3 +1,4 @@
+// † extinct in season 136.
 // ↺ returned in season 131.
 // † extinct in season 127.
 // darcly (S.4.1.2.1.4): written by qwen2.5-coder:1.5b after the ketys (S.4.1.2.1) collapsed, in season 112.
