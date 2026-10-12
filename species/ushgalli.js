@@ -1,3 +1,4 @@
+// † extinct in season 79.
 // ushgalli (S.8): drifted apart from the stalkers (S) in season 78; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
