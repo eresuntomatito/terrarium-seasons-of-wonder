@@ -1,3 +1,4 @@
+// † extinct in season 94.
 // thubelbel (S.20): drifted apart from the stalkers (S) in season 93; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
