@@ -1,3 +1,4 @@
+// † extinct in season 60.
 // dagre (S.4): branched from the stalkers (S) in season 59, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
