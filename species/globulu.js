@@ -1,3 +1,4 @@
+// ↺ returned in season 84.
 // † extinct in season 84.
 // ↺ returned in season 84.
 // † extinct in season 84.
