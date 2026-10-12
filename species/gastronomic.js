@@ -1,3 +1,5 @@
+// ↺ returned in season 52.
+// † extinct in season 52.
 // gastronomic (S.2.1.1.1.1.1.1): written by qwen2.5-coder:1.5b after the gnomes (S.2.1.1.1.1.1) collapsed, in season 52.
 // lesson the gnomes (S.2.1.1.1.1.1) lasted 0.5 days, grew to 6, killed 7; then 6 starved, 0 were eaten, 0 died old. 652 plant-eaters were left.
 // lesson the gnomes (S.2.1.1.1.1.1) lasted 0.3 days, grew to 6, killed 14; then 6 starved, 0 were eaten, 0 died old. 736 plant-eaters were left.
