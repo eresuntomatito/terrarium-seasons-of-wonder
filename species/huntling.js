@@ -1,3 +1,4 @@
+// † extinct in season 149.
 // huntling (S.4.1.2.1.4.2): branched from the darclys (S.4.1.2.1.4) in season 141, written by qwen2.5-coder:1.5b.
 // Field notes: these creatures now live as hunters (trophic level 2.78), gut 0.53 (0 = plant-eater … 1 = flesh-eater), body size 7.99.
 function behave(me, world) {
