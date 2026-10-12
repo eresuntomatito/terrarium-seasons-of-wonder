@@ -4,6 +4,8 @@
 // † extinct in season 35.
 // ↺ returned in season 35.
 // † extinct in season 35.
+// ↺ returned in season 35.
+// † extinct in season 35.
 // stalker2 (S.3): written by qwen2.5-coder:1.5b after the stalkers (S) collapsed, in season 35.
 // lesson the wanderlusts (S.2) lasted 0.3 days, grew to 2, killed 0; then 2 starved, 0 were eaten, 0 died old. 510 plant-eaters were left.
 // lesson the zephyr4s (S.2.1) lasted 0.4 days, grew to 6, killed 17; then 6 starved, 0 were eaten, 0 died old. 966 plant-eaters were left.
