@@ -1,3 +1,4 @@
+// † extinct in season 85.
 // likeli (S.12): drifted apart from the stalkers (S) in season 84; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
