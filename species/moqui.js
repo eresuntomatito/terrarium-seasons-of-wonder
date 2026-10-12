@@ -1,3 +1,4 @@
+// † extinct in season 137.
 // moqui (S.4.1.2.1.3.1.1): drifted apart from the naorushs (S.4.1.2.1.3.1) in season 136; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
