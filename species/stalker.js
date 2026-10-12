@@ -4,13 +4,16 @@ function behave(me, world) {
   // gene 2 how full it must be before it spares the prey it touches, gene 3 how much it trusts its nose.
   const generosity = me.genes[0], foresight = me.genes[1], appetite = 1.2 + me.genes[2] * 0.8, nose = me.genes[3];
 
-  // Pursue the nearest creature it could eat, aiming where it is going to be. Its own kind only when starving.
-  let target = null, best = Infinity;
+  // Pursue the nearest living creature it could eat, aiming where it is going to be. Its own kind only when starving.
+  // Carrion is a fallback: it scavenges only when nothing alive is in sight.
+  let target = null, best = Infinity, carrion = null, nearest = Infinity;
   for (const f of world.food) {
     if (f.plant || (f.kin && me.energy > 0.5)) continue;
     const d = Math.hypot(f.x - me.x, f.y - me.y);
-    if (d < best) { best = d; target = f; }
+    if (f.corpse) { if (d < nearest) { nearest = d; carrion = f; } }
+    else if (d < best) { best = d; target = f; }
   }
+  if (!target && carrion) { target = carrion; best = nearest; }
 
   let x = 0, y = 0;
   const hungry = me.energy < appetite;
