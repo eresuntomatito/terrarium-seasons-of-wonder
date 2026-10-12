@@ -2,6 +2,8 @@
 // † extinct in season 43.
 // ↺ returned in season 43.
 // † extinct in season 43.
+// ↺ returned in season 43.
+// † extinct in season 43.
 // ↺ returned in season 42.
 // † extinct in season 42.
 // ↺ returned in season 42.
