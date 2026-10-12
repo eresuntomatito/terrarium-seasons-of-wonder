@@ -1,3 +1,4 @@
+// † extinct in season 142.
 // zuna (S.4.1.2.1.3.18): born with left and right confused with up and down from the prowess (S.4.1.2.1.3) in season 142; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
