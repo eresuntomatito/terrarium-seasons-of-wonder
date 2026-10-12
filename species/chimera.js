@@ -1,3 +1,4 @@
+// † extinct in season 4.
 // chimera (W.2): branched from the wanderers (W) in season 4, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 20.2 + me.genes[2] * 41;
