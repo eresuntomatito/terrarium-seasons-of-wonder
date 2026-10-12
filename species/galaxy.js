@@ -1,3 +1,4 @@
+// † extinct in season 117.
 // galaxy (W.1.10.2): held by the god after the globulus (W.1.10) in season 111, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1],
