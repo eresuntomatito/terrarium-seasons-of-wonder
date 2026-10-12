@@ -1,3 +1,4 @@
+// † extinct in season 102.
 // dawn (S.4.1.2.1.1.1): branched from the ordros (S.4.1.2.1.1) in season 100, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], foresight = me.genes[1], appetite = 1.66 + me.genes[2] * 0.605, nose = me.genes[3];
