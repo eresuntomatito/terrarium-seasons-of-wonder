@@ -1,3 +1,4 @@
+// † extinct in season 122.
 // rumi (W.1.10.2.1.1): branched from the peckards (W.1.10.2.1) in season 121, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1],
