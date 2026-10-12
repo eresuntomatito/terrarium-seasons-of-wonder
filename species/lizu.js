@@ -1,3 +1,4 @@
+// † extinct in season 88.
 // lizu (S.16): drifted apart from the stalkers (S) in season 88; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
