@@ -39,5 +39,7 @@ function behave(me, world) {
     }
   }
 
-  return { x, y, mate: ready, give: 0.2 + generosity * 0.4, signal: ready ? 1 : 0 };
+  return { x, y, mate: ready, give: 0.2 + generosity * 0.4, signal: ready ? 1 : 0,
+    // Bolt when something that could eat it is close.
+    sprint: world.others.some(o => !o.kin && o.size >= me.size * 1.2 && Math.hypot(o.x - me.x, o.y - me.y) < fright * 0.6) };
 }
