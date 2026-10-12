@@ -1,3 +1,4 @@
+// † extinct in season 88.
 // sagal (S.15): drifted apart from the stalkers (S) in season 87; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
