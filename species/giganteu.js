@@ -1,3 +1,5 @@
+// ↺ returned in season 39.
+// † extinct in season 39.
 // giganteu (S.2.1.1.1.1): written by qwen2.5-coder:1.5b after the stalker3s (S.2.1.1.1) collapsed, in season 39.
 // lesson the stalker3s (S.2.1.1.1) lasted 0.6 days, grew to 6, killed 21; then 6 starved, 0 were eaten, 0 died old. 1005 plant-eaters were left.
 // lesson the stalker3s (S.2.1.1.1) lasted 1.7 days, grew to 6, killed 27; then 5 starved, 0 were eaten, 1 died old. 316 plant-eaters were left.
