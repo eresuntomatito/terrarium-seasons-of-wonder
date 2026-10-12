@@ -1,3 +1,4 @@
+// ↺ returned in season 92.
 // † extinct in season 92.
 // kety (S.4.1.2.1): drifted apart from the gliders (S.4.1.2) in season 87; named by the world.
 function behave(me, world) {
