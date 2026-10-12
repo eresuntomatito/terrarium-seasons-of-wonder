@@ -1,3 +1,4 @@
+// ↺ returned in season 108.
 // † extinct in season 107.
 // galeo (S.4.1.2.1.2): branched from the ketys (S.4.1.2.1) in season 101, written by qwen2.5-coder:1.5b.
 // Behavior of the new species that differs significantly from the original creature's behavior.
