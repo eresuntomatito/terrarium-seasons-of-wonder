@@ -1,3 +1,4 @@
+// † extinct in season 101.
 // savenli (S.22.1): drifted apart from the nakeras (S.22) in season 100; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
