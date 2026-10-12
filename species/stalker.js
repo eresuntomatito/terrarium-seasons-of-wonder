@@ -12,10 +12,11 @@ function behave(me, world) {
 
   // Pursue the nearest living creature it could eat, aiming where it is going to be. Its own kind only when starving.
   // Carrion is a fallback: it scavenges only when nothing alive is in sight.
-  let target = null, best = Infinity, carrion = null, nearest = Infinity;
+  let target = null, best = Infinity, carrion = null, nearest = Infinity, plant = null, plantD = Infinity;
   for (const f of world.food) {
-    if (f.plant || (f.kin && me.energy > 0.5)) continue;
     const d = Math.hypot(f.x - me.x, f.y - me.y);
+    if (f.plant) { if (d < plantD) { plantD = d; plant = f; } continue; }
+    if (f.kin && me.energy > 0.5) continue;
     if (f.corpse) { if (d < nearest) { nearest = d; carrion = f; } }
     else if (d < best) { best = d; target = f; }
   }
@@ -30,11 +31,15 @@ function behave(me, world) {
     const d = Math.hypot(tx, ty) || 1;
     x += tx / d;
     y += ty / d;
-  } else if (hungry && me.smell.prey.strength > 0.02) {
-    // Out of sight but not out of smell: follow the scent of plant-eaters toward where it grows stronger.
-    x += me.smell.prey.x * (0.5 + nose);
-    y += me.smell.prey.y * (0.5 + nose);
-    me.memory.trail = 30;
+  } else if (hungry && (plant || me.smell.prey.strength > 0.02)) {
+    // No prey in sight. How it forages follows its body: a gut built for plants walks to the nearest grass,
+    // a gut built for meat follows the scent of plant-eaters toward where it grows stronger.
+    if (plant) { x += (plant.x - me.x) / (plantD || 1) * (1 - me.gut) * 1.5; y += (plant.y - me.y) / (plantD || 1) * (1 - me.gut) * 1.5; }
+    if (me.smell.prey.strength > 0.02) {
+      x += me.smell.prey.x * (0.5 + nose) * me.gut;
+      y += me.smell.prey.y * (0.5 + nose) * me.gut;
+      me.memory.trail = 30;
+    }
   } else if (hungry) {
     // No scent either: prowl in slow loops, keeping its heading a while after losing a trail.
     const a = world.noise(me.x * 0.5, me.y * 0.5) * Math.PI * 4;
