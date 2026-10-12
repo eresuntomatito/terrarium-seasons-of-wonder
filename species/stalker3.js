@@ -1,5 +1,7 @@
 // ↺ returned in season 38.
 // † extinct in season 38.
+// ↺ returned in season 38.
+// † extinct in season 38.
 // ↺ returned in season 37.
 // † extinct in season 37.
 // stalker3 (S.2.1.1.1): written by qwen2.5-coder:1.5b after the rendriles (S.2.1.1) collapsed, in season 37.
