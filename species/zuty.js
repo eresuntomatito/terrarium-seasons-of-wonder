@@ -1,3 +1,4 @@
+// † extinct in season 77.
 // zuty (S.7): drifted apart from the stalkers (S) in season 77; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
