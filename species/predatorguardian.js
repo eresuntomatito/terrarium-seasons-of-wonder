@@ -1,3 +1,4 @@
+// † extinct in season 127.
 // predatorguardian (S.4.1.2.1.4.1): branched from the darclys (S.4.1.2.1.4) in season 125, written by qwen2.5-coder:1.5b.
 // Modified behavior: aggressive pursuit of prey, stronger scent following, and increased tolerance to smell.
 function behave(me, world) {
