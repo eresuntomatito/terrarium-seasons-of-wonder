@@ -1,3 +1,4 @@
+// † extinct in season 155.
 // bullivax (S.4.1.2.1.3.96): branched from the prowess (S.4.1.2.1.3) in season 155, written by qwen2.5-coder:1.5b.
 // Field notes: these creatures now live as grazers (trophic level 2), gut 0.03 (0 = plant-eater … 1 = flesh-eater), body size 2.97.
 function behave(me, world) {
