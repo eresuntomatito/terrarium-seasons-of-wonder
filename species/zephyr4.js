@@ -1,3 +1,4 @@
+// † extinct in season 33.
 // zephyr4 (S.2.1): written by qwen2.5-coder:1.5b after the wanderlusts (S.2) collapsed, in season 33.
 // lesson the thalis (S.1) lasted 0.2 days, grew to 6, killed 12; then 6 starved, 0 were eaten, 0 died old. 1313 plant-eaters were left.
 // lesson the thalis (S.1) lasted 0.2 days, grew to 6, killed 11; then 6 starved, 0 were eaten, 0 died old. 1084 plant-eaters were left.
