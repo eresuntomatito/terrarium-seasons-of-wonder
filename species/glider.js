@@ -1,3 +1,4 @@
+// † extinct in season 90.
 // glider (S.4.1.2): branched from the jades (S.4.1) in season 83, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
