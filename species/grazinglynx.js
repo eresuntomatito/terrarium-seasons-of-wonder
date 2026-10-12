@@ -1,3 +1,4 @@
+// † extinct in season 152.
 // grazinglynx (S.4.1.2.1.3.73): branched from the prowess (S.4.1.2.1.3) in season 151, written by qwen2.5-coder:1.5b.
 // Field notes: these creatures now live as grazers (trophic level 2.03), gut 0.03 (0 = plant-eater … 1 = flesh-eater), body size 3.12.
 function behave(me, world) {
