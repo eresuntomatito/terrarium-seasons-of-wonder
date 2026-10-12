@@ -1,3 +1,4 @@
+// † extinct in season 76.
 // omom (S.5): drifted apart from the stalkers (S) in season 75; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
