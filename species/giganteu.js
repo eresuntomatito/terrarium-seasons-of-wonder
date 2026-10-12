@@ -1,5 +1,7 @@
 // ↺ returned in season 40.
 // † extinct in season 40.
+// ↺ returned in season 40.
+// † extinct in season 40.
 // ↺ returned in season 39.
 // † extinct in season 39.
 // giganteu (S.2.1.1.1.1): written by qwen2.5-coder:1.5b after the stalker3s (S.2.1.1.1) collapsed, in season 39.
