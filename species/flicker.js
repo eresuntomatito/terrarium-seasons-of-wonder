@@ -1,3 +1,4 @@
+// † extinct in season 16.
 // flicker (W.8): branched from the wanderers (W) in season 16, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 22.3 + me.genes[2] * 41;
