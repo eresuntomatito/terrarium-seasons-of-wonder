@@ -1,3 +1,4 @@
+// † extinct in season 52.
 // ↺ returned in season 52.
 // † extinct in season 52.
 // gastronomic (S.2.1.1.1.1.1.1): written by qwen2.5-coder:1.5b after the gnomes (S.2.1.1.1.1.1) collapsed, in season 52.
