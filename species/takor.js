@@ -1,3 +1,4 @@
+// † extinct in season 28.
 // takor (S.1.2): written by qwen2.5-coder:1.5b after the thalis (S.1) collapsed, in season 27.
 // lesson the thalis (S.1) lasted 0.6 days, grew to 6, killed 0; then 6 starved, 0 were eaten, 0 died old. 1382 plant-eaters were left.
 // lesson the thalis (S.1) lasted 0.3 days, grew to 6, killed 11; then 6 starved, 0 were eaten, 0 died old. 1334 plant-eaters were left.
