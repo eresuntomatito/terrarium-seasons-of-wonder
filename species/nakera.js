@@ -1,3 +1,4 @@
+// † extinct in season 102.
 // nakera (S.22): drifted apart from the stalkers (S) in season 100; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
