@@ -1,3 +1,4 @@
+// † extinct in season 100.
 // ↺ returned in season 100.
 // † extinct in season 99.
 // ↺ returned in season 99.
