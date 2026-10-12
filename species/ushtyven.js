@@ -1,3 +1,4 @@
+// † extinct in season 150.
 // ushtyven (S.4.1.2.1.3.66): born with one urge forgotten from the prowess (S.4.1.2.1.3) in season 150; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
