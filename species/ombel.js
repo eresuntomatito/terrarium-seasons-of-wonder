@@ -1,3 +1,4 @@
+// † extinct in season 84.
 // ombel (S.11): drifted apart from the stalkers (S) in season 83; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
