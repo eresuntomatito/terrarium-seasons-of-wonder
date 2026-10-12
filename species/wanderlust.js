@@ -1,3 +1,4 @@
+// † extinct in season 31.
 // wanderlust (S.2): branched from the stalkers (S) in season 31, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], foresight = me.genes[1], appetite = 1.27 + me.genes[2] * 0.629, keenness = me.genes[3];
