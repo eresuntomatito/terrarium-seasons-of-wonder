@@ -1,3 +1,4 @@
+// † extinct in season 155.
 // quina (S.4.1.2.1.3.96.1): born with a number turned negative from the bullivaxs (S.4.1.2.1.3.96) in season 155; named by the world.
 // Field notes: these creatures now live as grazers (trophic level 2), gut 0.03 (0 = plant-eater … 1 = flesh-eater), body size 2.97.
 function behave(me, world) {
