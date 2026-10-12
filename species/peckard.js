@@ -1,3 +1,4 @@
+// † extinct in season 121.
 // peckard (W.1.10.2.1): branched from the galaxys (W.1.10.2) in season 116, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1],
