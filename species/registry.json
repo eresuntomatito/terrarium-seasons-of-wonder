@@ -1,0 +1,20 @@
+{
+  "wanderer": {
+    "size": 5, "gut": 0.1, "tl": 2, "hue": 140, "shape": "triangle", "initial": 150, "immigrants": 20,
+    "perception": 64, "maxSpeed": 2.2, "maxForce": 0.2,
+    "metabolism": 0.0035, "moveCost": 0.0004, "biteSize": 0.08,
+    "maxEnergy": 1.5, "reproduceAt": 1.45, "lifespan": 4000
+  },
+  "stalker": {
+    "size": 8, "gut": 0.9, "tl": 3, "hue": 12, "shape": "dart", "initial": 0, "immigrants": 4,
+    "perception": 80, "maxSpeed": 2.7, "maxForce": 0.18,
+    "metabolism": 0.0015, "moveCost": 0.0003, "biteSize": 0.08,
+    "maxEnergy": 2, "reproduceAt": 1.8, "lifespan": 4000
+  },
+  "beetle": {
+    "size": 2.5, "gut": 0.6, "tl": 2.5, "hue": 40, "shape": "blob", "initial": 0, "immigrants": 12, "scavenger": true,
+    "perception": 70, "maxSpeed": 1.4, "maxForce": 0.15,
+    "metabolism": 0.002, "moveCost": 0.0004, "biteSize": 0.06,
+    "maxEnergy": 1.5, "reproduceAt": 1.2, "lifespan": 5000
+  }
+}

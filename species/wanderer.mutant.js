@@ -7,28 +7,26 @@ function behave(me, world) {
   }
 
   let x = 0, y = 0;
+
   if (target && best < 120) {
-    x += (target.x - me.x) / best;
-    y += (target.y - me.y) / best;
-  } else {
-    // Nothing nearby: drift along the noise field.
+    // Follow the noise field but add random variation.
     const a = world.noise(me.x, me.y) * Math.PI * 2;
-    x += Math.cos(a) * 0.5;
-    y += Math.sin(a) * 0.5;
+    x += Math.cos(a) * 0.7 + Math.random() * 0.05 + Math.random() * 0.05; // Increased randomness
+    y += Math.sin(a) * 0.7 + Math.random() * 0.05 + Math.random() * 0.05; // Increased randomness
+  } else {
+    // Follow the noise field but add a more complex algorithm to choose the direction.
+    const noise = world.noise(me.x, me.y);
+    x += noise * 0.7 + Math.random() * 0.05; // Increased intensity
+    y += noise * 0.7 + Math.random() * 0.05; // Increased intensity
+
+    // Add random variation to the direction
+    x += Math.random() * 0.1;
+    y += Math.random() * 0.1;
   }
 
-  // Keep a little distance from neighbours.
-  for (const o of world.others) {
-    const d = Math.hypot(o.x - me.x, o.y - me.y);
-    if (d > 0 && d < 15) {
-      x -= (o.x - me.x) / d;
-      y -= (o.y - me.y) / d;
-    }
-  }
-
-  // Change hue slightly based on energy.
-  const hueShift = me.energy / 100;
+  // Change hue slightly based on energy and age.
+  const hueShift = (me.energy * 0.01 + me.age / 1000) % 360;
   const hue = me.hue + hueShift % 360;
 
-  return { x, y, hue };
+  return { x, y, hue, energy: me.energy * 0.95 };
 }

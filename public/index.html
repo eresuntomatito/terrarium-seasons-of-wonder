@@ -2,118 +2,288 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>God in Miniature</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Terrarium</title>
 <style>
-  body { margin: 0; padding: 20px; background: #0b0d0c; color: #b9c4bc; font: 13px/1.5 ui-monospace, Menlo, monospace; }
-  main { display: flex; gap: 20px; flex-wrap: wrap; }
-  figure { margin: 0; }
-  figcaption { display: flex; justify-content: space-between; margin-bottom: 6px; }
-  canvas { display: block; background: #0b0d0c; border: 1px solid #1f2622; }
-  button { font: inherit; background: #1d2a22; color: #d8f0de; border: 1px solid #3a5a45; padding: 6px 14px; cursor: pointer; }
-  button:disabled { opacity: .5; cursor: wait; }
-  #status { margin-left: 12px; }
-  pre { background: #111513; border: 1px solid #1f2622; padding: 12px; max-width: 980px; overflow: auto; font-size: 12px; }
+  :root { --bg: #080a09; --fg: #aab6ae; --dim: #56635b; --line: #1a221d; --hi: #d4dfd7; }
+  * { box-sizing: border-box; }
+  body { margin: 0; height: 100vh; background: var(--bg); color: var(--fg); font: 12px/1.5 ui-monospace, Menlo, monospace;
+         display: grid; grid-template-columns: 1fr 340px; }
+  main { display: grid; place-items: center; padding: 16px; min-width: 0; }
+  #world { max-width: 100%; max-height: calc(100vh - 32px); aspect-ratio: 3 / 2; border: 1px solid var(--line); }
+  aside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+  h1 { font-size: 13px; font-weight: normal; letter-spacing: .2em; text-transform: uppercase; margin: 0; color: var(--hi); }
+  h2 { font-size: 11px; font-weight: normal; letter-spacing: .15em; text-transform: uppercase; margin: 0 0 6px; color: var(--dim); }
+  .dim { color: var(--dim); }
+  #god { color: var(--dim); min-height: 1.5em; }
+  #god.thinking { color: #c9b77a; animation: breathe 2.4s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .45; } }
+  details { border-top: 1px solid var(--line); padding: 4px 0; }
+  summary { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; cursor: pointer; list-style: none; }
+  .portrait { width: 22px; height: 22px; }
+  summary::-webkit-details-marker { display: none; }
+  summary i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  summary b { font-weight: normal; color: var(--hi); font-variant-numeric: tabular-nums; }
+  summary small { grid-column: 2 / 4; color: var(--dim); }
+  details:hover summary span { color: var(--hi); }
+  .new { color: #c9b77a; }
+  .role-omnivore { color: #b8a76a; } .role-hunter { color: #c98a6e; } .role-apex { color: #e0605a; font-weight: bold; }
+  pre { margin: 6px 0 4px; padding: 8px; background: #0e1210; border: 1px solid var(--line); font-size: 10.5px; line-height: 1.4;
+        max-height: 320px; overflow: auto; white-space: pre; }
+  #extinct { color: var(--dim); }
+  #extinct s { text-decoration-color: #6a3a32; }
+  #chart, #drift { width: 100%; height: 120px; display: block; }
+  #events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #events li span { color: var(--dim); margin-right: 6px; }
+  a { color: var(--dim); }
+  @media (max-width: 760px) { body { grid-template-columns: 1fr; height: auto; } aside { border-left: 0; border-top: 1px solid var(--line); } }
 </style>
 </head>
 <body>
-<p><button id="pray">Pray for a mutation</button><span id="status"></span></p>
-<main>
-  <figure><figcaption><span>ancestor</span><span id="stats0"></span></figcaption><canvas id="c0" width="480" height="480"></canvas></figure>
-  <figure><figcaption><span>mutant</span><span id="stats1"></span></figcaption><canvas id="c1" width="480" height="480"></canvas></figure>
-</main>
-<pre id="code"></pre>
+<main><canvas id="world"></canvas></main>
+<aside>
+  <div><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="god"></div></div>
+  <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
+  <section><h2>History</h2><canvas id="chart"></canvas></section>
+  <section><h2>Evolution</h2><canvas id="drift"></canvas><div class="dim">how far each species' code numbers have drifted from how they were written</div></section>
+  <section><h2>Chronicle</h2><ul id="events"></ul></section>
+  <footer><a href="/miniature.html">god in miniature</a></footer>
+</aside>
 
 <script>
-const W = 480, H = 480, CREATURES = 30, FOOD = 40, MAX_FORCE = 0.25, MAX_SPEED = 3;
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+const canvas = $('world'), g = canvas.getContext('2d');
+const terrainCanvas = document.createElement('canvas'), tg = terrainCanvas.getContext('2d');
+const SCALE = 2;
+let meta, frameMs, cur = null, prev = null, recvAt = 0, rain = 0, tick = 0, season = 1;
+let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null;
+const portraits = new Map();
+const portraitOf = sp => portraits.get(sp.name) ?? portraits.set(sp.name, portrait(sp)).get(sp.name);
+const on = (name, fn) => es.addEventListener(name, e => fn(JSON.parse(e.data)));
 
-const compile = src => new Function('Math', src + '\n;return behave;')(Math);
+const es = new EventSource('/stream');
+on('meta', m => {
+  meta = m;
+  frameMs = 2000 / meta.TICKS_PER_SEC;
+  canvas.width = meta.W * SCALE; canvas.height = meta.H * SCALE;
+  terrainCanvas.width = meta.GW; terrainCanvas.height = meta.GH;
+});
+on('species', list => { species = list; renderSpecies(true); });
+on('god', s => {
+  $('god').className = s.state;
+  const waiting = s.queue?.length ? ` (waiting: ${s.queue.join(', ')})` : '';
+  $('god').textContent = s.state === 'thinking' ? `the god is reaching into the ${s.parent}s…${waiting}` : '';
+});
+on('past', p => { ({ history, events, stats, records, traits } = p); renderEvents(); drawChart(); });
+on('terrain', paintTerrain);
+on('frame', f => {
+  prev = cur; cur = unpack(f.c); recvAt = performance.now();
+  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses;
+  renderClock();
+});
+on('event', e => { events.push(e); renderEvents(); });
+on('history', ({ h, stats: s, records: r, traits: tr }) => {
+  history.push(h); stats = s; records = r; traits = tr;
+  if (history.length > 4000) history.shift();
+  drawChart();
+});
+$('species').addEventListener('mouseover', e => { highlight = e.target.closest('details')?.dataset.name ?? null; });
+$('species').addEventListener('mouseleave', () => { highlight = null; });
+es.onerror = () => { $('clock').textContent = 'the glass is dark (server stopped?)'; };
 
-function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
-
-function makePane(canvas, statsEl, behave) {
-  const r = rng(42);
-  return {
-    ctx: canvas.getContext('2d'), statsEl, behave, t: 0, eaten: 0, errors: 0, rnd: r,
-    food: Array.from({ length: FOOD }, () => ({ x: r() * W, y: r() * H })),
-    creatures: Array.from({ length: CREATURES }, () => ({
-      x: r() * W, y: r() * H, vx: 0, vy: 0, energy: 1, age: 0, memory: {}, hue: 140, broken: false,
-    })),
-  };
+function unpack(c) {
+  const m = new Map();
+  for (let i = 0; i < c.length; i += 9) m.set(c[i], { s: c[i + 1], x: c[i + 2], y: c[i + 3], a: c[i + 4], e: c[i + 5], h: c[i + 6], b: c[i + 7], z: c[i + 8] });
+  return m;
 }
 
-function step(p) {
-  p.t++;
-  const t = p.t;
-  const noise = (x, y) => Math.sin(x * 0.01 + t * 0.01) * Math.cos(y * 0.013 - t * 0.007);
-  for (const c of p.creatures) {
-    if (c.broken) continue;
-    const others = p.creatures.filter(o => o !== c).map(({ x, y, vx, vy }) => ({ x, y, vx, vy }));
-    let f;
-    try {
-      f = p.behave(c, { width: W, height: H, t, food: p.food.map(({ x, y }) => ({ x, y })), others, noise });
-      if (!f || !Number.isFinite(f.x) || !Number.isFinite(f.y)) throw new Error('bad force');
-    } catch (e) {
-      c.broken = true; p.errors++; continue;
-    }
-    if (Number.isFinite(f.hue)) c.hue = f.hue;
-    const m = Math.hypot(f.x, f.y);
-    if (m > MAX_FORCE) { f.x *= MAX_FORCE / m; f.y *= MAX_FORCE / m; }
-    c.vx += f.x; c.vy += f.y;
-    const s = Math.hypot(c.vx, c.vy);
-    if (s > MAX_SPEED) { c.vx *= MAX_SPEED / s; c.vy *= MAX_SPEED / s; }
-    c.x = (c.x + c.vx + W) % W; c.y = (c.y + c.vy + H) % H;
-    c.age++; c.energy = Math.max(0, c.energy - 0.001);
-    for (const food of p.food) {
-      if (Math.hypot(food.x - c.x, food.y - c.y) < 6) {
-        p.eaten++; c.energy = Math.min(1, c.energy + 0.2);
-        food.x = p.rnd() * W; food.y = p.rnd() * H;
-      }
-    }
+// Soil darkens with moisture, browns with fertility; plants go from dry gold to wet green.
+function paintTerrain(b64) {
+  if (!meta) return;
+  const bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
+  const img = tg.createImageData(meta.GW, meta.GH);
+  for (let i = 0; i < meta.GW * meta.GH; i++) {
+    const p = bytes[i * 3] / 255, m = bytes[i * 3 + 1] / 255, f = bytes[i * 3 + 2] / 255;
+    const r = 13 + f * 30, gr = 13 + f * 16 + m * 8, bl = 11 + m * 22;
+    const pr = 70 + (1 - m) * 90, pg = 128 - (1 - m) * 10, pb = 62 - (1 - m) * 32, k = Math.min(1, p * 1.1);
+    img.data[i * 4] = r + (pr - r) * k;
+    img.data[i * 4 + 1] = gr + (pg - gr) * k;
+    img.data[i * 4 + 2] = bl + (pb - bl) * k;
+    img.data[i * 4 + 3] = 255;
   }
+  tg.putImageData(img, 0, 0);
 }
 
-function draw(p) {
-  const g = p.ctx;
-  g.fillStyle = 'rgba(11,13,12,0.18)'; // fading background leaves trails
-  g.fillRect(0, 0, W, H);
-  g.fillStyle = '#d9c36a';
-  for (const f of p.food) g.fillRect(f.x - 1.5, f.y - 1.5, 3, 3);
-  for (const c of p.creatures) {
-    const a = Math.atan2(c.vy, c.vx);
-    g.save(); g.translate(c.x, c.y); g.rotate(a);
-    g.fillStyle = c.broken ? '#444' : `hsl(${c.hue}, 60%, ${35 + c.energy * 30}%)`;
-    g.beginPath(); g.moveTo(6, 0); g.lineTo(-4, 3); g.lineTo(-4, -3); g.fill();
+// Body plans, drawn facing +x. Grazers are rounded, hunters spiky.
+function body(g, shape, s) {
+  g.beginPath();
+  switch (shape) {
+    case 'blob': g.ellipse(0, 0, s * 0.9, s * 0.65, 0, 0, Math.PI * 2); break;
+    case 'teardrop': g.moveTo(s, 0); g.quadraticCurveTo(-s * 0.2, s * 0.95, -s * 0.8, 0); g.quadraticCurveTo(-s * 0.2, -s * 0.95, s, 0); break;
+    case 'crescent': g.arc(0, 0, s * 0.85, 0.9, -0.9 + Math.PI * 2); g.arc(s * 0.45, 0, s * 0.6, -1.6, 1.6, true); break;
+    case 'ring': g.arc(0, 0, s * 0.8, 0, Math.PI * 2); g.moveTo(s * 0.4, 0); g.arc(0, 0, s * 0.4, 0, Math.PI * 2, true); break;
+    case 'dart': g.moveTo(s * 1.2, 0); g.lineTo(-s * 0.6, s * 0.5); g.lineTo(-s * 0.15, 0); g.lineTo(-s * 0.6, -s * 0.5); break;
+    case 'star': for (let i = 0; i < 8; i++) { const r = i % 2 ? s * 0.38 : s * 1.05, q = i * Math.PI / 4; g.lineTo(Math.cos(q) * r, Math.sin(q) * r); } break;
+    case 'spindle': g.moveTo(s * 1.5, 0); g.lineTo(0, s * 0.35); g.lineTo(-s * 1.1, 0); g.lineTo(0, -s * 0.35); break;
+    case 'fang': g.moveTo(s * 1.3, 0); g.quadraticCurveTo(0, s * 1.1, -s * 0.8, s * 0.55); g.lineTo(-s * 0.3, 0); g.quadraticCurveTo(0, -s * 0.45, s * 1.3, 0); break;
+    default: g.moveTo(s, 0); g.lineTo(-s * 0.7, s * 0.55); g.lineTo(-s * 0.7, -s * 0.55); // triangle
+  }
+  g.closePath();
+  g.fill('evenodd');
+}
+
+// A small portrait of a species, for the Life list.
+function portrait(sp) {
+  const c = document.createElement('canvas'), k = 2;
+  c.width = c.height = 22 * k;
+  const pg = c.getContext('2d');
+  pg.scale(k, k); pg.translate(11, 11);
+  if (sp.mark === 'glow') { pg.fillStyle = `hsla(${sp.hue} 85% 60% / .25)`; pg.beginPath(); pg.arc(0, 0, 10, 0, Math.PI * 2); pg.fill(); }
+  if (sp.mark === 'trail') { pg.strokeStyle = `hsla(${sp.hue} 70% 65% / .6)`; pg.lineWidth = 1.2; pg.beginPath(); pg.moveTo(-3, 0); pg.lineTo(-10, 0); pg.stroke(); }
+  pg.fillStyle = `hsl(${sp.hue} 65% 50%)`;
+  body(pg, sp.shape, 6 * (sp.scale ?? 1));
+  return c.toDataURL();
+}
+
+const lerpWrap = (a, b, t, m) => Math.abs(b - a) > m / 2 ? b : a + (b - a) * t;
+const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * t; };
+
+function draw() {
+  requestAnimationFrame(draw);
+  if (!meta || !cur) return;
+  g.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  g.imageSmoothingEnabled = true;
+  g.drawImage(terrainCanvas, 0, 0, meta.W, meta.H);
+
+  for (let i = 0; i < corpses.length; i += 4) {
+    const x = corpses[i], y = corpses[i + 1], age = corpses[i + 2], eaten = corpses[i + 3];
+    g.fillStyle = eaten ? `rgba(150,50,40,${0.6 * (1 - age)})` : `rgba(170,170,150,${0.35 * (1 - age)})`;
+    g.beginPath(); g.arc(x, y, eaten ? 2.5 : 1.8, 0, Math.PI * 2); g.fill();
+  }
+
+  // Interpolate between the last two frames so 15 updates/s look smooth at 60fps.
+  const now = performance.now(), t = Math.min(1, (now - recvAt) / frameMs);
+  for (const [id, c] of cur) {
+    const sp = species[c.s];
+    if (!sp) continue;
+    const p = prev?.get(id);
+    const x = p ? lerpWrap(p.x, c.x, t, meta.W) : c.x, y = p ? lerpWrap(p.y, c.y, t, meta.H) : c.y;
+    const a = p ? lerpAngle(p.a, c.a, t) : c.a;
+    let s = Math.max(4, c.z); // every body is drawn at its own inherited size, but never too small to see
+    if (sp.mark === 'pulse') s *= 1 + 0.22 * Math.sin(now * 0.006 + id);
+    g.save(); g.translate(x, y); g.rotate(a);
+    g.globalAlpha = highlight && sp.name !== highlight ? 0.12 : 1;
+    if (sp.mark === 'glow') { g.fillStyle = `hsla(${c.h} 85% 60% / .2)`; g.beginPath(); g.arc(0, 0, s * 1.9, 0, Math.PI * 2); g.fill(); }
+    if (sp.mark === 'trail') { g.strokeStyle = `hsla(${c.h} 70% 65% / .45)`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-s * 0.6, 0); g.lineTo(-s * 2.8, 0); g.stroke(); }
+    g.fillStyle = c.b & 1 ? '#4a4a4a' : `hsl(${c.h} 70% ${40 + Math.min(1, c.e) * 28}%)`;
+    body(g, sp.shape, s);
+    g.strokeStyle = 'rgba(235,240,230,.35)'; g.lineWidth = 0.6; g.stroke(); // a faint outline against any soil
+    if (c.b & 2) { g.strokeStyle = `hsla(${c.h} 80% 75% / .45)`; g.lineWidth = 0.8; g.beginPath(); g.arc(0, 0, s + 2.5, 0, Math.PI * 2); g.stroke(); }
     g.restore();
   }
-  p.statsEl.textContent = `eaten ${p.eaten}` + (p.errors ? ` · broken ${p.errors}` : '');
+
+  g.fillStyle = `rgba(70,110,160,${Math.max(0, rain - 0.5) * 0.06})`;
+  g.fillRect(0, 0, meta.W, meta.H);
+}
+requestAnimationFrame(draw);
+
+function renderClock() {
+  const day = Math.floor(tick / meta.TICKS_PER_DAY) + 1;
+  const left = Math.ceil((meta.SEASON_TICKS - tick % meta.SEASON_TICKS) / meta.TICKS_PER_SEC);
+  const sky = rain > 0.75 ? 'storms' : rain > 0.55 ? 'rain' : rain > 0.35 ? 'overcast' : rain > 0.2 ? 'dry' : 'drought';
+  $('clock').textContent = `season ${season} · day ${day} · ${sky} · season ends in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  if (tick % 30 === 0) renderSpecies();
+  else for (const el of document.querySelectorAll('[data-count]')) el.textContent = counts()[el.dataset.count] ?? 0;
 }
 
-let panes = [];
-async function load() {
-  const ancestor = await (await fetch('/species/wanderer.js')).text();
-  const res = await fetch('/species/wanderer.mutant.js');
-  const mutant = res.ok ? await res.text() : ancestor;
-  document.getElementById('code').textContent = res.ok ? mutant : '// no mutant yet: both panes run the ancestor';
-  panes = [
-    makePane(document.getElementById('c0'), document.getElementById('stats0'), compile(ancestor)),
-    makePane(document.getElementById('c1'), document.getElementById('stats1'), compile(mutant)),
-  ];
+function counts() {
+  const n = {};
+  if (cur) for (const c of cur.values()) { const name = species[c.s]?.name; if (name) n[name] = (n[name] ?? 0) + 1; }
+  return n;
 }
 
-function frame() { for (const p of panes) { step(p); draw(p); } requestAnimationFrame(frame); }
+// Living species, most numerous first; each opens to show its lineage and the code it runs on.
+function renderSpecies(force) {
+  const list = $('species');
+  if (!force && list.matches(':hover')) return; // don't reshuffle under the pointer
+  const n = counts(), open = new Set([...list.querySelectorAll('details[open]')].map(d => d.dataset.name));
+  const living = species.filter(s => s.extinct === null && !s.waiting).sort((a, b) => (n[b.name] ?? 0) - (n[a.name] ?? 0));
+  list.innerHTML = living.map(sp => {
+    const st = stats[sp.name] ?? {};
+    const origin = sp.parent ? `from the ${sp.parent}s, season ${sp.born}` : 'original';
+    const fresh = sp.parent && sp.born === season ? ' · <span class="new">first season</span>' : '';
+    const tr = traits[sp.name] ?? {};
+    const deeds = `kills ${st.kills ?? 0} · eaten ${st.eaten ?? 0}`;
+    const progress = Math.max(0, (records[sp.name]?.generation ?? 0) - (sp.lastBranchGen ?? 0));
+    return `<details data-name="${sp.name}"${open.has(sp.name) ? ' open' : ''}><summary>
+      <img class="portrait" src="${portraitOf(sp)}" alt=""><span>${sp.name}s <span class="dim">${sp.lineage ?? ''} · <span class="role-${tr.role}">${tr.role ?? ''}</span></span></span><b data-count="${sp.name}">${n[sp.name] ?? 0}</b>
+      <small>${origin}${fresh} · next branch ${progress}/${meta.GENERATIONS_PER_MUTATION} generations<br>
+      size ${tr.size ?? '?'} · gut ${tr.gut ?? '?'} · trophic level ${tr.tl ?? '?'} · code drifted ${Math.round((sp.drift ?? 0) * 100)}%<br>
+      mated ${st.mated ?? 0} · budded ${st.budded ?? 0} · ${deeds} · starved ${st.starved ?? 0}</small></summary>
+      <pre>${esc(sp.code ?? '')}</pre></details>`;
+  }).join('');
+  const dead = species.filter(s => s.extinct !== null), held = species.filter(s => s.waiting);
+  $('extinct').innerHTML = (held.length ? `held by the god: ${held.map(s => `${s.name} <span class="dim">${s.lineage}</span>`).join(' ')}<br>` : '') + (dead.length ? `extinct (${dead.length}): ` + dead.slice(-24).reverse().map(s => `<s>${s.name}</s> <span class="dim">${s.lineage ?? ''}</span>`).join(' ') : '');
+}
 
-document.getElementById('pray').onclick = async () => {
-  const btn = document.getElementById('pray'), status = document.getElementById('status');
-  btn.disabled = true; status.textContent = 'the god is thinking…';
-  try {
-    const r = await (await fetch('/pray?species=wanderer', { method: 'POST' })).json();
-    if (r.error && r.born === undefined) status.textContent = 'no answer: ' + r.error;
-    else if (r.born) { status.textContent = `a mutant is born (${r.seconds.toFixed(1)}s)`; await load(); }
-    else { status.textContent = `stillborn: ${r.error} (${r.seconds.toFixed(1)}s)`; }
-  } finally { btn.disabled = false; }
-};
+function renderEvents() {
+  if (!meta) return setTimeout(renderEvents, 100);
+  $('events').innerHTML = events.slice(-40).reverse()
+    .map(e => `<li><span>s${Math.floor(e.t / meta.SEASON_TICKS) + 1}</span>${esc(e.text)}</li>`).join('');
+}
 
-load().then(frame);
+// Every species as a stacked band, so branching and extinction show as rivers splitting and drying up.
+// One line per species: how far its code numbers have drifted from the code it was written with.
+function drawDrift() {
+  if (!meta || history.length < 2) return;
+  const c = $('drift'), dpr = devicePixelRatio || 1;
+  c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
+  const cg = c.getContext('2d'), w = c.width, h = c.height;
+  const x = i => i / (history.length - 1) * w;
+  const max = Math.max(0.1, ...history.flatMap(e => Object.values(e.traits ?? {}).map(t => t.drift ?? 0)));
+  for (const sp of species) {
+    cg.strokeStyle = `hsl(${sp.hue} 60% 55%)`; cg.lineWidth = 1.4 * dpr;
+    cg.beginPath();
+    let on = false;
+    history.forEach((e, i) => {
+      const d = e.traits?.[sp.name]?.drift;
+      if (d === undefined) { on = false; return; }
+      const y = h - d / max * h * 0.92;
+      if (on) cg.lineTo(x(i), y); else cg.moveTo(x(i), y);
+      on = true;
+    });
+    cg.stroke();
+  }
+  cg.fillStyle = 'rgba(170,182,174,.5)'; cg.font = `${10 * dpr}px ui-monospace, monospace`;
+  cg.fillText(`${Math.round(max * 100)}%`, 2, 11 * dpr);
+}
+
+function drawChart() {
+  drawDrift();
+  if (!meta || history.length < 2 || !species.length) return;
+  const c = $('chart'), dpr = devicePixelRatio || 1;
+  c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
+  const cg = c.getContext('2d'), w = c.width, h = c.height;
+  const x = i => i / (history.length - 1) * w;
+  const total = e => Object.values(e.pops).reduce((a, b) => a + b, 0);
+  const max = Math.max(...history.map(total), 1);
+  const base = new Float32Array(history.length);
+  for (const sp of species) {
+    if (!history.some(e => e.pops[sp.name])) continue;
+    cg.fillStyle = `hsl(${sp.hue} 55% ${(traits[sp.name]?.tl ?? 2) >= 2.5 ? 55 : 42}%)`;
+    cg.beginPath();
+    history.forEach((e, i) => cg.lineTo(x(i), h - (base[i] + (e.pops[sp.name] ?? 0)) / max * h));
+    for (let i = history.length - 1; i >= 0; i--) cg.lineTo(x(i), h - base[i] / max * h);
+    cg.fill();
+    history.forEach((e, i) => { base[i] += e.pops[sp.name] ?? 0; });
+  }
+  const maxPlants = Math.max(...history.map(e => e.plants), 1);
+  cg.strokeStyle = 'rgba(160,200,140,.35)'; cg.lineWidth = dpr;
+  cg.beginPath();
+  history.forEach((e, i) => cg.lineTo(x(i), h - e.plants / maxPlants * h));
+  cg.stroke();
+}
 </script>
 </body>
 </html>
