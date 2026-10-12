@@ -2,6 +2,8 @@
 // † extinct in season 36.
 // ↺ returned in season 36.
 // † extinct in season 36.
+// ↺ returned in season 36.
+// † extinct in season 36.
 // ↺ returned in season 35.
 // † extinct in season 35.
 // ↺ returned in season 35.
