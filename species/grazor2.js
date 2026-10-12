@@ -1,3 +1,4 @@
+// † extinct in season 148.
 // grazor2 (S.4.1.2.1.3.51): branched from the prowess (S.4.1.2.1.3) in season 147, written by qwen2.5-coder:1.5b.
 // Field notes: these creatures now live as grazers (trophic level 2.02), gut 0.05 (0 = plant-eater … 1 = flesh-eater), body size 3.32.
 function behave(me, world) {
