@@ -1,3 +1,4 @@
+// ↺ returned in season 7.
 // † extinct in season 2.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
