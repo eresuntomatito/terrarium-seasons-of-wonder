@@ -45,21 +45,41 @@ function behave(me, world) {
   // Full: rest, barely moving, and let the meal last.
   if (!hungry && !target) { x *= 0.2; y *= 0.2; }
 
-  // Kin: too close and they compete for the same kill; too far and they lose each other. Where the line between
-  // lone hunting and hunting as a pack falls is for evolution to find.
+  // Kin. A pack that grows past its size sheds its hungriest members, who leave to find their own ground;
+  // a hunter alone can live alone, but looks for others that are alone too. The pack size, the distances and
+  // the pulls are all numbers evolution can tune.
+  const packSize = 5;
+  let kin = 0, cx = 0, cy = 0, richer = 0, loner = null, lonerD = Infinity;
   for (const o of world.others) {
     if (!o.kin) continue;
     const d = Math.hypot(o.x - me.x, o.y - me.y);
-    if (d > 0 && d < 25) {
-      x -= (o.x - me.x) / d * 0.5;
-      y -= (o.y - me.y) / d * 0.5;
-    } else if (d > 60) {
-      x += (o.x - me.x) / d * 0.15;
-      y += (o.y - me.y) / d * 0.15;
-    }
+    if (d === 0) continue;
+    if (d < 25) { x -= (o.x - me.x) / d * 0.5; y -= (o.y - me.y) / d * 0.5; } // room to move
+    if (d < 70) { kin++; cx += o.x - me.x; cy += o.y - me.y; if (o.energy > me.energy) richer++; }
+    else if (o.signal > 0.5 && d < lonerD) { lonerD = d; loner = o; }           // someone out there alone
+  }
+  if (kin > packSize && richer > kin / 2) me.memory.leaving = 300;
+  const leaving = me.memory.leaving > 0;
+  if (leaving) {
+    // Dispersing: away from the pack, and away from ground other hunters have marked.
+    me.memory.leaving--;
+    const d = Math.hypot(cx, cy) || 1;
+    x -= cx / d * 0.6 + me.smell.danger.x * 0.4;
+    y -= cy / d * 0.6 + me.smell.danger.y * 0.4;
+  } else if (kin === 0) {
+    // Alone: head for a lone hunter in sight, else follow a faint hunter trail (strong scent means a pack).
+    if (loner) { x += (loner.x - me.x) / lonerD * 0.5; y += (loner.y - me.y) / lonerD * 0.5; }
+    else if (me.smell.danger.strength > 0.01 && me.smell.danger.strength < 0.3) { x += me.smell.danger.x * 0.3; y += me.smell.danger.y * 0.3; }
+  } else if (Math.hypot(cx, cy) / kin > 35) {
+    // In a pack: drift back toward its middle when straying.
+    const d = Math.hypot(cx, cy);
+    x += cx / d * 0.15;
+    y += cy / d * 0.15;
   }
 
   return { x, y, eat: hungry, mate: me.fertile && me.energy > 1.3, give: 0.4 + generosity * 0.3,
+    // A lone or dispersing hunter shows it, so other loners can find it.
+    signal: kin === 0 || leaving ? 1 : 0,
     // Close the last stretch in a burst.
     sprint: !!target && !target.corpse && best < 35 };
 }
