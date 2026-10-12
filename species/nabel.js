@@ -1,3 +1,4 @@
+// † extinct in season 81.
 // nabel (S.10): drifted apart from the stalkers (S) in season 80; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
