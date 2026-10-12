@@ -43,5 +43,7 @@ function behave(me, world) {
     }
   }
 
-  return { x, y, eat: me.energy < appetite, mate: me.fertile && me.energy > 1.3, give: 0.4 + generosity * 0.3 };
+  return { x, y, eat: me.energy < appetite, mate: me.fertile && me.energy > 1.3, give: 0.4 + generosity * 0.3,
+    // Close the last stretch in a burst.
+    sprint: !!target && !target.corpse && best < 35 };
 }
