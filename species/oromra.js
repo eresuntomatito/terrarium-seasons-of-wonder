@@ -1,3 +1,4 @@
+// † extinct in season 85.
 // oromra (S.12.1): drifted apart from the likelis (S.12) in season 85; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
