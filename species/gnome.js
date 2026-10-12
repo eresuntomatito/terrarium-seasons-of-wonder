@@ -1,3 +1,4 @@
+// † extinct in season 42.
 // gnome (S.2.1.1.1.1.1): written by qwen2.5-coder:1.5b after the giganteus (S.2.1.1.1.1) collapsed, in season 42.
 // lesson the giganteus (S.2.1.1.1.1) lasted 0.2 days, grew to 6, killed 3; then 6 starved, 0 were eaten, 0 died old. 213 plant-eaters were left.
 // lesson the giganteus (S.2.1.1.1.1) lasted 0.4 days, grew to 6, killed 6; then 6 starved, 0 were eaten, 0 died old. 189 plant-eaters were left.
