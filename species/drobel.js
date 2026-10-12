@@ -1,3 +1,4 @@
+// † extinct in season 98.
 // drobel (S.21): drifted apart from the stalkers (S) in season 96; named by the world.
 // ↺ returned in season 54.
 // † extinct in season 53.
