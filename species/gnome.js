@@ -1,3 +1,4 @@
+// † extinct in season 42.
 // ↺ returned in season 42.
 // † extinct in season 42.
 // gnome (S.2.1.1.1.1.1): written by qwen2.5-coder:1.5b after the giganteus (S.2.1.1.1.1) collapsed, in season 42.
