@@ -1,3 +1,5 @@
+// ↺ returned in season 37.
+// † extinct in season 37.
 // stalker3 (S.2.1.1.1): written by qwen2.5-coder:1.5b after the rendriles (S.2.1.1) collapsed, in season 37.
 // lesson the stalker2s (S.3) lasted 0.5 days, grew to 6, killed 17; then 6 starved, 0 were eaten, 0 died old. 778 plant-eaters were left.
 // lesson the stalker2s (S.3) lasted 0.3 days, grew to 6, killed 14; then 6 starved, 0 were eaten, 0 died old. 902 plant-eaters were left.
