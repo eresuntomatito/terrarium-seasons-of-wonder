@@ -1,3 +1,4 @@
+// † extinct in season 25.
 // featherfox (W.12): branched from the wanderers (W) in season 24, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0], ardour = me.genes[1], fright = 18.3 + me.genes[2] * 36.4;
