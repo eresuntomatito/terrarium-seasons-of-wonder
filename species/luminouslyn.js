@@ -1,3 +1,4 @@
+// † extinct in season 87.
 // luminouslyn (S.5.5.7.1): branched from the chillus (S.5.5.7) in season 85, written by qwen2.5-coder:1.5b.
 function behave(me, world) {
   const generosity = me.genes[0],
