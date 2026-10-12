@@ -1,15 +1,3 @@
-// † extinct in season 11.
-// ↺ returned in season 8.
-// † extinct in season 8.
-// ↺ returned in season 7.
-// † extinct in season 7.
-// ↺ returned in season 6.
-// † extinct in season 5.
-// ↺ returned in season 3.
-// † extinct in season 3.
-// ↺ returned in season 2.
-// † extinct in season 1.
-// † extinct in season 1.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how eagerly it courts,
   // gene 2 how early it takes fright.

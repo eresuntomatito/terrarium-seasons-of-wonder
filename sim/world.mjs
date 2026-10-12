@@ -21,7 +21,7 @@ export const PHYSICS = {
   plantEnergy: 0.55,     // energy per unit of plant, times (1 - gut)²
   bodyEnergy: 1.0,       // energy locked in a body of mass 1, on top of what it was carrying …
   bornBody: 0,           // … but a body born in the world holds only this share of it: its parents never paid for the rest
-  bodyShare: 0,          // share of a child's gift locked into its body: it cannot spend it, but its corpse holds it
+  bodyShare: 0.2,          // share of a child's gift locked into its body: it cannot spend it, but its corpse holds it
   fleshEfficiency: 0.9,  // share of a kill's energy that survives digestion, times gut²
   handling: 240,         // ticks to digest a kill as big as yourself
   cover: 0.6,            // plants this dense are tall grass: whatever stands in them is hidden …
@@ -35,17 +35,17 @@ export const PHYSICS = {
   scraps: 0.15,          // share of a kill left on the ground as carrion
   carrionBite: 0.1,      // energy a mouth can tear from a corpse per tick
   carrionEfficiency: 0.7,// share of carrion energy digested, times gut …
-  carrionPeak: 0,        // … or, when set, best at this gut and falling to nothing carrionWidth away (a scavenger's niche)
+  carrionPeak: 0.6,        // … or, when set, best at this gut and falling to nothing carrionWidth away (a scavenger's niche)
   carrionWidth: 0.4,
-  rot: 0.004,            // share of a corpse's energy that rots into the soil every few ticks
-  rotToSoil: 0.6,        // fertility made from each unit of rotting energy
+  rot: 0.0005,            // share of a corpse's energy that rots into the soil every few ticks
+  rotToSoil: 0.2,        // fertility made from each unit of rotting energy
   dung: 0.25,            // fertility a creature returns to the soil for each unit of energy it digests
-  corpseLife: 3,         // corpses vanish after this many × 900 ticks, whatever is left of them lost
-  carrionDung: 0,        // fertility returned for each unit of carrion torn from a corpse (eaten bodies feed the soil fast)
-  smother: 0,            // nothing grows under a corpse holding more than this energy (0 = off)
-  soilNeed: 0,           // nutrient loop (0 = off): plants grow at f / (f + this), and their growth uses up the soil …
+  corpseLife: 12,         // corpses vanish after this many × 900 ticks, whatever is left of them lost
+  carrionDung: 1,        // fertility returned for each unit of carrion torn from a corpse (eaten bodies feed the soil fast)
+  smother: 0.3,            // nothing grows under a corpse holding more than this energy (0 = off)
+  soilNeed: 0.05,           // nutrient loop (0 = off): plants grow at f / (f + this), and their growth uses up the soil …
   uptake: 0.5,           // … this much fertility per unit of growth, given back when plants wither or rot
-  weathering: 0.0004,    // … while rain slowly frees a little new fertility everywhere
+  weathering: 0.003,    // … while rain slowly frees a little new fertility everywhere
   leach: 0.005,          // share of the soil's fertility washed away at every plant update
   codeDrift: 0.04,       // every number in a creature's code drifts by up to this share at each birth
   isolation: 0.2,        // mates whose code numbers differ by more than this (mean |log ratio|) cannot breed
@@ -57,7 +57,7 @@ const mass = size => (size / 5) ** 2;
 // plant-eaters have settled (this many, for a full day) and a day after the last flesh-eater died, and never while
 // the god is still studying the last collapse.
 // It brings back the most recent species of that diet, with its last code and body.
-export const IMMIGRATION = { delay: TICKS_PER_DAY, settledPopulation: 100, huntersAt: 150, hunters: 6, huntersGap: TICKS_PER_DAY / 4, freshPrey: 50, scavengerFlock: false };
+export const IMMIGRATION = { delay: TICKS_PER_DAY, settledPopulation: 100, huntersAt: 150, hunters: 6, huntersGap: TICKS_PER_DAY / 4, freshPrey: 50, scavengerFlock: true };
 const ROLES = [[2.3, 'grazer'], [2.7, 'omnivore'], [3.4, 'hunter'], [Infinity, 'apex']];
 export const roleOf = tl => ROLES.find(([max]) => tl < max)[1];
 
