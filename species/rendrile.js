@@ -1,3 +1,5 @@
+// ↺ returned in season 34.
+// † extinct in season 34.
 // rendrile (S.2.1.1): written by qwen2.5-coder:1.5b after the zephyr4s (S.2.1) collapsed, in season 34.
 // lesson the thalis (S.1) lasted 0.2 days, grew to 6, killed 8; then 6 starved, 0 were eaten, 0 died old. 483 plant-eaters were left.
 // lesson the thalis (S.1) lasted 0.2 days, grew to 6, killed 9; then 6 starved, 0 were eaten, 0 died old. 279 plant-eaters were left.
