@@ -1,3 +1,4 @@
+// ↺ returned in season 131.
 // † extinct in season 127.
 // darcly (S.4.1.2.1.4): written by qwen2.5-coder:1.5b after the ketys (S.4.1.2.1) collapsed, in season 112.
 // lesson the jades (S.4.1) lasted 14.5 days, grew to 238, killed 4651; then 967 starved, 144 were eaten, 36 died old. 414 plant-eaters were left.
