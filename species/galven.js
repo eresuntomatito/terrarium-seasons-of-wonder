@@ -1,3 +1,4 @@
+// † extinct in season 147.
 // galven (S.4.1.2.1.3.51.1): born with a comparison flipped from the grazor2s (S.4.1.2.1.3.51) in season 147; named by the world.
 // Field notes: these creatures now live as grazers (trophic level 2.02), gut 0.05 (0 = plant-eater … 1 = flesh-eater), body size 3.32.
 function behave(me, world) {
