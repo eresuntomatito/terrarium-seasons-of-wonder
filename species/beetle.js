@@ -50,5 +50,6 @@ function behave(me, world) {
   }
 
   // Beetles never attack the living: they only eat what they touch when it is already dead, or a plant.
-  return { x, y, mate: ready, give: 0.25 + generosity * 0.3, signal: ready ? 1 : 0 };
+  return { x, y, mate: ready, give: 0.25 + generosity * 0.3, signal: ready ? 1 : 0,
+    sprint: world.others.some(o => !o.kin && o.size >= me.size * 1.2 && Math.hypot(o.x - me.x, o.y - me.y) < fright * 0.5) };
 }
