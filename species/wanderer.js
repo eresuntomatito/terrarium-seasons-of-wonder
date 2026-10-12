@@ -52,5 +52,8 @@ function behave(me, world) {
 
   return { x, y, mate: ready, give: 0.2 + generosity * 0.4, signal: ready ? 1 : 0,
     // Bolt when something that could eat it is close.
-    sprint: world.others.some(o => !o.kin && o.size >= me.size * 1.2 && Math.hypot(o.x - me.x, o.y - me.y) < fright * 0.6) };
+    sprint: world.others.some(o => !o.kin && o.size >= me.size * 1.2 && Math.hypot(o.x - me.x, o.y - me.y) < fright * 0.6),
+    // Wary: drift away from where hunters have been, the more so the stronger their scent.
+    x: x - me.smell.danger.x * Math.min(1, me.smell.danger.strength * 4),
+    y: y - me.smell.danger.y * Math.min(1, me.smell.danger.strength * 4) };
 }
