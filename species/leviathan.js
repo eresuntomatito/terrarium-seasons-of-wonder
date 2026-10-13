@@ -1,3 +1,4 @@
+// ↺ returned in season 262.
 // † extinct in season 254.
 function behave(me, world) {
   // A lone leviathan: a great slow serpent that feeds like a whale shark, swimming mouth-first into herds.
