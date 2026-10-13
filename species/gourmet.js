@@ -1,3 +1,4 @@
+// † extinct in season 184.
 // gourmet (S.4.1.2.1.3.291): a variant (make it care about the smell of danger or of prey (me.smell) (rewritten whole)) of the prowess (S.4.1.2.1.3) in season 183; a species of its own from season 183.
 // Field notes: these creatures now live as grazers (trophic level 2), gut 0.04 (0 = plant-eater … 1 = flesh-eater), body size 2.66.
 function behave(me, world) {
