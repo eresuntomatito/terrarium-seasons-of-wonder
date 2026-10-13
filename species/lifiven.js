@@ -1,3 +1,4 @@
+// † extinct in season 174.
 // lifiven (S.4.1.2.1.4.3.6): born with "and" turned to "or" from the fisaoms (S.4.1.2.1.4.3) in season 170; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
