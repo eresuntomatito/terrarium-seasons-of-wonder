@@ -58,9 +58,9 @@ function behave(me, world) {
     else { const a = world.noise(me.x * 0.3, me.y * 0.3) * Math.PI * 4; x += Math.cos(a) * 0.4; y += Math.sin(a) * 0.4; }
   }
 
-  // Kin: keep some room between hunters. In the rut (the first part of each season) a well-fed lurker breeds:
+  // Kin: keep some room between hunters. A well-fed, fertile lurker breeds at any time of year:
   // it goes to a willing one in sight, or travels to find one.
-  const ready = world.season < 0.4 && me.fertile && me.energy > 1.7;
+  const ready = me.fertile && me.energy > 1.7;
   let mate = null, mateD = Infinity;
   for (const o of world.others) {
     if (!o.kin) continue;
