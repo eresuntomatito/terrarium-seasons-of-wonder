@@ -1,3 +1,4 @@
+// † extinct in season 207.
 // thuomor (S.4.1.2.1.3.470): drifted apart from the prowess (S.4.1.2.1.3) in season 207; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
