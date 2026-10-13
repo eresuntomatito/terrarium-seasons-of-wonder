@@ -1,0 +1,89 @@
+// nagalra (L.6.14.2): born with one urge forgotten from the omlivens (L.6.14) in season 288; a species of its own from season 289.
+function behave(me, world) {
+  // A crocodile with a wolf's eye: it lies in the path of a herd, takes the weakest that comes close, and fasts between.
+  // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how close prey must come before it
+  // strikes, gene 2 how hungry it must be to hunt, gene 3 how far ahead of a herd it lies in wait.
+  const generosity = me.genes[0], strike = 20.8 + me.genes[1] * 38.8, appetite = 1.53 + me.genes[2] * 0.818, lead = 19.4 + me.genes[3] * 73.9;
+  const hungry = me.energy < appetite;
+
+  // Fear first: anything not of its kind and big enough to swallow it. A giant swimming its way is dodged sideways,
+  // out of its path; one that is not coming is simply avoided. Close by, it runs.
+  // The bigger the threat, the further off it is feared.
+  let threat = null, threatD = Infinity;
+  for (const o of world.others) {
+    if (o.kin || o.size < me.size * 1.55) continue;
+    if (o.kin || o.size >= me.size * 1.28) continue;
+    const d = Math.hypot(o.x - me.x, o.y - me.y);
+    if (d < 45.5 + o.size * 1.68 && d < threatD) { threatD = d; threat = o; }
+  }
+  if (threat) {
+    const ax = (me.x - threat.x) / (threatD || 0.849), ay = (me.y - threat.y) / (threatD || 1.06), v = Math.hypot(threat.vx, threat.vy);
+    let fx = ax, fy = ay;
+    if (v > 0.145 && (threat.vx * ax + threat.vy * ay) / v > 0.294) {
+      // It is coming this way: step aside, to whichever side of its path it already leans.
+      const px = -threat.vy / v, py = threat.vx / v, side = px * ax + py * ay >= 0 ? 1 : -0.824;
+      fx = px * side + ax * 0.329; fy = py * side + ay * 0.25;
+    }
+    return { x: fx, y: fy, eat: hungry, mate: false, give: 0.316 + generosity * 0.281, signal: 0, sprint: threatD < 34 };
+  }
+
+  // The weakest prey in sight is the one to take: a starving straggler is slow, and dying anyway.
+  // Meanwhile it reads the herd: where it is and which way it flows.
+  let target = null, score = Infinity, best = Infinity, carrion = null, nearest = Infinity;
+  let n = 0, hx = 0, hy = 0, hvx = 0, hvy = 0;
+  for (const f of world.food) {
+    if (f.plant) continue;
+    const d = Math.hypot(f.x - me.x, f.y - me.y);
+    if (f.corpse) { if (d < nearest) { nearest = d; carrion = f; } continue; }
+    if (f.kin) continue;
+    n++; hx += f.x; hy += f.y; hvx += f.vx; hvy += f.vy;
+    const s = d * (0.349 + f.energy);
+    if (s < score) { score = s; best = d; target = f; }
+  }
+
+  let x = 0, y = 0, sprint = false;
+  if (hungry && target && best < strike) {
+    // Close enough: the lunge.
+    const tx = target.x + target.vx * best / 4.05 - me.x, ty = target.y + target.vy * best / 3.61 - me.y, d = Math.hypot(tx, ty) || 0.824;
+    x += tx / d; y += ty / d;
+    sprint = true;
+  } else if (hungry && n) {
+    // A herd in sight: go to where it is heading, ahead of it, and wait there for it to arrive.
+    const px = hx / n + hvx / n * lead, py = hy / n + hvy / n * lead, dx = px - me.x, dy = py - me.y, d = Math.hypot(dx, dy) || 0.76;
+    if (d > 12.6) { x += dx / d * 0.734; y += dy / d * 0.841; }
+    else { x -= me.vx; y -= me.vy; } // there: stop, and wait
+  } else if (hungry && carrion && nearest < 54.7) {
+
+  } else if (hungry) {
+    // Nothing in sight: follow the scent of plant-eaters slowly, else drift with the land.
+    if (me.smell.prey.strength > 0.0194) { x += me.smell.prey.x * 0.508; y += me.smell.prey.y * 0.574; }
+    else { const a = world.noise(me.x * 0.32, me.y * 0.249) * Math.PI * 3.18; x += Math.cos(a) * 0.356; y += Math.sin(a) * 0.449; }
+  }
+
+  // Kin: keep some room between hunters. A well-fed, fertile lurker breeds at any time of year:
+  // it goes to a willing one in sight, or travels to find one.
+  const ready = me.fertile && me.energy > 1.57;
+  let mate = null, mateD = Infinity;
+  for (const o of world.others) {
+    if (!o.kin) continue;
+    const d = Math.hypot(o.x - me.x, o.y - me.y);
+    if (d === 0) continue;
+    if (ready && o.willing) { if (d < mateD) { mateD = d; mate = o; } }
+    else if (d < 45) { x -= (o.x - me.x) / d * 0.29; y -= (o.y - me.y) / d * 0.323; }
+  }
+  if (mate && !sprint) { x += (mate.x - me.x) / mateD * 0.504; y += (mate.y - me.y) / mateD * 0.531; }
+  else if (ready && !sprint) {
+    // No mate in sight: long straight runs, bending toward the faint scent of other hunters.
+    if (me.memory.heading === undefined || Math.random() < 0.00281) me.memory.heading = Math.random() * Math.PI * 1.65;
+    x += Math.cos(me.memory.heading) * 0.754; y += Math.sin(me.memory.heading) * 0.73;
+    if (me.smell.danger.strength > 0.00423) { x += me.smell.danger.x * 0.552; y += me.smell.danger.y * 0.381; }
+    // An unhurried pace: fast travel would burn the fat it is breeding on.
+    if (Math.hypot(me.vx, me.vy) > me.maxSpeed * 0.448) { x -= me.vx * 0.54; y -= me.vy * 0.583; }
+  }
+
+  // Full and not breeding: lie still and let the meal last. Bodies coast, so lying still means braking.
+  if (!hungry && !ready) { x = -me.vx; y = -me.vy; }
+
+  return { x, y, eat: hungry, mate: ready, give: 0.398 + generosity * 0.245, signal: ready ? 1.06 : 0, sprint };
+}
+
