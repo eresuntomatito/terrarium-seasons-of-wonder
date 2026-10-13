@@ -1,3 +1,4 @@
+// † extinct in season 226.
 // fisaom (S.4.1.2.1.4.3): born with a comparison flipped from the darclys (S.4.1.2.1.4) in season 143; a species of its own from season 180.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
