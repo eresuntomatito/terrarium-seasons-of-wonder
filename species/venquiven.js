@@ -1,3 +1,4 @@
+// † extinct in season 349.
 // venquiven (S.37): drifted apart from the stalkers (S) in season 348; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
