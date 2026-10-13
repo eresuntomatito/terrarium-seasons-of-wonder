@@ -1,3 +1,4 @@
+// † extinct in season 205.
 // tyfibel (S.4.1.2.1.3.461): drifted apart from the prowess (S.4.1.2.1.3) in season 204; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
