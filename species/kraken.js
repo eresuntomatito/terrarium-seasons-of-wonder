@@ -1,3 +1,4 @@
+// ↺ returned in season 313.
 // † extinct in season 312.
 function behave(me, world) {
   // A lone kraken: a soft giant that drifts after herds in slow pulses and seizes what its tentacles reach.
