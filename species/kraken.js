@@ -4,6 +4,8 @@ function behave(me, world) {
   // it follows a wall after bumping into reef, gene 3 the rhythm of its pulses.
   const lead = 10 + me.genes[1] * 30, detour = 8 + me.genes[2] * 12, rhythm = 20 + me.genes[3] * 30;
   let x = 0, y = 0;
+  // Satiation: full, it closes its tentacles and lets prey pass; it feeds again once it has used some of its meal.
+  const feeding = me.energy < 5.4;
 
   // Where it wants to go: the heart of the herd in sight (aimed ahead), else the nearest prey, else the scent of prey.
   let n = 0, hx = 0, hy = 0, hvx = 0, hvy = 0, near = null, nearD = Infinity;
@@ -22,7 +24,7 @@ function behave(me, world) {
   const shove = (n > 0 || !!near) && me.bumped > (me.energy < 3 ? 1 : 2.5);
 
   // Desperate, it heads straight for its goal through whatever is in the way.
-  if (shove) return { x: gx / gd, y: gy / gd, eat: true, mate: false, give: 0, signal: 0, sprint: false, shove };
+  if (shove) return { x: gx / gd, y: gy / gd, eat: feeding, mate: false, give: 0, signal: 0, sprint: false, shove };
 
   // Reef: a bump turns it along the wall, to whichever side bends toward where it wants to go, for a short while
   // (like an octopus working round coral), instead of a long blind detour.
@@ -34,7 +36,7 @@ function behave(me, world) {
   }
   if (me.memory.detour > 0) {
     me.memory.detour--;
-    return { x: Math.cos(me.memory.heading) + gx / gd * 0.3, y: Math.sin(me.memory.heading) + gy / gd * 0.3, eat: true, mate: false, give: 0, signal: 0, sprint: false, shove };
+    return { x: Math.cos(me.memory.heading) + gx / gd * 0.3, y: Math.sin(me.memory.heading) + gy / gd * 0.3, eat: feeding, mate: false, give: 0, signal: 0, sprint: false, shove };
   }
 
   // Toward its goal; with nothing at all to follow, long slow glides.
@@ -46,5 +48,5 @@ function behave(me, world) {
 
   // It moves in pulses: a push, then a glide.
   const pulse = (world.t % rhythm) < rhythm * 0.5 ? 1 : 0.5;
-  return { x: x * pulse, y: y * pulse, eat: true, mate: false, give: 0, signal: 0, sprint: false, shove };
+  return { x: x * pulse, y: y * pulse, eat: feeding, mate: false, give: 0, signal: 0, sprint: false, shove };
 }
