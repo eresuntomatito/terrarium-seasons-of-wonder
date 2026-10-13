@@ -8,8 +8,8 @@ function behave(me, world) {
   // it follows a wall after bumping into reef, gene 3 the rhythm of its pulses.
   const lead = 10 + me.genes[1] * 30, detour = 8 + me.genes[2] * 12, rhythm = 20 + me.genes[3] * 30;
   let x = 0, y = 0;
-  // Satiation: full, it closes its tentacles and lets prey pass; it feeds again once it has used some of its meal.
-  const feeding = me.energy < 5.4;
+  // Satiation is the world's (it follows the herds, season by season): its tentacles are always open here.
+  const feeding = true;
 
   // Where it wants to go: the heart of the herd in sight (aimed ahead), else the nearest prey, else the scent of prey.
   let n = 0, hx = 0, hy = 0, hvx = 0, hvy = 0, near = null, nearD = Infinity;
