@@ -1,21 +1,11 @@
 function behave(me, world) {
   // A lone kraken: a soft giant that drifts after herds in slow pulses and seizes what its tentacles reach.
   // It never breeds. Genes belong to this one creature: gene 1 how far ahead of a herd it aims, gene 2 how long
-  // it holds a detour after bumping into reef, gene 3 the rhythm of its pulses.
-  const lead = 10 + me.genes[1] * 30, detour = 30 + me.genes[2] * 60, rhythm = 20 + me.genes[3] * 30;
+  // it follows a wall after bumping into reef, gene 3 the rhythm of its pulses.
+  const lead = 10 + me.genes[1] * 30, detour = 8 + me.genes[2] * 12, rhythm = 20 + me.genes[3] * 30;
   let x = 0, y = 0;
 
-  // Reef: a bump sends it off to one side for a while, so it flows round instead of pressing.
-  if (me.bumped > 0.5 && !(me.memory.detour > 0)) {
-    me.memory.heading = Math.atan2(me.vy, me.vx) + (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2 + Math.random() * Math.PI / 3);
-    me.memory.detour = detour;
-  }
-  if (me.memory.detour > 0) {
-    me.memory.detour--;
-    return { x: Math.cos(me.memory.heading), y: Math.sin(me.memory.heading), eat: true, mate: false, give: 0, signal: 0, sprint: false };
-  }
-
-  // A herd in sight: drift toward its heart, aiming where it is going.
+  // Where it wants to go: the heart of the herd in sight (aimed ahead), else the nearest prey, else the scent of prey.
   let n = 0, hx = 0, hy = 0, hvx = 0, hvy = 0, near = null, nearD = Infinity;
   for (const f of world.food) {
     if (f.plant || f.corpse || f.kin) continue;
@@ -23,15 +13,28 @@ function behave(me, world) {
     const d = Math.hypot(f.x - me.x, f.y - me.y);
     if (d < nearD) { nearD = d; near = f; }
   }
-  if (near && nearD < 40) {
-    // Close: reach straight for the nearest.
-    x += (near.x - me.x) / (nearD || 1); y += (near.y - me.y) / (nearD || 1);
-  } else if (n) {
-    const tx = hx / n + hvx / n * lead - me.x, ty = hy / n + hvy / n * lead - me.y, d = Math.hypot(tx, ty) || 1;
-    x += tx / d; y += ty / d;
-  } else if (me.smell.prey.strength > 0.01) {
-    x += me.smell.prey.x; y += me.smell.prey.y;
-  } else {
+  let gx = 0, gy = 0;
+  if (near && nearD < 40) { gx = near.x - me.x; gy = near.y - me.y; }
+  else if (n) { gx = hx / n + hvx / n * lead - me.x; gy = hy / n + hvy / n * lead - me.y; }
+  else if (me.smell.prey.strength > 0.01) { gx = me.smell.prey.x; gy = me.smell.prey.y; }
+  const gd = Math.hypot(gx, gy) || 1;
+
+  // Reef: a bump turns it along the wall, to whichever side bends toward where it wants to go, for a short while
+  // (like an octopus working round coral), instead of a long blind detour.
+  if (me.bumped > 0.5 && !(me.memory.detour > 0)) {
+    const h = Math.atan2(me.vy, me.vx), left = h + Math.PI / 2, right = h - Math.PI / 2;
+    const toward = a => Math.cos(a) * gx / gd + Math.sin(a) * gy / gd;
+    me.memory.heading = (n || near || me.smell.prey.strength > 0.01 ? toward(left) >= toward(right) : Math.random() < 0.5) ? left : right;
+    me.memory.detour = detour;
+  }
+  if (me.memory.detour > 0) {
+    me.memory.detour--;
+    return { x: Math.cos(me.memory.heading) + gx / gd * 0.3, y: Math.sin(me.memory.heading) + gy / gd * 0.3, eat: true, mate: false, give: 0, signal: 0, sprint: false };
+  }
+
+  // Toward its goal; with nothing at all to follow, long slow glides.
+  if (n || near || me.smell.prey.strength > 0.01) { x += gx / gd; y += gy / gd; }
+  else {
     if (me.memory.heading === undefined || Math.random() < 0.004) me.memory.heading = Math.random() * Math.PI * 2;
     x += Math.cos(me.memory.heading) * 0.7; y += Math.sin(me.memory.heading) * 0.7;
   }
