@@ -31,7 +31,8 @@ function behave(me, world) {
   if (hx > world.width / 2) hx -= world.width; else if (hx < -world.width / 2) hx += world.width;
   if (hy > world.height / 2) hy -= world.height; else if (hy < -world.height / 2) hy += world.height;
   const away = Math.hypot(hx, hy);
-  if (away > 120) { x += hx / away * 0.4 * Math.min(1, (away - 120) / 100); y += hy / away * 0.4 * Math.min(1, (away - 120) / 100); }
+  // The further it strays, the harder home pulls: beyond its range, homing outweighs grazing and the herd's flow.
+  if (away > 80) { const pull = 1.2 * Math.min(1.5, (away - 80) / 80); x += hx / away * pull; y += hy / away * pull; }
   for (const f of world.food) {
     if (!f.plant) continue;
     const d = Math.hypot(f.x - me.x, f.y - me.y), s = f.amount - d / 80;
