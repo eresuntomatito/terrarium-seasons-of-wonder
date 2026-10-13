@@ -1,4 +1,4 @@
-// fisaom (S.4.1.2.1.4.3): born with a comparison flipped from the darclys (S.4.1.2.1.4) in season 143; named by the world.
+// fisaom (S.4.1.2.1.4.3): born with a comparison flipped from the darclys (S.4.1.2.1.4) in season 143; a species of its own from season 180.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
   // gene 2 how full it must be before it spares the prey it touches, gene 3 how much it trusts its nose.
