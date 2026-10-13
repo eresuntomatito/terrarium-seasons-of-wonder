@@ -1,3 +1,4 @@
+// † extinct in season 178.
 // gorgion (S.4.1.2.1.3.252): branched from the prowess (S.4.1.2.1.3) in season 177, written by qwen2.5-coder:1.5b.
 // Field notes: these creatures now live as grazers (trophic level 2.05), gut 0.04 (0 = plant-eater … 1 = flesh-eater), body size 2.65.
 function behave(me, world) {
