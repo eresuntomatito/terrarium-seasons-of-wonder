@@ -1,3 +1,4 @@
+// † extinct in season 355.
 // raom (S.57): drifted apart from the stalkers (S) in season 355; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
