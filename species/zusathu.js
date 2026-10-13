@@ -1,3 +1,4 @@
+// † extinct in season 357.
 // zusathu (S.64): drifted apart from the stalkers (S) in season 357; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
