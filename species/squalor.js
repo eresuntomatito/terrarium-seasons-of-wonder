@@ -1,3 +1,4 @@
+// † extinct in season 179.
 // squalor (S.4.1.2.1.4.3.1.1): held by the god after the moushs (S.4.1.2.1.4.3.1) in season 156, written by qwen2.5-coder:1.5b.
 // Field notes: these creatures now live as hunters (trophic level 3.38), gut 0.73 (0 = plant-eater … 1 = flesh-eater), body size 4.8.
 function behave(me, world) {
