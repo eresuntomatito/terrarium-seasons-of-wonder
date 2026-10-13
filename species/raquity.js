@@ -1,3 +1,4 @@
+// † extinct in season 336.
 // raquity (T.97): drifted apart from the tortoises (T) in season 335; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
