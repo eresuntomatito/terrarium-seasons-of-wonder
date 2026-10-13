@@ -1,3 +1,4 @@
+// † extinct in season 196.
 // orgalsa (S.4.1.2.1.3.395): drifted apart from the prowess (S.4.1.2.1.3) in season 196; named by the world.
 function behave(me, world) {
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how far ahead it aims,
