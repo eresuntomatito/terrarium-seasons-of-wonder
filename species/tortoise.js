@@ -24,6 +24,14 @@ function behave(me, world) {
 
   // Grass: the greenest patch in sight, weighed against distance.
   let x = 0, y = 0, best = null, score = -Infinity;
+
+  // Home: it remembers where it was born and drifts back when it strays too far (neighbourhoods stay local).
+  me.memory.home ??= { x: me.x, y: me.y };
+  let hx = me.memory.home.x - me.x, hy = me.memory.home.y - me.y;
+  if (hx > world.width / 2) hx -= world.width; else if (hx < -world.width / 2) hx += world.width;
+  if (hy > world.height / 2) hy -= world.height; else if (hy < -world.height / 2) hy += world.height;
+  const away = Math.hypot(hx, hy);
+  if (away > 120) { x += hx / away * 0.4 * Math.min(1, (away - 120) / 100); y += hy / away * 0.4 * Math.min(1, (away - 120) / 100); }
   for (const f of world.food) {
     if (!f.plant) continue;
     const d = Math.hypot(f.x - me.x, f.y - me.y), s = f.amount - d / 80;
