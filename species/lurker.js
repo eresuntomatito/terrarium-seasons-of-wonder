@@ -5,6 +5,25 @@ function behave(me, world) {
   const generosity = me.genes[0], strike = 20 + me.genes[1] * 40, appetite = 1.4 + me.genes[2] * 0.8, lead = 20 + me.genes[3] * 60;
   const hungry = me.energy < appetite;
 
+  // Fear first: anything not of its kind and big enough to swallow it. A giant swimming its way is dodged sideways,
+  // out of its path; one that is not coming is simply avoided. Close by, it runs.
+  let threat = null, threatD = 70;
+  for (const o of world.others) {
+    if (o.kin || o.size < me.size * 1.2) continue;
+    const d = Math.hypot(o.x - me.x, o.y - me.y);
+    if (d < threatD) { threatD = d; threat = o; }
+  }
+  if (threat) {
+    const ax = (me.x - threat.x) / (threatD || 1), ay = (me.y - threat.y) / (threatD || 1), v = Math.hypot(threat.vx, threat.vy);
+    let fx = ax, fy = ay;
+    if (v > 0.2 && (threat.vx * ax + threat.vy * ay) / v > 0.3) {
+      // It is coming this way: step aside, to whichever side of its path it already leans.
+      const px = -threat.vy / v, py = threat.vx / v, side = px * ax + py * ay >= 0 ? 1 : -1;
+      fx = px * side + ax * 0.3; fy = py * side + ay * 0.3;
+    }
+    return { x: fx, y: fy, eat: hungry, mate: false, give: 0.35 + generosity * 0.3, signal: 0, sprint: threatD < 35 };
+  }
+
   // The weakest prey in sight is the one to take: a starving straggler is slow, and dying anyway.
   // Meanwhile it reads the herd: where it is and which way it flows.
   let target = null, score = Infinity, best = Infinity, carrion = null, nearest = Infinity;
