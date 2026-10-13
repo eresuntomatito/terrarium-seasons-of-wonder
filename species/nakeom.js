@@ -1,3 +1,4 @@
+// † extinct in season 339.
 // nakeom (T.105): drifted apart from the tortoises (T) in season 338; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
