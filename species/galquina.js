@@ -1,3 +1,4 @@
+// † extinct in season 334.
 // galquina (T.82): drifted apart from the tortoises (T) in season 333; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
