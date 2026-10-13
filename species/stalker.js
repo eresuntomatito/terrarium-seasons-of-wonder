@@ -23,9 +23,13 @@ function behave(me, world) {
   // Pursue the nearest living creature it could eat, aiming where it is going to be. Its own kind only when starving.
   // Carrion is a fallback: it scavenges only when nothing alive is in sight.
   let target = null, best = Infinity, carrion = null, nearest = Infinity, plant = null, plantD = Infinity;
+  // Giants that could swallow it: prey close to one of them is left alone (no chasing into a giant's mouth).
+  const giants = world.others.filter(o => !o.kin && o.size >= me.size * 1.2);
+  const nearGiant = f => giants.some(o => Math.hypot(f.x - o.x, f.y - o.y) < 30 + o.size * 2);
   for (const f of world.food) {
     const d = Math.hypot(f.x - me.x, f.y - me.y);
     if (f.plant) { if (d < plantD) { plantD = d; plant = f; } continue; }
+    if (!f.corpse && nearGiant(f)) continue;
     if (f.kin && me.energy > 0.5) continue;
     if (f.corpse) { if (d < nearest) { nearest = d; carrion = f; } }
     else if (d < best) { best = d; target = f; }
@@ -37,11 +41,11 @@ function behave(me, world) {
 
   // Fear first: anything not of its kind and big enough to swallow it (lurkers, the leviathan). One coming its way
   // is dodged sideways, out of its path; one that is not coming is simply avoided. Close by, it runs.
-  let threat = null, threatD = 70;
-  for (const o of world.others) {
-    if (o.kin || o.size < me.size * 1.2) continue;
+  // The bigger the threat, the further off it is feared.
+  let threat = null, threatD = Infinity;
+  for (const o of giants) {
     const d = Math.hypot(o.x - me.x, o.y - me.y);
-    if (d < threatD) { threatD = d; threat = o; }
+    if (d < 40 + o.size * 2.5 && d < threatD) { threatD = d; threat = o; }
   }
   if (threat) {
     const ax = (me.x - threat.x) / (threatD || 1), ay = (me.y - threat.y) / (threatD || 1), v = Math.hypot(threat.vx, threat.vy);
