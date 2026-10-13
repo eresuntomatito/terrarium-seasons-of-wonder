@@ -1,3 +1,4 @@
+// ↺ returned in season 284.
 // † extinct in season 283.
 // ushthuke (L.6): drifted apart from the lurkers (L) in season 262; named by the world.
 function behave(me, world) {
