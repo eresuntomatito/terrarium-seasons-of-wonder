@@ -1,3 +1,4 @@
+// † extinct in season 294.
 // nagalra (L.6.14.2): born with one urge forgotten from the omlivens (L.6.14) in season 288; a species of its own from season 289.
 function behave(me, world) {
   // A crocodile with a wolf's eye: it lies in the path of a herd, takes the weakest that comes close, and fasts between.
