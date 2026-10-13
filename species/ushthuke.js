@@ -1,3 +1,4 @@
+// † extinct in season 283.
 // ushthuke (L.6): drifted apart from the lurkers (L) in season 262; named by the world.
 function behave(me, world) {
   // A crocodile with a wolf's eye: it lies in the path of a herd, takes the weakest that comes close, and fasts between.
