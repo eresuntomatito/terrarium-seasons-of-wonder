@@ -1,3 +1,4 @@
+// † extinct in season 323.
 // zubelfi (T.24.2): born with a part copied and changed from the quigalgals (T.24) in season 312; a species of its own from season 314.
 function behave(me, world) {
   // A tortoise: slow, armoured, long-lived. It grazes the ground other grazers have already passed over, moving
