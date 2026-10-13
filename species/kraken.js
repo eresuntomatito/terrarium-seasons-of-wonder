@@ -1,3 +1,4 @@
+// † extinct in season 321.
 // ↺ returned in season 313.
 // † extinct in season 312.
 function behave(me, world) {
