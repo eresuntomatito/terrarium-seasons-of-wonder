@@ -1,3 +1,4 @@
+// † extinct in season 358.
 // zuorzu (S.68): drifted apart from the stalkers (S) in season 357; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
