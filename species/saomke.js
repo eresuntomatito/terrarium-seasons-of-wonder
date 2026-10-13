@@ -1,3 +1,4 @@
+// † extinct in season 354.
 // saomke (S.51): drifted apart from the stalkers (S) in season 354; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
