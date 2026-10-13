@@ -1,3 +1,4 @@
+// † extinct in season 350.
 // fibelthu (S.40): drifted apart from the stalkers (S) in season 350; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
