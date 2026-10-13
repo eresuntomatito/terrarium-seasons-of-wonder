@@ -1,3 +1,4 @@
+// † extinct in season 270.
 function behave(me, world) {
   // A crocodile with a wolf's eye: it lies in the path of a herd, takes the weakest that comes close, and fasts between.
   // Genes belong to this one creature: gene 0 is how much it gives a child, gene 1 how close prey must come before it
