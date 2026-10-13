@@ -1,3 +1,4 @@
+// † extinct in season 288.
 // omliven (L.6.14): born with a part copied and changed from the ushthukes (L.6) in season 281; a species of its own from season 285.
 function behave(me, world) {
   // A crocodile with a wolf's eye: it lies in the path of a herd, takes the weakest that comes close, and fasts between.
