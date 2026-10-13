@@ -7,11 +7,12 @@ function behave(me, world) {
 
   // Fear first: anything not of its kind and big enough to swallow it. A giant swimming its way is dodged sideways,
   // out of its path; one that is not coming is simply avoided. Close by, it runs.
-  let threat = null, threatD = 70;
+  // The bigger the threat, the further off it is feared.
+  let threat = null, threatD = Infinity;
   for (const o of world.others) {
     if (o.kin || o.size < me.size * 1.2) continue;
     const d = Math.hypot(o.x - me.x, o.y - me.y);
-    if (d < threatD) { threatD = d; threat = o; }
+    if (d < 40 + o.size * 2.5 && d < threatD) { threatD = d; threat = o; }
   }
   if (threat) {
     const ax = (me.x - threat.x) / (threatD || 1), ay = (me.y - threat.y) / (threatD || 1), v = Math.hypot(threat.vx, threat.vy);
