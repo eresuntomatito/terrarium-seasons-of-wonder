@@ -1,3 +1,4 @@
+// † extinct in season 278.
 // ↺ returned in season 233.
 // † extinct in season 232.
 // prowes (S.4.1.2.1.3): written by qwen2.5-coder:1.5b after the ketys (S.4.1.2.1) collapsed, in season 105.
