@@ -1,3 +1,4 @@
+// † extinct in season 312.
 function behave(me, world) {
   // A lone kraken: a soft giant that drifts after herds in slow pulses and seizes what its tentacles reach.
   // It never breeds. Genes belong to this one creature: gene 1 how far ahead of a herd it aims, gene 2 how long
