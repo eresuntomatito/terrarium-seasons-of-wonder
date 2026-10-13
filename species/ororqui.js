@@ -1,3 +1,4 @@
+// † extinct in season 352.
 // ororqui (S.43): drifted apart from the stalkers (S) in season 352; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
