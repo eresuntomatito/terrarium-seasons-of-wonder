@@ -50,7 +50,9 @@ function behave(me, world) {
     sprint = true;
   } else if (hungry && n) {
     // A herd in sight: go to where it is heading, ahead of it, and wait there for it to arrive.
-    const px = hx / n + hvx / n * lead, py = hy / n + hvy / n * lead, dx = px - me.x, dy = py - me.y, d = Math.hypot(dx, dy) || 1;
+    // Ahead of the herd, but off to its flank: giants aim at the herd's heart, so the front is no place to wait.
+    const hv = Math.hypot(hvx, hvy) || 1, side = (me.memory.flank ??= Math.random() < 0.5 ? 1 : -1) * 40;
+    const px = hx / n + hvx / n * lead - hvy / hv * side, py = hy / n + hvy / n * lead + hvx / hv * side, dx = px - me.x, dy = py - me.y, d = Math.hypot(dx, dy) || 1;
     if (d > 15) { x += dx / d * 0.6; y += dy / d * 0.6; }
     else { x -= me.vx; y -= me.vy; } // there: stop, and wait
   } else if (hungry && carrion && nearest < 40) {
