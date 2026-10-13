@@ -1,3 +1,4 @@
+// † extinct in season 307.
 // ornaom (T.21): drifted apart from the tortoises (T) in season 307; named by the world.
 function behave(me, world) {
   // A tortoise: slow, armoured, long-lived. It grazes the ground other grazers have already passed over, moving
