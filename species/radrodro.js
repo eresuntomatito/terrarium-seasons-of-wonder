@@ -1,3 +1,4 @@
+// † extinct in season 302.
 // radrodro (T.8.1): drifted apart from the mobelgals (T.8) in season 301; named by the world.
 function behave(me, world) {
   // A tortoise: slow, armoured, long-lived. It grazes the ground other grazers have already passed over, moving
