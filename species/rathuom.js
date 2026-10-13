@@ -1,3 +1,4 @@
+// † extinct in season 168.
 // rathuom (S.4.1.2.1.3.194.1): born with left and right confused with up and down from the grazor3s (S.4.1.2.1.3.194) in season 168; named by the world.
 // Field notes: these creatures now live as grazers (trophic level 2), gut 0.03 (0 = plant-eater … 1 = flesh-eater), body size 2.75.
 function behave(me, world) {
