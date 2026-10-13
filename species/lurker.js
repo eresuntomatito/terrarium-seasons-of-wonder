@@ -29,6 +29,7 @@ function behave(me, world) {
     // A herd in sight: go to where it is heading, ahead of it, and wait there for it to arrive.
     const px = hx / n + hvx / n * lead, py = hy / n + hvy / n * lead, dx = px - me.x, dy = py - me.y, d = Math.hypot(dx, dy) || 1;
     if (d > 15) { x += dx / d * 0.6; y += dy / d * 0.6; }
+    else { x -= me.vx; y -= me.vy; } // there: stop, and wait
   } else if (hungry && carrion && nearest < 40) {
     // A carcass close by will do between herds.
     x += (carrion.x - me.x) / (nearest || 1) * 0.5; y += (carrion.y - me.y) / (nearest || 1) * 0.5;
@@ -55,10 +56,12 @@ function behave(me, world) {
     if (me.memory.heading === undefined || Math.random() < 0.003) me.memory.heading = Math.random() * Math.PI * 2;
     x += Math.cos(me.memory.heading) * 0.8; y += Math.sin(me.memory.heading) * 0.8;
     if (me.smell.danger.strength > 0.005) { x += me.smell.danger.x * 0.5; y += me.smell.danger.y * 0.5; }
+    // An unhurried pace: fast travel would burn the fat it is breeding on.
+    if (Math.hypot(me.vx, me.vy) > me.maxSpeed * 0.5) { x -= me.vx * 0.5; y -= me.vy * 0.5; }
   }
 
-  // Full and not breeding: lie still and let the meal last.
-  if (!hungry && !ready) { x *= 0.15; y *= 0.15; }
+  // Full and not breeding: lie still and let the meal last. Bodies coast, so lying still means braking.
+  if (!hungry && !ready) { x = -me.vx; y = -me.vy; }
 
   return { x, y, eat: hungry, mate: ready, give: 0.35 + generosity * 0.3, signal: ready ? 1 : 0, sprint };
 }
