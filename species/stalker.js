@@ -138,7 +138,7 @@ function behave(me, world) {
     y += cy / d * 0.15;
   }
 
-  return { x, y, eat: hungry, mate: me.fertile && me.energy > 1.3, give: 0.4 + generosity * 0.3,
+  return { x, y, eat: hungry, mate: me.fertile && me.energy > 1.6, give: 0.4 + generosity * 0.3,
     // A lone or dispersing hunter shows it, so other loners can find it.
     signal: kin === 0 || leaving ? 1 : 0,
     // Close the last stretch in a burst.
