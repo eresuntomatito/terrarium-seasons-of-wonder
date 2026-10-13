@@ -1,3 +1,4 @@
+// ↺ returned in season 285.
 // † extinct in season 270.
 function behave(me, world) {
   // A crocodile with a wolf's eye: it lies in the path of a herd, takes the weakest that comes close, and fasts between.
