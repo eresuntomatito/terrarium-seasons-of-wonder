@@ -1,3 +1,4 @@
+// † extinct in season 498.
 // fityqui (B.1.12): born with a push reversed from the tygalgals (B.1) in season 486; a species of its own from season 497.
 // † extinct in season 429.
 // † extinct in season 428.
