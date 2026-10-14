@@ -1,3 +1,4 @@
+// † extinct in season 382.
 // savenven (S.171): drifted apart from the stalkers (S) in season 382; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
