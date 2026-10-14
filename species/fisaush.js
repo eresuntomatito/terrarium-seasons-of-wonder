@@ -1,3 +1,4 @@
+// † extinct in season 400.
 // fisaush (S.240): drifted apart from the stalkers (S) in season 399; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
