@@ -1,3 +1,4 @@
+// † extinct in season 561.
 // ↺ returned in season 560.
 function behave(me, world) {
   // The progenitor: the first life, a little of everything and nothing yet. It eats what it can (plants, the dead,
