@@ -1,3 +1,4 @@
+// † extinct in season 400.
 // ushmosa (S.242): drifted apart from the stalkers (S) in season 399; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
