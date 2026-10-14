@@ -1,3 +1,4 @@
+// † extinct in season 365.
 // thutyqui (S.105): drifted apart from the stalkers (S) in season 364; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
