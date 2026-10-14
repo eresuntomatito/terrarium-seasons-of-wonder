@@ -1,3 +1,4 @@
+// † extinct in season 437.
 // ushfigal (T.176): drifted apart from the tortoises (T) in season 435; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
