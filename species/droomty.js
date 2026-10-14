@@ -1,3 +1,4 @@
+// † extinct in season 372.
 // droomty (S.128): drifted apart from the stalkers (S) in season 371; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
