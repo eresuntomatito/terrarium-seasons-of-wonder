@@ -1,3 +1,4 @@
+// † extinct in season 438.
 // nalidro (T.174): drifted apart from the tortoises (T) in season 434; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
