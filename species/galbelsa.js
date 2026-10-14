@@ -1,3 +1,4 @@
+// † extinct in season 550.
 // galbelsa (T.403): drifted apart from the tortoises (T) in season 546; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
