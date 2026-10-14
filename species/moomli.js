@@ -1,3 +1,4 @@
+// † extinct in season 379.
 // ↺ returned in season 378.
 // † extinct in season 375.
 // moomli (S.140): drifted apart from the stalkers (S) in season 374; named by the world.
