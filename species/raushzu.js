@@ -1,3 +1,4 @@
+// † extinct in season 512.
 // raushzu (T.314): drifted apart from the tortoises (T) in season 512; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
