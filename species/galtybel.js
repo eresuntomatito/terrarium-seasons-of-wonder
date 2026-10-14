@@ -1,3 +1,4 @@
+// † extinct in season 481.
 // galtybel (T.265): drifted apart from the tortoises (T) in season 479; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
