@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MODEL = process.env.GOD_MODEL ?? 'qwen2.5-coder:1.5b';
-const ATTEMPTS = 3;
+const ATTEMPTS = 4;
 // Over the bridge, the server drops each prompt in data/god/requests/ and waits for data/god/responses/. Naming stays local.
 // The god is a hybrid: when a Claude Code session is listening (its watcher keeps data/god/bridge.alive fresh),
 // new species are designed by a Claude Haiku subagent over the bridge; otherwise local Qwen answers.
@@ -19,12 +19,18 @@ const heartbeatAge = () => { try { return Date.now() - fs.statSync(HEARTBEAT).mt
 export const bridgeAlive = () => heartbeatAge() < 30_000;
 
 const WORLD_DESCRIPTION = `Each frame it is called as behave(me, world) and must return {x, y}: a steering force.
-me: {x, y, vx, vy, energy, age, size, gut, hue, fertile, genes, memory}
+me: {x, y, vx, vy, energy, age, size, gut, hue, fertile, genes, memory, legs, maxSpeed, stamina, fat}
+  fat is stored food: it builds up when well fed, is burnt when hungry, slows it down, and feeds whoever eats it.
+  smell: {prey: {x, y, strength}, danger: {x, y, strength}}: which way the scent of plant-eaters (prey) and of flesh-eaters (danger)
+    grows stronger, and how strong it is here. Scent trails reach far beyond sight and fade in seconds.
+  A starving body is slower; fat weighs it down.
+  legs sets its cruising speed (maxSpeed); stamina is 0..1, what is left for sprinting.
   size is its body size; gut is 0 for a plant-eater up to 1 for a flesh-eater.
   Only a gut below 0.75 can graze plants, and only a gut above 0.25 has jaws to eat creatures or corpses.
   genes is an array of 4 numbers between 0 and 1, different for each creature and inherited by its children.
   memory is an object you may store anything in; it persists between frames.
-world: {width, height, t, food, others, noise(x, y) -> -1..1}
+me.bumped: how much it has run into reef lately (0 = not at all); solid reef blocks the way and turns it aside.
+world: {width, height, t, season (0 at the start of a season … 1 at its end, then again), food, others, noise(x, y) -> -1..1}
   food: [{x, y, vx, vy, size, plant, species, kin}] everything it could eat right now: plants (plant: true) and creatures small enough to overpower.
   others: [{x, y, vx, vy, size, species, kin, willing, signal, energy}] creatures nearby. Anything 1.2 times its size or bigger could eat it.
   kin is true when the other creature is the same species; willing is true when it wants to mate.
@@ -33,6 +39,7 @@ The returned object may also contain:
   give: 0..1, the share of its energy it puts into a child.
   signal: 0..1, a display the others can see.
   eat: false to leave alone the food it touches (otherwise it eats whatever food it touches).
+  sprint: true to burst at 1.6 times its speed while stamina lasts (it drains fast, and recovers slowly when not sprinting).
   hue: 0..360, its colour.`;
 
 const MINIATURE_PROMPT = (name, code) => `You are the god of a tiny terrarium. Below is the JavaScript behavior of a creature called "${name}".
@@ -57,6 +64,78 @@ Return only the code in one \`\`\`js block, no explanation.
 \`\`\`js
 ${code}
 \`\`\``;
+
+// The small god's usual way to branch a species: one changed line, steered by a random nudge.
+// Short answers come back fast and whole, and a slip in one line is often the most interesting kind of change.
+const NUDGES = [
+  'make it use its memory (me.memory) to remember something about the last few moments',
+  'make it react to the signals of its own kind (o.signal)',
+  'make it care about the smell of danger or of prey (me.smell)',
+  'make it behave differently when it is fat (me.fat) or tired (me.stamina)',
+  'make it move differently when it is with many of its own kind than when it is alone',
+  'make it bolder or more timid toward bigger creatures',
+  'make it choose a different kind of food first',
+  'make it change how much it gives to its children, or when it is willing to mate',
+  'make it wander in a stranger pattern when it has nothing to do',
+  'make it sprint at a different moment',
+  'make it keep closer to, or further from, its own kind',
+  'make it follow, shadow or copy the movement of another creature',
+];
+export const EDIT_PROMPT = (nudge, focus) => code => `Below is the JavaScript behavior of a creature living in a terrarium.
+${WORLD_DESCRIPTION}
+
+A new species is branching off from this one. Change exactly ONE line of its behavior so it acts differently. Idea: ${nudge}.${focus ? `
+This line shapes its behavior more than most, so a change there will show: ${focus.trim()}
+Change that line, or the line that best fits the idea.` : ''}
+Pick a line that actually runs: a line inside a branch that never happens changes nothing, and will be thrown away.
+Answer in exactly this format, copying the old line exactly as it appears:
+OLD: <the line as it is now>
+NEW: <the line as it should become>
+
+\`\`\`js
+${code}
+\`\`\``;
+const pickNudge = () => NUDGES[Math.floor(Math.random() * NUDGES.length)];
+
+// Put a changed line in place of the old one: an exact match, else the most similar line (if it is similar enough).
+function applyEdit(code, oldText, newText) {
+  const lines = code.split('\n');
+  const olds = oldText.trim().split('\n').map(l => l.trim()).filter(Boolean), news = newText.trim().split('\n');
+  if (!olds.length || !news.join('').trim()) return null;
+  if (olds.length > 1) {
+    // A block: find the same lines in a row (ignoring indentation) and put the new block in their place.
+    for (let i = 0; i + olds.length <= lines.length; i++) {
+      if (olds.every((o, j) => lines[i + j].trim() === o)) {
+        const indent = lines[i].match(/^\s*/)[0];
+        lines.splice(i, olds.length, ...news.map(l => indent + l.trim()));
+        return lines.join('\n');
+      }
+    }
+    return null;
+  }
+  const want = olds[0], newLine = news.join(' ');
+  let at = lines.findIndex(l => l.trim() === want);
+  if (at < 0) {
+    const words = s => new Set(s.match(/[A-Za-z_][\w.]*|\d+(\.\d+)?|[<>=!+\-*/]+/g) ?? []);
+    const w = words(want);
+    let best = 0;
+    lines.forEach((l, i) => { const v = words(l), common = [...w].filter(t => v.has(t)).length, score = common / Math.max(w.size, v.size, 1); if (score > best) { best = score; at = i; } });
+    if (best < 0.6) return null;
+  }
+  const indent = lines[at].match(/^\s*/)[0];
+  lines[at] = indent + newLine.trim();
+  return lines.join('\n');
+}
+
+// A god that runs out of words mid-function: close what it left open, and see whether what it wrote can live.
+function closeBrackets(code) {
+  const bare = code.replace(/\/\/[^\n]*/g, '').replace(/(['"\`])(?:\\.|(?!\1).)*\1/g, '');
+  const open = (bare.match(/[({[]/g) ?? []).length - (bare.match(/[)}\]]/g) ?? []).length;
+  if (open <= 0 || open > 6) return code;
+  const stack = [];
+  for (const ch of bare) { if ('({['.includes(ch)) stack.push(ch); else if (')}]'.includes(ch)) stack.pop(); }
+  return code + '\n' + stack.reverse().map(ch => ({ '(': ')', '{': '}', '[': ']' })[ch]).join('');
+}
 
 // The reflecting god: after hunters collapse, it studies what happened to every attempt and tries something else.
 export const lessonText = l =>
@@ -157,16 +236,20 @@ const TRIAL = `
   const food = Array.from({ length: 14 }, () => ({ x: rnd() * 400, y: rnd() * 400, vx: 0, vy: 0, size: 0, plant: true, amount: rnd() }))
     .concat(others.filter(o => o.size < 5).map(o => ({ ...o, plant: false })))
     .concat(Array.from({ length: 4 }, () => ({ x: rnd() * 400, y: rnd() * 400, vx: 0, vy: 0, size: 0, plant: false, corpse: true, species: 'wanderer', amount: rnd() })));
-  const me = { x: 200, y: 200, vx: 0, vy: 0, energy: 1, age: 0, size: 6, gut: 0.5, hue: 140, fertile: false, genes: [0.2, 0.8, 0.5, 0.35], memory: {} };
+  const me = { x: 200, y: 200, vx: 0, vy: 0, energy: 1, age: 0, size: 6, gut: 0.5, hue: 140, fertile: false, genes: [0.2, 0.8, 0.5, 0.35], memory: {}, legs: 1, maxSpeed: 2.2, stamina: 1, fat: 0, smell: { prey: { x: 1, y: 0, strength: 0.3 }, danger: { x: 0, y: 1, strength: 0.1 } } };
   const trace = [];
   for (let t = 0; t < 300; t++) {
-    me.energy = 1 + 0.8 * Math.sin(t / 15); me.fertile = t % 40 > 10;
-    const world = { width: 400, height: 400, t, food: t % 50 < 10 ? [] : food, others: t % 70 < 10 ? [] : others,
+    // Many moments in one scene: hungry and full, fat and lean, tired, alone or crowded, smelling prey or danger.
+    me.energy = 1 + 0.95 * Math.sin(t / 15); me.fertile = t % 40 > 10; me.bumped = t % 100 < 20 ? 3 : 0;
+    me.fat = t % 90 < 30 ? 0.6 : 0; me.stamina = t % 60 < 15 ? 0.1 : 1;
+    me.smell.prey.strength = 0.1 + 0.8 * Math.sin(t / 11) ** 2; me.smell.danger.strength = t % 80 < 20 ? 0.8 : 0.05;
+    for (const o of others) o.signal = (o.signal + 0.37) % 1;
+    const world = { width: 400, height: 400, t, season: (t % 100) / 100, food: t % 50 < 10 ? [] : food, others: t % 70 < 10 ? [] : t % 70 < 25 ? others.slice(0, 3) : others,
       noise: (x, y) => Math.sin(x * 0.01 + t * 0.01) * Math.cos(y * 0.013) };
     const f = behave(me, world);
     if (!f || !Number.isFinite(f.x) || !Number.isFinite(f.y))
       throw new Error('tick ' + t + ' returned ' + JSON.stringify(f));
-    trace.push(f.x.toFixed(3), f.y.toFixed(3), f.mate ? 1 : 0, Number(f.give).toFixed(2), Number(f.signal).toFixed(2), f.eat === false ? 0 : 1);
+    trace.push(f.x.toFixed(3), f.y.toFixed(3), f.mate ? 1 : 0, Number(f.give).toFixed(2), Number(f.signal).toFixed(2), f.eat === false ? 0 : 1, f.sprint ? 1 : 0);
     me.vx += f.x * 0.1; me.vy += f.y * 0.1;
     me.x = (me.x + me.vx + 400) % 400; me.y = (me.y + me.vy + 400) % 400;
     me.age++;
@@ -189,11 +272,11 @@ export function trial(code) {
   }
 }
 
-async function ask(prompt, numPredict = 1200) {
+async function ask(prompt, numPredict = 1200, temperature = 1.0) {
   const t0 = Date.now();
   const res = await fetch('http://localhost:11434/api/generate', {
     method: 'POST',
-    body: JSON.stringify({ model: MODEL, prompt, stream: false, options: { temperature: 1.0, num_predict: numPredict, num_ctx: 8192 } }),
+    body: JSON.stringify({ model: MODEL, prompt, stream: false, options: { temperature, num_predict: numPredict, num_ctx: 8192 } }),
   });
   if (!res.ok) throw new Error(`Ollama said ${res.status}: ${await res.text()}`);
   return { text: (await res.json()).response, seconds: (Date.now() - t0) / 1000 };
@@ -254,24 +337,62 @@ async function nameFor(code, taken) {
   return { name: christen(text, taken), seconds };
 }
 
+// Which lines shape a behavior most, measured in the trial scene: each line is nudged in turn (its numbers halved,
+// or, without numbers, left out) and the change in what the creature does is weighed. Like regulatory genes,
+// a few lines decide most of what a body does. Returns one line: usually the strongest, sometimes one of the next few.
+export function focusLine(code, print) {
+  if (!print) return null;
+  const lines = code.split('\n'), scored = [];
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    if (!t || t.startsWith('//') || /^[{}()\[\];,]*$/.test(t) || /^function behave/.test(t)) return;
+    const probes = /\d/.test(t.replace(/\/\/.*$/, ''))
+      ? [line.replace(/(?<![\w.])(\d+(\.\d+)?)(?![\w.])/g, m => String(Number(m) / 2))]
+      : [/[{}]/.test(t) ? null : '// ' + line].filter(Boolean);
+    let best = 0;
+    for (const probe of probes) {
+      const r = trial([...lines.slice(0, i), probe, ...lines.slice(i + 1)].join('\n'));
+      if (r.fingerprint) best = Math.max(best, difference(print, r.fingerprint));
+    }
+    if (best > 0) scored.push({ line, best });
+  });
+  if (!scored.length) return null;
+  scored.sort((a, b) => b.best - a.best);
+  return (Math.random() < 0.6 ? scored[0] : scored[Math.floor(Math.random() * Math.min(5, scored.length))]).line;
+}
+
 // Branch a new species off a parent's code. A child that crashes, hangs, or behaves exactly like its parent
 // does not count; the god gets a few tries. Once one lives, the god makes one more, and the child that
 // differs most from its parent is kept. Returns { born, name, code, error, failures, seconds, attempts }.
-export async function speciate(parentName, parentCode, taken, makePrompt = SPECIATE_PROMPT, viaBridge = false) {
+export async function speciate(parentName, parentCode, taken, makePrompt = null, viaBridge = false) {
   parentCode = parentCode.replace(/^\/\/ [†↺].*\n/gm, '');
+  const editing = !makePrompt && !viaBridge, nudge = pickNudge();
   const parentPrint = trial(parentCode).fingerprint;
+  makePrompt ??= EDIT_PROMPT(nudge, editing ? focusLine(parentCode, parentPrint) : null);
   let seconds = 0, attempts = 0, best = null, last = {}, study, god = viaBridge ? HAIKU : QWEN;
   const failures = [];
   while (attempts < ATTEMPTS + (best ? 1 : 0) && !(best && best.extra)) {
     attempts++;
     let answer = null;
     if (viaBridge) answer = await askBridge(makePrompt(parentCode), parentName).catch(e => { console.log(`bridge: ${e.message}; Qwen answers instead`); viaBridge = false; return null; });
-    if (!answer) { answer = await ask(makePrompt(parentCode)); god = QWEN; }
+    if (!answer) { answer = await ask(makePrompt(parentCode), editing ? 900 : 1200, editing ? 1.2 : 1.0); god = QWEN; }
     seconds += answer.seconds;
     study = answer.study ?? answer.text.match(/(?:STUDY|INTENT):\s*([\s\S]*?)\s*CODE:/)?.[1]?.trim().replace(/\s+/g, ' ') ?? study;
-    const code = extractCode(answer.text).replace(/^\s*\/\/\s*name\s*:.*$/gim, '').trim();
-    const t = trial(code);
-    const error = t.error ?? (t.fingerprint === parentPrint ? 'a copy of its parent' : null);
+    let code;
+    if (editing) {
+      // Qwen answers as it likes: one line each, fenced blocks, or a whole new function. All three are taken.
+      const edit = answer.text.match(/OLD:\s*(?:```\w*\n)?([\s\S]*?)(?:```)?\s*NEW:\s*(?:```\w*\n)?([\s\S]*?)(?:```|$)/);
+      code = edit ? applyEdit(parentCode, edit[1], edit[2]) : null;
+      if (code) study = `${nudge}: "${edit[1].trim().split('\n')[0]}" became "${edit[2].trim().split('\n')[0]}"`;
+      else if (/function behave/.test(answer.text)) { code = extractCode(answer.text).trim(); study = `${nudge} (rewritten whole)`; }
+      if (!code) { stillbirth(`${parentName}-child`, answer.text, 'no usable edit'); failures.push('no usable edit'); last = { code: answer.text, error: 'no usable edit' }; continue; }
+    } else code = extractCode(answer.text).replace(/^\s*\/\/\s*name\s*:.*$/gim, '').trim();
+    let t = trial(code);
+    if (t.error && /end of input|missing \)|Unexpected end/i.test(t.error)) { const fixed = closeBrackets(code); const t2 = trial(fixed); if (!t2.error) { code = fixed; t = t2; } }
+    // The trial scene runs through hunger, fat, fatigue, smell, signals and crowding, so an edit that changes
+    // nothing there is an edit to a line that never runs: a copy of its parent.
+    const same = t.fingerprint === parentPrint;
+    const error = t.error ?? (same ? 'a copy of its parent' : null);
     if (error) {
       stillbirth(`${parentName}-child`, answer.text, error);
       failures.push(error);
@@ -286,7 +407,8 @@ export async function speciate(parentName, parentCode, taken, makePrompt = SPECI
   }
   if (!best) return { born: false, ...last, failures, seconds, attempts, study, god };
   const named = await nameFor(best.code, taken);
-  return { born: true, name: named.name, code: best.code, seconds: seconds + named.seconds, attempts, study, god };
+  // A one-line edit is a mutation, not a new species: its carriers can still breed with their parents' kind.
+  return { born: true, name: named.name, code: best.code, seconds: seconds + named.seconds, attempts, study, god, variant: editing };
 }
 
 // After a collapse: a new hunter written with the lessons of every collapse so far.

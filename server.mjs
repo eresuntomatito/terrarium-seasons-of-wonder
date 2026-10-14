@@ -9,6 +9,8 @@ import { startGod } from './god/evolution.mjs';
 import { World, W, H, CELL, GW, GH, TICKS_PER_DAY, SEASON_TICKS, GENERATIONS_PER_MUTATION } from './sim/world.mjs';
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
+// Numbers per creature in a frame. The viewer reloads itself when this changes, so an open tab never misreads frames.
+const FRAME_STRIDE = 13;
 const PORT = 8000, TICKS_PER_SEC = 30, SAVE_EVERY_MS = 30_000;
 const SAVE = path.join(ROOT, 'data', 'world.json');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css' };
@@ -48,13 +50,34 @@ setInterval(() => {
   }
   if (world.tick % 2 === 0) broadcast('frame', world.frame());
   if (world.tick % 20 === 0) broadcast('terrain', world.terrain());
+  if (world.tick % 60 === 0) broadcast('reef', { map: world.reefMap(), thicket: world.thicketMap(), climate: world.climate() });
   if (world.tick % 900 === 0) broadcast('species', world.speciesList()); // evolved code and drift
+  if (world.tick % 300 === 0) stewardRelease();
 }, 1000 / TICKS_PER_SEC);
+
+// The steward's hand: data/release.json ({"name": "lurker", "count": 8, "hunter": true?}) sets a species down once, without a restart.
+const RELEASE = path.join(ROOT, 'data', 'release.json');
+function stewardRelease() {
+  // The steward's cut: data/vicariance.json ({"name": "tortoise"}) splits that species into four by quarters of the land.
+  const CUT = path.join(ROOT, 'data', 'vicariance.json');
+  if (fs.existsSync(CUT)) { try { world.vicariance(JSON.parse(fs.readFileSync(CUT, 'utf8')).name); } catch (e) { console.error('vicariance:', e.message); } fs.rmSync(CUT, { force: true }); }
+  if (!fs.existsSync(RELEASE)) return;
+  try {
+    const { name, count, hunter, waves, traits, every, times } = JSON.parse(fs.readFileSync(RELEASE, 'utf8')), sp = world.registry[name];
+    // "every" (ticks) and "times": a series of packs, the first now; "traits" shapes every body the same way.
+    if (sp && every && times) { (world.waves ??= []); for (let k = 0; k < times; k++) world.waves.push({ name, count, hunter: hunter ?? true, traits, at: world.tick + k * every, steward: true }); world.log(`The steward will send ${count} ${name}s ${times} times, ${every} ticks apart.`); }
+    else if (sp && waves) world.scheduleWaves(name, false, hunter ?? (sp.avgGut ?? sp.gut) >= 0.5); // "waves": true staggers it
+    else if (sp) world.reintroduce(hunter ?? (sp.avgGut ?? sp.gut) >= 0.5, name, count); // "hunter": true sends a line back as hunters
+    else console.error(`release: no species ${name}`);
+  } catch (e) { console.error('release:', e.message); }
+  fs.rmSync(RELEASE, { force: true });
+}
 
 function stream(req, res) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-  res.write(message('meta', { W, H, CELL, GW, GH, TICKS_PER_DAY, TICKS_PER_SEC, SEASON_TICKS, GENERATIONS_PER_MUTATION }));
+  res.write(message('meta', { W, H, CELL, GW, GH, TICKS_PER_DAY, TICKS_PER_SEC, SEASON_TICKS, GENERATIONS_PER_MUTATION, FRAME_STRIDE }));
   res.write(message('species', world.speciesList()));
+  res.write(message('reef', { map: world.reefMap(), thicket: world.thicketMap(), climate: world.climate() }));
   res.write(message('god', god));
   res.write(message('past', { history: world.history, events: world.events, stats: world.stats, records: world.records, traits: world.traits() }));
   res.write(message('terrain', world.terrain()));

@@ -47,7 +47,11 @@ export function startGod(world, onStatus = () => {}) {
     onStatus({ state: busy ? 'thinking' : 'idle', parent: busy?.name, queue: queue.map(q => q.name) });
   };
 
+  // The god can be told to rest (Luis): while data/god-paused exists it takes no work, and what it was given is dropped.
+  const PAUSE = path.join(ROOT, 'data', 'god-paused'), paused = () => fs.existsSync(PAUSE);
+  if (paused()) world.log('The god rests. It will not reach into the world until it is called again.');
   const enqueue = task => {
+    if (paused()) return false;
     if ((busy?.name === task.name && busy?.kind === task.kind) || queue.some(q => q.name === task.name && q.kind === task.kind)) return false;
     queue.push(task);
     status();
@@ -69,7 +73,8 @@ export function startGod(world, onStatus = () => {}) {
   // The god builds on the best hunter it has made so far. Only a line that has done worse than the seed
   // hunter, twice in a row, is set aside to start again from the seed.
   function reflectFrom(latest) {
-    const seed = world.speciesNames.find(n => !world.registry[n].parent && (world.registry[n].avgGut ?? world.registry[n].gut) >= 0.5);
+    // The hunter seed: a founding species built to hunt (its founding gut), never the scavenger seed.
+    const seed = world.speciesNames.find(n => !world.registry[n].parent && !world.registry[n].scavenger && world.registry[n].gut >= 0.5);
     const lessons = world.lessons ?? [], bestOf = pred => Math.max(0, ...lessons.filter(pred).map(l => l.days));
     const line = world.registry[latest].lineage.split('.').slice(0, 2).join('.');
     const lineBest = bestOf(l => l.lineage.startsWith(line) && l.lineage.includes('.')), seedBest = bestOf(l => !l.lineage.includes('.'));
@@ -116,6 +121,12 @@ export function startGod(world, onStatus = () => {}) {
       });
   }
 
+  // What the world has measured about a species, put in front of its code so the god writes for what it has become.
+  function fieldNote(name) {
+    const r = world.registry[name];
+    return `// Field notes: these creatures now live as ${r.role ?? 'unknown'}s (trophic level ${r.tl ?? '?'}), gut ${r.avgGut ?? r.gut} (0 = plant-eater … 1 = flesh-eater), body size ${r.avgSize ?? r.size}.\n`;
+  }
+
   // As soon as a study produces a new hunter, a batch of it is released, whatever else is alive.
   function releaseFresh(name) {
     if (world.diets().plantEaters < IMMIGRATION.freshPrey) return; // too little to hunt yet: it waits for the 150 rule
@@ -128,6 +139,7 @@ export function startGod(world, onStatus = () => {}) {
     const parent = reflectFrom(latest);
     const viaBridge = bridgeAlive();
     const r = await reflect(parent, world.evolvedCode(parent), world.lessons, takenNames(world), viaBridge ? evidence(latest) : null, viaBridge);
+    if (paused()) return;
     world.pendingStudies = (world.pendingStudies ?? []).filter(n => n !== latest);
     if (r.study) world.log(`The god's study: ${r.study}`);
     if (r.study) note(`## Season ${world.season}: study after the ${latest}s collapsed\n${world.lessons.at(-1) ? lessonText(world.lessons.at(-1)) : ''}\n\n${r.study}`);
@@ -144,6 +156,7 @@ export function startGod(world, onStatus = () => {}) {
   }
 
   async function next() {
+    if (paused()) queue.length = 0;
     if (busy || !queue.length) return;
     const task = busy = queue.shift(), parent = task.name;
     status();
@@ -154,20 +167,22 @@ export function startGod(world, onStatus = () => {}) {
         return;
       }
       const viaBridge = bridgeAlive();
-      const r = await speciate(parent, world.evolvedCode(parent), takenNames(world), viaBridge ? BRANCH_PROMPT(pastBranches(parent)) : undefined, viaBridge);
+      const r = await speciate(parent, fieldNote(parent) + world.evolvedCode(parent), takenNames(world), viaBridge ? BRANCH_PROMPT(pastBranches(parent)) : undefined, viaBridge);
+      if (paused()) return; // told to rest while it was working: the answer is set aside
       console.log(`god → ${parent}: ${r.born ? `born ${r.name}` : `stillborn (${r.error})`} after ${r.attempts} tries, ${r.seconds.toFixed(1)}s`);
       if (!r.born) {
         world.log(`The god reached into the ${parent}s ${r.failures.length} times: ${describeFailures(r.failures, parent)}.`);
       } else {
         // Parents gone or too few to spare: the god keeps the new species until the meadow is empty of its kind.
         const held = world.registry[parent].extinct !== null || (world.lastCounts[parent] ?? 0) < 3;
-        if (held) world.holdSpecies(r.name, parent, r.code); else world.addSpecies(r.name, parent, r.code);
+        if (held) world.holdSpecies(r.name, parent, r.code); else world.addSpecies(r.name, parent, r.code, r.variant);
         if (r.study) {
           world.registry[r.name].intent = r.study;
           world.log(`The god's intent for the ${r.name}s: ${r.study}`);
           note(`## Season ${world.season}: the ${r.name}s (${world.registry[r.name].lineage}) branch from the ${parent}s\nIntent: ${r.study}`);
         }
         const file = path.join('species', `${r.name}.js`), lin = n => world.registry[n].lineage;
+        if (world.isVariant(r.name)) return; // a variant goes into the fossil record only if it becomes a species
         const how = held ? 'held by the god after the' : 'branched from the';
         fs.writeFileSync(path.join(ROOT, file), `// ${r.name} (${lin(r.name)}): ${how} ${parent}s (${lin(parent)}) in season ${world.season}, written by ${r.god}.\n${r.code}\n`);
         fossilize(file, `Season ${world.season}: the ${r.name}s (${lin(r.name)}) ${held ? 'are held by the god' : 'branch'} from the ${parent}s (${lin(parent)})`);
@@ -199,6 +214,7 @@ export function startGod(world, onStatus = () => {}) {
     fossilize(file, `Season ${world.season}: ${message}`);
   };
   world.onExtinct = name => {
+    if (world.isVariant(name)) return; // a variant that fades leaves no fossil
     mark(name, '† extinct', `the ${name}s (${world.registry[name].lineage}) are extinct`);
     const r = world.registry[name], st = world.stats[name];
     if (r.intent || r.study) note(`Outcome, season ${world.season}: the ${name}s (${r.lineage}) are extinct after ${Math.max(0, r.extinct - r.born)} seasons; ` +
@@ -209,9 +225,17 @@ export function startGod(world, onStatus = () => {}) {
   // Species the world splits on its own, by drift: fossilize their evolved code.
   world.isTaken = name => takenNames(world).has(name);
   world.onSplit = (name, parent) => {
+    if (world.isVariant(name)) return; // variants are fossilized when they become species (onGraduate)
     const file = path.join('species', `${name}.js`), lin = n => world.registry[n].lineage;
-    fs.writeFileSync(path.join(ROOT, file), `// ${name} (${lin(name)}): drifted apart from the ${parent}s (${lin(parent)}) in season ${world.season}; named by the world.\n${world.code[name]}\n`);
-    fossilize(file, `Season ${world.season}: the ${name}s (${lin(name)}) drift apart from the ${parent}s (${lin(parent)})`);
+    const slipped = world.registry[name].slip, how = slipped ? `born with ${slipped} from` : 'drifted apart from';
+    fs.writeFileSync(path.join(ROOT, file), `// ${name} (${lin(name)}): ${how} the ${parent}s (${lin(parent)}) in season ${world.season}; named by the world.\n${world.code[name]}\n`);
+    fossilize(file, `Season ${world.season}: the ${name}s (${lin(name)}) ${slipped ? 'are born with a slip' : 'drift apart'} from the ${parent}s (${lin(parent)})`);
+  };
+  world.onGraduate = name => {
+    const r = world.registry[name], file = path.join('species', `${name}.js`), lin = n => world.registry[n]?.lineage ?? '?';
+    const how = r.slip ? `born with ${r.slip} from` : `a variant (${r.intent ?? 'the god\'s edit'}) of`;
+    fs.writeFileSync(path.join(ROOT, file), `// ${name} (${r.lineage}): ${how} the ${r.parent}s (${lin(r.parent)}) in season ${r.born}; a species of its own from season ${world.season}.\n${world.code[name]}\n`);
+    fossilize(file, `Season ${world.season}: the ${name}s (${r.lineage}) become a species, apart from the ${r.parent}s (${lin(r.parent)})`);
   };
   for (const name of world.rewritten ?? []) fossilize(path.join('species', `${name}.js`), `Season ${world.season}: the god rewrites the ${name}s (${world.registry[name].lineage})`);
 }
