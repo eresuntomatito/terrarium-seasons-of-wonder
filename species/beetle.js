@@ -1,3 +1,4 @@
+// † extinct in season 430.
 // † extinct in season 429.
 // † extinct in season 428.
 // † extinct in season 426.
