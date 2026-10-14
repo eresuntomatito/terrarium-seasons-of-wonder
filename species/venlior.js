@@ -1,3 +1,4 @@
+// † extinct in season 568.
 // venlior (P.1): drifted apart from the progenitors (P) in season 566; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
