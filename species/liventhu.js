@@ -1,3 +1,4 @@
+// † extinct in season 576.
 // liventhu (P.2.5): drifted apart from the omquisas (P.2) in season 573; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
