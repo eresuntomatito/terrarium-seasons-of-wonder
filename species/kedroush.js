@@ -1,3 +1,4 @@
+// † extinct in season 384.
 // kedroush (S.180): drifted apart from the stalkers (S) in season 383; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
