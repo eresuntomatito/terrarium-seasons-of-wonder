@@ -1,3 +1,4 @@
+// † extinct in season 379.
 // drofifi (S.152): drifted apart from the stalkers (S) in season 379; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
