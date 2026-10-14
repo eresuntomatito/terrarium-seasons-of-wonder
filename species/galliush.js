@@ -1,3 +1,4 @@
+// † extinct in season 372.
 // galliush (S.131): drifted apart from the stalkers (S) in season 372; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
