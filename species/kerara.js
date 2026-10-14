@@ -1,3 +1,4 @@
+// † extinct in season 515.
 // kerara (T.324): drifted apart from the tortoises (T) in season 514; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
