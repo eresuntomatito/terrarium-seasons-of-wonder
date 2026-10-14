@@ -1,3 +1,4 @@
+// † extinct in season 400.
 // quiquidro (S.236): drifted apart from the stalkers (S) in season 398; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
