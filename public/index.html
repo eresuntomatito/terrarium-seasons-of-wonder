@@ -107,6 +107,7 @@ const terrainCanvas = document.createElement('canvas'), tg = terrainCanvas.getCo
 const reefCanvas = document.createElement('canvas'), rg = reefCanvas.getContext('2d');
 let eggs = [], cap = null;
 let climate = 0.5, tickRate = 0, lastTick = null, lastTickAt = 0;
+let divide = null; // the next great divide: { name, ticks } or null
 const speedLog = []; // [tick, ms] of recent frames, for the measured speed
 const trails = new Map();
 const SCALE = 2;
@@ -176,7 +177,7 @@ on('frame', f => {
   const [t0, ms0] = speedLog[0];
   if (nowMs - ms0 > 1500 && f.t > t0) tickRate = (f.t - t0) / ((nowMs - ms0) / 1000);
   lastTick = f.t; lastTickAt = nowMs;
-  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap;
+  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap; divide = f.divide ?? null;
   renderClock();
 });
 on('event', e => { events.push(e); renderEvents(); toast(e.text); });
@@ -397,7 +398,10 @@ function renderClock() {
   const left = Math.ceil((meta.SEASON_TICKS - tick % meta.SEASON_TICKS) / (tickRate || meta.TICKS_PER_SEC)); // at the measured speed
   const sky = rain > 0.75 ? 'storms' : rain > 0.55 ? 'rain' : rain > 0.35 ? 'overcast' : rain > 0.2 ? 'dry' : 'drought';
   const era = climate > 0.66 ? 'wet era' : climate < 0.34 ? 'dry era' : climate > 0.5 ? 'wetting era' : 'drying era';
-  $('clock').textContent = `season ${season} · day ${day} · ${sky} · ${era} · season ends in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  const mmss = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+  const split = divide ? Math.ceil(divide.ticks / (tickRate || meta.TICKS_PER_SEC)) : null;
+  $('clock').textContent = `season ${season} · day ${day} · ${sky} · ${era} · season ends in ${mmss(left)}`
+    + (divide ? ` · next great divide (${divide.name}s) in ${mmss(split)}` : ' · no great divide due');
   if (tick % 30 === 0) renderSpecies();
   else for (const el of document.querySelectorAll('[data-count]')) el.textContent = counts()[el.dataset.count] ?? 0;
 }

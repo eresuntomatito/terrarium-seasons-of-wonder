@@ -67,7 +67,7 @@ function stewardRelease() {
     // "every" (ticks) and "times": a series of packs, the first now; "traits" shapes every body the same way.
     if (sp && every && times) { (world.waves ??= []); for (let k = 0; k < times; k++) world.waves.push({ name, count, hunter: hunter ?? true, traits, at: world.tick + k * every, steward: true }); world.log(`The steward will send ${count} ${name}s ${times} times, ${every} ticks apart.`); }
     else if (sp && waves) world.scheduleWaves(name, false, hunter ?? (sp.avgGut ?? sp.gut) >= 0.5); // "waves": true staggers it
-    else if (sp) world.reintroduce(hunter ?? (sp.avgGut ?? sp.gut) >= 0.5, name, count); // "hunter": true sends a line back as hunters
+    else if (sp) world.reintroduce(hunter ?? (sp.avgGut ?? sp.gut) >= 0.5, name, count, traits ?? null, true); // "hunter": true sends a line back as hunters
     else console.error(`release: no species ${name}`);
   } catch (e) { console.error('release:', e.message); }
   fs.rmSync(RELEASE, { force: true });

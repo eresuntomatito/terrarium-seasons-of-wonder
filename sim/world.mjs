@@ -194,9 +194,10 @@ export const PHYSICS = {
   mineralGain: 0.0005,   // shell store gained per grazing tick, × mineral to hand (reef share of the 8 neighbours + soil mineral)
   storeFade: 0.0001,     // share of each store lost per tick
   storeBirth: 0.6,       // a newborn starts with this share of its parents' stores
-  divideShare: 0.6, divideSeasons: 4, divideMin: 10, // the great divide: over this share of all life, more than this many seasons running; quarters smaller than divideMin stay
+  divideShare: 0.6, divideSeasons: 4, divideMin: 10, divideGeo: 2, divideSeam: 0.15, // the great divide: over this share of all life, more than this many seasons running; quarters smaller than divideMin stay
   resistUpkeep: 0.2,     // toxin resistance (0..1) costs upkeep: a liver that breaks poison down burns energy all the time
-  rageRadius: 4, rageCost: 2, rageCooldown: TICKS_PER_DAY, // the giant's rage: cells heaved aside, energy, and rest between
+  rageRadius: 4, rageCost: 2, rageCooldown: TICKS_PER_DAY, // the giant's rage: cells heaved aside, energy, and rest between …
+  rageBumps: 4, rageHunger: 3.5, // … and it also rages when trapped (bumps above rageBumps) and hungry (energy below rageHunger; it still needs rageCost + 0.5 to spend)
   dormantBelow: 0.15, wakeAt: 0.5, // a dormant giant sleeps while the world holds less than this share of its room, wakes at this
   crowdStart: 0.7,       // births start slowing when the world is this full (of its room) …
   capTarget: 1000,       // the creature cap shrinks 10% a season until it falls below this
@@ -663,7 +664,7 @@ export class World {
     return last;
   }
 
-  reintroduce(fleshEater, name = this.latest(fleshEater), count, traits = null) { // traits: the steward's hand-shaped body for every member
+  reintroduce(fleshEater, name = this.latest(fleshEater), count, traits = null, steward = false) { // traits: the steward's hand-shaped body for every member
     if (!name) return;
     const sp = this.registry[name];
     const returning = sp.extinct !== null, held = !!sp.waiting, reinforcing = !returning && !held;
@@ -739,7 +740,9 @@ export class World {
     this.lastCounts[name] = count;
     if (returning) this.onRevive?.(name);
     const who = `${count} ${plural(name)} (${sp.lineage})`, hand = held ? 'opens its hand and ' : '';
-    this.log(fleshEater
+    this.log(steward
+      ? `The steward sets ${who} down${fleshEater && den ? ' beside the thickest herd' : ' in the meadow'}.`
+      : fleshEater
       ? `${this.freshFromStudy ? 'Fresh from its study, the' : `The plant-eaters number ${prey.length}. The`} god ${hand}releases ${who}${den ? ' as a pack beside the thickest herd' : ''}${shaped ? `, shaped to their prey (size ${r1(shaped)})` : ''}.`
       : `Nothing eats plants any more. The god ${hand}sets ${who} down in the meadow.`);
     this.onSpecies?.();
@@ -991,7 +994,7 @@ export class World {
     this.waves = this.waves.filter(v => {
       if (this.tick < v.at) return true;
       if (IMMIGRATION.paused && !v.steward) return true; // the god's own waves wait while its hand is held; the steward's go
-      if (v.scavengers) this.reintroduceScavengers(v.count); else this.reintroduce(v.hunter, v.name, v.count, v.traits);
+      if (v.scavengers) this.reintroduceScavengers(v.count); else this.reintroduce(v.hunter, v.name, v.count, v.traits, !!v.steward);
       return false;
     });
   }
@@ -1320,7 +1323,9 @@ export class World {
         c.eats = f.eat;
         c.sprint = f.sprint;
         c.shove = !!f.shove; // a desperate slender giant may shove even solid reef aside
-        if (f.rage && sp.unique && !(c.rageReady > this.tick) && c.energy > P.rageCost + 0.5) this.rage(c);
+        // Rage: its own (plenty in sight, yet walled off), or trapped and hungry, whatever it sees (Luis, 00:25 Oct 15).
+        const giant = this.registry[name].unique, trapped = giant && (c.bumps ?? 0) > P.rageBumps && c.energy < P.rageHunger;
+        if ((f.rage || trapped) && giant && !(c.rageReady > this.tick) && c.energy > P.rageCost + 0.5) this.rage(c);
         if (f.give !== undefined) c.give = clamp01(f.give);
         if (f.signal !== undefined) c.signal = r2(clamp01(f.signal));
         c.fx = f.x; c.fy = f.y;
@@ -1358,11 +1363,18 @@ export class World {
           for (const s of [1, -1]) { const j = cellAt(wrap(c.x + px * s, W), wrap(c.y + py * s, H)); if (j !== i) this.reef[j] = Math.min(1, this.reef[j] + moved / 2); else this.reef[i] += moved / 2; }
         }
       }
-      if (sp.girth && c.shove && ahead(c.vx, c.vy) >= solidFor && this.tick - (c.shoved ?? -1e9) >= P.shoveEvery) {
+      // The way to shove (Luis, 00:40 Oct 15): reef straight ahead, or a little to either side (a cone of ±30°), or
+      // toward where it wants to go: sliding along a wall it still pushes into the wall between it and its goal.
+      let push = null;
+      if (sp.girth && c.shove && this.tick - (c.shoved ?? -1e9) >= P.shoveEvery) {
+        const sp0 = Math.max(0.5, Math.hypot(c.vx, c.vy)), h = Math.atan2(c.vy, c.vx), goal = Math.hypot(c.fx ?? 0, c.fy ?? 0) > 0.01 ? Math.atan2(c.fy, c.fx) : h;
+        for (const a of [h, h + Math.PI / 6, h - Math.PI / 6, goal]) { const dx = Math.cos(a) * sp0, dy = Math.sin(a) * sp0; if (ahead(dx, dy) >= solidFor) { push = [dx, dy]; break; } }
+      }
+      if (push) {
         c.shoved = this.tick; // a shove is a heave, not a grind: at most once every shoveEvery ticks
         // Desperate: it shoves the reef in its way to either side of its path, at a cost in energy, and goes on.
-        const v = Math.hypot(c.vx, c.vy) || 1, nx = wrap(c.x + c.vx + c.vx / v * reach, W), ny = wrap(c.y + c.vy + c.vy / v * reach, H);
-        const j = cellAt(nx, ny), d = this.reef[j], px = -c.vy / v * CELL, py = c.vx / v * CELL;
+        const [qx, qy] = push, v = Math.hypot(qx, qy) || 1, nx = wrap(c.x + qx + qx / v * reach, W), ny = wrap(c.y + qy + qy / v * reach, H);
+        const j = cellAt(nx, ny), d = this.reef[j], px = -qy / v * CELL, py = qx / v * CELL;
         c.energy -= P.reefShove * d;
         this.reef[j] = 0;
         for (const s of [1, -1]) { const k = cellAt(wrap(nx + px * s, W), wrap(ny + py * s, H)); this.reef[k] = Math.min(1, this.reef[k] + d / 2); }
@@ -1961,23 +1973,110 @@ export class World {
     }
   }
 
-  // Vicariance (Luis): the land a species holds is cut in four, and the members in each part become a species of their
-  // own, unable to breed with the others. The cuts follow the population, so the four are equal in number. One keeps the name.
+  // Vicariance (Luis): a species is divided along its own seams. K-means on where its members live (on the wrapped
+  // land: each axis as a circle) and what they are (body traits, standardised), place weighted divideGeo : 1 over
+  // kind; 2 to 4 groups, as many as separate best (silhouette). Groups under divideMin join their nearest neighbour.
+  // With no real structure (silhouette below divideSeam), it falls back to four equal parts cut at the medians.
+  // The largest group keeps the name.
   vicariance(parent) {
     const group = this.creatures.filter(c => !c.dead && c.species === parent && c.k?.length);
-    // Equal shares, each its own stretch of land: cut at the population's median x, then each half at its own median y.
-    const byX = group.slice().sort((a, b) => a.x - b.x), half = Math.ceil(byX.length / 2), quarters = [];
-    for (const side of [byX.slice(0, half), byX.slice(half)]) {
-      const byY = side.sort((a, b) => a.y - b.y), mid = Math.ceil(byY.length / 2);
-      quarters.push(byY.slice(0, mid), byY.slice(mid));
+    if (group.length < 2 * P.divideMin) return;
+    let parts = this.divideByKind(group);
+    const seams = !!parts;
+    if (!parts) { // the median cut
+      const byX = group.slice().sort((a, b) => a.x - b.x), half = Math.ceil(byX.length / 2);
+      parts = [];
+      for (const side of [byX.slice(0, half), byX.slice(half)]) {
+        const byY = side.sort((a, b) => a.y - b.y), mid = Math.ceil(byY.length / 2);
+        parts.push(byY.slice(0, mid), byY.slice(mid));
+      }
     }
-    const order = quarters.filter(q => q.length >= P.divideMin).sort((a, b) => b.length - a.length); // a near-empty quarter stays with the parent
-    this.log(`The land is cut in four. The ${plural(parent)} of each part can no longer breed with the others.`);
+    const order = parts.filter(q => q.length >= P.divideMin).sort((a, b) => b.length - a.length);
+    if (order.length < 2) return;
+    this.log(seams
+      ? `The ${plural(parent)} divide along their own seams: ${order.length} groups${this.divideNote ? ` (${this.divideNote})` : ''}. None can breed with the others any more.`
+      : `The land is cut in four. The ${plural(parent)} of each part can no longer breed with the others.`);
     for (const q of order.slice(1)) {
       const n = Math.min(...q.map(c => c.k.length)), values = [];
       for (let j = 0; j < n; j++) values.push(Math.exp(q.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / q.length));
       this.splitSpecies(parent, q, values);
     }
+  }
+
+  // The next great divide, as the world stands: the species over divideShare of all life now, and the ticks until the
+  // season end at which its streak would pass divideSeasons (if it stays over). Null when no species is that dominant.
+  nextDivide() {
+    let total = 0; const n = {};
+    for (const c of this.creatures) if (!c.dead) { total++; if (!this.registry[c.species].unique) n[c.species] = (n[c.species] ?? 0) + 1; }
+    const [name, count] = Object.entries(n).sort((a, b) => b[1] - a[1])[0] ?? [];
+    if (!name || count / total <= P.divideShare) return null;
+    const ends = Math.max(1, P.divideSeasons + 1 - (this.dominance?.[name] ?? 0)); // season ends still needed
+    return { name, ticks: SEASON_TICKS - this.tick % SEASON_TICKS + (ends - 1) * SEASON_TICKS };
+  }
+
+  // K-means over place and kind; returns the groups, or null when the members show no real structure.
+  divideByKind(group) {
+    const TRAITS = [c => this.bodySize(c), c => c.gut, c => this.armorOf(c), c => this.toxinOf(c), c => c.legs ?? 1, c => c.wind ?? 0.5,
+      c => c.mature ?? 1, c => c.browse ?? 0, c => c.gape ?? 0.5, c => c.resist ?? P.resistStart, c => c.litter ?? 1];
+    const raw = group.map(c => TRAITS.map(f => f(c))), m = TRAITS.length;
+    const mean = TRAITS.map((_, j) => raw.reduce((a, r) => a + r[j], 0) / raw.length);
+    const sd = TRAITS.map((_, j) => { const v = Math.sqrt(raw.reduce((a, r) => a + (r[j] - mean[j]) ** 2, 0) / raw.length); return v > 1e-6 ? v : Infinity; }); // a trait all share counts for nothing
+    // Place: each axis on a circle (so a herd across an edge stays whole), scaled so place weighs divideGeo against kind 1.
+    const geo = Math.sqrt(P.divideGeo / 2), kind = Math.sqrt(1 / m);
+    const pts = group.map((c, i) => {
+      const ax = 2 * Math.PI * c.x / W, ay = 2 * Math.PI * c.y / H;
+      return [Math.cos(ax) * geo, Math.sin(ax) * geo, Math.cos(ay) * geo, Math.sin(ay) * geo, ...raw[i].map((v, j) => (v - mean[j]) / sd[j] * kind)];
+    });
+    const d2 = (a, b) => { let s = 0; for (let j = 0; j < a.length; j++) s += (a[j] - b[j]) ** 2; return s; };
+    const kmeans = k => {
+      let best = null;
+      for (let restart = 0; restart < 5; restart++) {
+        const cs = [pts[Math.floor(Math.random() * pts.length)]];
+        while (cs.length < k) { // k-means++: the next centre far from those chosen
+          const w = pts.map(p => Math.min(...cs.map(c => d2(p, c)))), tot = w.reduce((a, b) => a + b, 0);
+          let r = Math.random() * tot, i = 0; while (i < w.length - 1 && (r -= w[i]) > 0) i++;
+          cs.push(pts[i]);
+        }
+        let label = new Array(pts.length).fill(0);
+        for (let it = 0; it < 25; it++) {
+          label = pts.map(p => { let bi = 0, bd = Infinity; cs.forEach((c, i) => { const d = d2(p, c); if (d < bd) { bd = d; bi = i; } }); return bi; });
+          for (let i = 0; i < k; i++) { const mine = pts.filter((_, n) => label[n] === i); if (mine.length) cs[i] = mine[0].map((_, j) => mine.reduce((a, p) => a + p[j], 0) / mine.length); }
+        }
+        const inertia = pts.reduce((a, p, n) => a + d2(p, cs[label[n]]), 0);
+        if (!best || inertia < best.inertia) best = { label, cs, inertia };
+      }
+      // Too-small groups join the nearest other centre.
+      for (let pass = 0; pass < k; pass++) {
+        const sizes = best.cs.map((_, i) => best.label.filter(l => l === i).length), small = sizes.findIndex(n => n > 0 && n < P.divideMin);
+        if (small < 0) break;
+        best.label = best.label.map((l, n) => { if (l !== small) return l; let bi = -1, bd = Infinity; best.cs.forEach((c, i) => { if (i !== small && sizes[i] >= P.divideMin) { const d = d2(pts[n], c); if (d < bd) { bd = d; bi = i; } } }); return bi < 0 ? l : bi; });
+      }
+      return best.label;
+    };
+    const silhouette = label => { // mean (b − a) / max(a, b) over members
+      const ks = [...new Set(label)]; if (ks.length < 2) return -1;
+      let sum = 0;
+      pts.forEach((p, n) => {
+        const dist = {}; const cnt = {};
+        pts.forEach((q, o) => { if (o === n) return; const l = label[o]; dist[l] = (dist[l] ?? 0) + Math.sqrt(d2(p, q)); cnt[l] = (cnt[l] ?? 0) + 1; });
+        const a = cnt[label[n]] ? dist[label[n]] / cnt[label[n]] : 0, b = Math.min(...ks.filter(l => l !== label[n] && cnt[l]).map(l => dist[l] / cnt[l]));
+        sum += (b - a) / (Math.max(a, b) || 1);
+      });
+      return sum / pts.length;
+    };
+    let best = null;
+    for (let k = 2; k <= 4; k++) { const label = kmeans(k), sc = silhouette(label); if (!best || sc > best.sc) best = { label, sc, k }; }
+    if (best.sc < P.divideSeam) { this.divideNote = null; return null; }
+    const parts = [...new Set(best.label)].map(l => group.filter((_, n) => best.label[n] === l));
+    // What sets each group apart: its most distinctive trait against the whole.
+    const NAMES = [['larger', 'smaller'], ['meat-leaning', 'plant-leaning'], ['more shelled', 'softer'], ['more toxic', 'less toxic'], ['longer-legged', 'shorter-legged'],
+      ['longer-winded', 'shorter-winded'], ['later-maturing', 'earlier-maturing'], ['more browsing', 'less browsing'], ['wider-mouthed', 'narrower-mouthed'], ['more resistant', 'less resistant'], ['bigger litters', 'smaller litters']];
+    this.divideNote = parts.map(q => {
+      const z = TRAITS.map((f, j) => (q.reduce((a, c) => a + f(c), 0) / q.length - mean[j]) / sd[j]);
+      const j = z.reduce((bj, v, i) => Math.abs(v) > Math.abs(z[bj]) ? i : bj, 0);
+      return `${q.length} ${Math.abs(z[j]) > 0.3 ? NAMES[j][z[j] > 0 ? 0 : 1] : 'like the rest'}`;
+    }).join(', ');
+    return parts;
   }
 
   splitSpecies(parent, members, values) {
@@ -2043,7 +2142,7 @@ export class World {
     }
     const variants = alive.filter(n => this.isVariant(n)).length;
     for (const n of alive) if (this.tick - (this.registry[n].releasedAt ?? 0) >= SEASON_TICKS) this.registry[n].established = true;
-    const established = alive.filter(n => this.registry[n].born === this.season);
+    const established = alive.filter(n => this.registry[n].born === this.season - 1); // born last season, alive through this one
     this.log(`Season ${this.season} ends. ${alive.length - variants} species live${variants ? `, and ${variants} variant${variants > 1 ? 's' : ''}` : ''}.` +
       (established.length ? ` ${established.map(plural).join(', ')} survived their first season.` : ''));
     this.season++;
@@ -2091,7 +2190,7 @@ export class World {
     const corpses = [];
     for (const k of this.corpses) corpses.push(Math.round(k.x), Math.round(k.y), r2(k.age / CORPSE_TICKS), k.cause === 'eaten' ? 1 : 0);
     const eggs = (this.eggs ?? []).flatMap(e => [Math.round(e.x), Math.round(e.y), r2((this.tick - e.laid) / (e.hatch - e.laid)), index[e.species] ?? -1]);
-    return { t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures };
+    return { t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide() };
   }
 
   // Plants, moisture and fertility per cell, as base64 bytes.
