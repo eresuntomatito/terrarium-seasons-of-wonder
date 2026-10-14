@@ -42,7 +42,7 @@ function behave(me, world) {
   }
 
   // Kin: keep a little room, and go to a willing one when ready to breed.
-  const ready = me.fertile && me.energy > 1.3;
+  const ready = me.fertile && me.energy > 1.0;
   let mate = null, mateD = Infinity;
   for (const o of world.others) {
     if (!o.kin) continue;
