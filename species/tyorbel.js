@@ -1,3 +1,4 @@
+// † extinct in season 369.
 // tyorbel (S.113): drifted apart from the stalkers (S) in season 368; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
