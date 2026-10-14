@@ -1,3 +1,4 @@
+// † extinct in season 549.
 // liquithu (T.406): drifted apart from the tortoises (T) in season 547; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
