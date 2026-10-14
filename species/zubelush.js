@@ -1,3 +1,4 @@
+// † extinct in season 384.
 // zubelush (S.182): drifted apart from the stalkers (S) in season 384; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
