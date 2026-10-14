@@ -1,3 +1,4 @@
+// † extinct in season 381.
 // ombelbel (S.162): drifted apart from the stalkers (S) in season 381; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
