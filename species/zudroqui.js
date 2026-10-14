@@ -1,3 +1,4 @@
+// † extinct in season 383.
 // zudroqui (S.174): drifted apart from the stalkers (S) in season 382; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
