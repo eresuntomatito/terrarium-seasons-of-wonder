@@ -1,3 +1,4 @@
+// † extinct in season 501.
 // saorsa (B.1.11.3): born with a part copied and changed from the ravenoms (B.1.11) in season 492; a species of its own from season 498.
 // † extinct in season 429.
 // † extinct in season 428.
