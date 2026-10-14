@@ -1,3 +1,4 @@
+// † extinct in season 438.
 // motyor (T.181): drifted apart from the tortoises (T) in season 436; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
