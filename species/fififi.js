@@ -1,3 +1,4 @@
+// † extinct in season 437.
 // fififi (T.178): drifted apart from the tortoises (T) in season 436; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
