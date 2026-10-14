@@ -1,3 +1,4 @@
+// † extinct in season 444.
 // moquiqui (B.1.6.6): drifted apart from the omquibels (B.1.6) in season 443; named by the world.
 // † extinct in season 429.
 // † extinct in season 428.
