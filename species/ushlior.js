@@ -1,3 +1,4 @@
+// † extinct in season 498.
 // ushlior (T.295): drifted apart from the tortoises (T) in season 498; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
