@@ -1,3 +1,4 @@
+// † extinct in season 498.
 // ravenom (B.1.11): born with "and" turned to "or" from the tygalgals (B.1) in season 485; a species of its own from season 497.
 // † extinct in season 429.
 // † extinct in season 428.
