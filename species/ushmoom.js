@@ -1,3 +1,4 @@
+// † extinct in season 388.
 // ushmoom (S.191): drifted apart from the stalkers (S) in season 387; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
