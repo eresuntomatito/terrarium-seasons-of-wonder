@@ -1,3 +1,4 @@
+// † extinct in season 364.
 // tynamo (S.101): drifted apart from the stalkers (S) in season 364; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
