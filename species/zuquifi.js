@@ -1,3 +1,4 @@
+// † extinct in season 358.
 // zuquifi (S.72): drifted apart from the stalkers (S) in season 358; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
