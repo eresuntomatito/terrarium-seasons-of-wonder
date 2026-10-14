@@ -1,3 +1,4 @@
+// † extinct in season 436.
 // venushush (T.173): drifted apart from the tortoises (T) in season 433; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
