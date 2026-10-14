@@ -1,3 +1,4 @@
+// † extinct in season 514.
 // lifigal (T.317): drifted apart from the tortoises (T) in season 513; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
