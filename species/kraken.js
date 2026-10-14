@@ -1,3 +1,4 @@
+// † extinct in season 573.
 // ↺ returned in season 564.
 // † extinct in season 563.
 // ↺ returned in season 549.
