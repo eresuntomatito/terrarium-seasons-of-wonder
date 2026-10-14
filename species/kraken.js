@@ -1,3 +1,4 @@
+// † extinct in season 472.
 // ↺ returned in season 464.
 // † extinct in season 463.
 // ↺ returned in season 455.
@@ -63,7 +64,7 @@ function behave(me, world) {
   else if (me.smell.prey.strength > 0.01) { gx = me.smell.prey.x; gy = me.smell.prey.y; }
   const gd = Math.hypot(gx, gy) || 1;
   // Desperation: bounced about with prey in sight (sooner when hungry), it stops going round and shoves the reef aside.
-  const shove = (n > 0 || !!near) && me.bumped > (me.energy < 3 ? 1 : 2.5);
+  const shove = ((n > 0 || !!near) && me.bumped > (me.energy < 3 ? 1 : 2.5)) || (me.energy < 2.5 && me.bumped > 3); // or starving and walled in
 
   // Desperate, it heads straight for its goal through whatever is in the way.
   if (shove) return { x: gx / gd, y: gy / gd, eat: feeding, mate: false, give: 0, signal: 0, sprint: false, shove };
