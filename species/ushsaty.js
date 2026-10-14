@@ -1,3 +1,4 @@
+// † extinct in season 361.
 // ushsaty (S.86): drifted apart from the stalkers (S) in season 361; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
