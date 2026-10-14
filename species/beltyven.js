@@ -1,3 +1,4 @@
+// † extinct in season 380.
 // beltyven (S.155): drifted apart from the stalkers (S) in season 379; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
