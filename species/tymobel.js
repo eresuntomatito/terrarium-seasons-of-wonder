@@ -1,3 +1,4 @@
+// † extinct in season 393.
 // tymobel (S.216): drifted apart from the stalkers (S) in season 392; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
