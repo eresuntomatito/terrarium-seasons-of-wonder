@@ -1,3 +1,4 @@
+// † extinct in season 554.
 // tyzuven (S.279): drifted apart from the stalkers (S) in season 553; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
