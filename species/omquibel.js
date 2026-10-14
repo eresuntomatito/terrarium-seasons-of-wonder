@@ -1,3 +1,4 @@
+// † extinct in season 451.
 // omquibel (B.1.6): drifted apart from the tygalgals (B.1) in season 441; named by the world.
 // † extinct in season 429.
 // † extinct in season 428.
