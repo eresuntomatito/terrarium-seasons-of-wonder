@@ -1,3 +1,4 @@
+// † extinct in season 376.
 // quikera (S.149): drifted apart from the stalkers (S) in season 376; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
