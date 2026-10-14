@@ -1,3 +1,4 @@
+// † extinct in season 437.
 // zunara (T.182): drifted apart from the tortoises (T) in season 437; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
