@@ -1,3 +1,4 @@
+// † extinct in season 452.
 // † extinct in season 442.
 // † extinct in season 434.
 // tygalgal (B.1): born with a comparison flipped from the beetles (B) in season 430; a species of its own from season 433.
