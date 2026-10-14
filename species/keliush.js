@@ -1,3 +1,4 @@
+// † extinct in season 414.
 // keliush (T.130): drifted apart from the tortoises (T) in season 413; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
