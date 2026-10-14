@@ -1,3 +1,4 @@
+// † extinct in season 362.
 // venmozu (S.89): drifted apart from the stalkers (S) in season 362; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
