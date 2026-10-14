@@ -1,3 +1,4 @@
+// † extinct in season 363.
 // saorfi (S.90): drifted apart from the stalkers (S) in season 362; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
