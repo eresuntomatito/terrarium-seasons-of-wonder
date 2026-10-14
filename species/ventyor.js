@@ -1,3 +1,4 @@
+// † extinct in season 462.
 // † extinct in season 460.
 // † extinct in season 453.
 // ventyor (B.2): born with one sense mistaken for another from the beetles (B) in season 431; a species of its own from season 452.
