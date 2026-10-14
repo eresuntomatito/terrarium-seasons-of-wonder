@@ -1,3 +1,4 @@
+// † extinct in season 393.
 // sakequi (S.217): drifted apart from the stalkers (S) in season 393; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
