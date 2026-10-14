@@ -1,3 +1,4 @@
+// † extinct in season 517.
 // nazudro (T.327): drifted apart from the tortoises (T) in season 515; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
