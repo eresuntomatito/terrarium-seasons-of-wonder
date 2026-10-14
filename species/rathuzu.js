@@ -1,3 +1,4 @@
+// † extinct in season 488.
 // rathuzu (T.278): drifted apart from the tortoises (T) in season 485; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
