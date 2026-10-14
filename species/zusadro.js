@@ -1,3 +1,4 @@
+// † extinct in season 546.
 // zusadro (T.402): drifted apart from the tortoises (T) in season 545; named by the world.
 // ↺ returned in season 294.
 // † extinct in season 293.
