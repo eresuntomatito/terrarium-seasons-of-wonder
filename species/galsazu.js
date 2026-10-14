@@ -1,3 +1,4 @@
+// † extinct in season 401.
 // galsazu (S.254): drifted apart from the stalkers (S) in season 400; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
