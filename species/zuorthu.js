@@ -1,3 +1,4 @@
+// † extinct in season 589.
 // zuorthu (P.2.9): drifted apart from the omquisas (P.2) in season 581; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
