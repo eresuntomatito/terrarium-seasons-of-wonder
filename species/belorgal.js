@@ -1,3 +1,4 @@
+// † extinct in season 405.
 // belorgal (S.270): drifted apart from the stalkers (S) in season 405; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
