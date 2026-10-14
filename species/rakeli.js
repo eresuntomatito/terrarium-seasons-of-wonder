@@ -1,3 +1,4 @@
+// † extinct in season 595.
 // rakeli (P.2.8.4): drifted apart from the galras (P.2.8) in season 591; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
