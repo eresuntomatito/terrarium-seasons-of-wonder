@@ -1,3 +1,4 @@
+// † extinct in season 371.
 // moorsa (S.125): drifted apart from the stalkers (S) in season 370; named by the world.
 // ↺ returned in season 314.
 // † extinct in season 314.
