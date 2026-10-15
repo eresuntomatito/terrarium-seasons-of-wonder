@@ -1,3 +1,4 @@
+// † extinct in season 676.
 // galliom (P.2.8.15.5.3.19): drifted apart from the thufifis (P.2.8.15.5.3) in season 670; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
