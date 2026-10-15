@@ -1,3 +1,4 @@
+// † extinct in season 751.
 // quiraty (P.2.8.15.5.3.31.3.4.1.1.3): drifted apart from the venorvens (P.2.8.15.5.3.31.3.4.1.1) in season 745; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
