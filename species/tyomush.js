@@ -1,3 +1,4 @@
+// † extinct in season 808.
 // tyomush (P.2.8.15.5.3.31.3.4.7.1): drifted apart from the tyorors (P.2.8.15.5.3.31.3.4.7) in season 772; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
