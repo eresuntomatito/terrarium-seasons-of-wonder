@@ -1,3 +1,4 @@
+// † extinct in season 616.
 // ushnadro (P.2.8.13): drifted apart from the galras (P.2.8) in season 606; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
