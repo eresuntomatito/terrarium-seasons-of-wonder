@@ -1,3 +1,4 @@
+// † extinct in season 617.
 // galra (P.2.8): drifted apart from the omquisas (P.2) in season 581; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
