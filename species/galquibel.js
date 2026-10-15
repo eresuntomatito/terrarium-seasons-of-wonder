@@ -1,3 +1,4 @@
+// † extinct in season 681.
 // galquibel (P.2.8.15.5.3.24): drifted apart from the thufifis (P.2.8.15.5.3) in season 677; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
