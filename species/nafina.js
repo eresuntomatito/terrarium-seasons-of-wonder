@@ -1,3 +1,4 @@
+// † extinct in season 967.
 // nafina (P.2.8.15.5.3.31.3.4.8.1.2.2.1): drifted apart from the ushtykes (P.2.8.15.5.3.31.3.4.8.1.2.2) in season 907; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
