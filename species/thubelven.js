@@ -1,3 +1,4 @@
+// † extinct in season 758.
 // thubelven (P.2.8.15.5.3.31.3.4.4): drifted apart from the kelimos (P.2.8.15.5.3.31.3.4) in season 737; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
