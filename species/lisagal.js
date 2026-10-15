@@ -1,3 +1,4 @@
+// † extinct in season 640.
 // lisagal (P.2.8.15.5): drifted apart from the ushfilis (P.2.8.15) in season 620; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
