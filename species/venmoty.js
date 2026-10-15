@@ -1,3 +1,4 @@
+// † extinct in season 648.
 // venmoty (P.2.8.15.5.3.2.1): born with left and right confused with up and down from the tysaras (P.2.8.15.5.3.2) in season 642; a species of its own from season 647.
 // † extinct in season 561.
 // ↺ returned in season 560.
