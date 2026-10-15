@@ -1,3 +1,4 @@
+// † extinct in season 809.
 // galmoush (P.2.8.15.5.3.31.3.4.7.3): drifted apart from the tyorors (P.2.8.15.5.3.31.3.4.7) in season 772; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
