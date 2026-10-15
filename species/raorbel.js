@@ -1,3 +1,4 @@
+// † extinct in season 670.
 // raorbel (P.2.8.15.5.3.8): drifted apart from the thufifis (P.2.8.15.5.3) in season 643; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
