@@ -1,3 +1,4 @@
+// † extinct in season 700.
 // monali (P.2.8.15.5.3.25): drifted apart from the thufifis (P.2.8.15.5.3) in season 689; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
