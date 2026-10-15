@@ -1,3 +1,4 @@
+// † extinct in season 693.
 // orzuli (P.2.8.15.5.3.20): drifted apart from the thufifis (P.2.8.15.5.3) in season 671; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
