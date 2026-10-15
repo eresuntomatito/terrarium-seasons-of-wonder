@@ -1,3 +1,4 @@
+// † extinct in season 691.
 // thuvenke (P.2.8.15.5.3.20.2): drifted apart from the orzulis (P.2.8.15.5.3.20) in season 687; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
