@@ -1,3 +1,4 @@
+// † extinct in season 642.
 // drodrodro (P.2.8.15.5.3.5): drifted apart from the thufifis (P.2.8.15.5.3) in season 638; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
