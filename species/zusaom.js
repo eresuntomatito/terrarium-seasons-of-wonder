@@ -1,3 +1,4 @@
+// † extinct in season 634.
 // zusaom (P.2.8.15.3): drifted apart from the ushfilis (P.2.8.15) in season 618; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
