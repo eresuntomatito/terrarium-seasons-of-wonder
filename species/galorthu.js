@@ -1,3 +1,4 @@
+// † extinct in season 621.
 // galorthu (P.2.8.15.1): drifted apart from the ushfilis (P.2.8.15) in season 615; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
