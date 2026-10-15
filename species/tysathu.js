@@ -1,3 +1,4 @@
+// † extinct in season 926.
 // tysathu (P.2.8.15.5.3.31.3.4.8): drifted apart from the kelimos (P.2.8.15.5.3.31.3.4) in season 837; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
