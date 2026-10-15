@@ -1,3 +1,4 @@
+// † extinct in season 631.
 // drogalmo (P.2.8.15.5.4): drifted apart from the lisagals (P.2.8.15.5) in season 627; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
