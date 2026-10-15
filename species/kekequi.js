@@ -1,3 +1,4 @@
+// † extinct in season 959.
 // kekequi (P.2.8.15.5.3.31.3.4.8.1.3.3): drifted apart from the dronathus (P.2.8.15.5.3.31.3.4.8.1.3) in season 932; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
