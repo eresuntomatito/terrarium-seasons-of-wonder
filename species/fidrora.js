@@ -1,3 +1,4 @@
+// † extinct in season 859.
 // fidrora (P.2.8.15.5.3.31.3.4.7.1.3): drifted apart from the tyomushs (P.2.8.15.5.3.31.3.4.7.1) in season 795; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
