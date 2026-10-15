@@ -1,3 +1,4 @@
+// † extinct in season 724.
 // tysake (P.2.8.15.5.3.31.3.1): drifted apart from the zubelmos (P.2.8.15.5.3.31.3) in season 718; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
