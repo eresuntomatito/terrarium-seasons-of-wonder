@@ -1,3 +1,4 @@
+// † extinct in season 631.
 // fiorna (P.2.8.15.5.1): drifted apart from the lisagals (P.2.8.15.5) in season 625; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
