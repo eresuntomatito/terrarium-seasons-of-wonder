@@ -1,3 +1,4 @@
+// † extinct in season 765.
 // fithuthu (P.2.8.15.5.3.31.3.4.2): drifted apart from the kelimos (P.2.8.15.5.3.31.3.4) in season 734; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
