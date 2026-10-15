@@ -1,3 +1,4 @@
+// † extinct in season 1005.
 // zumoom (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.2.1): drifted apart from the galushors (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.2) in season 999; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
