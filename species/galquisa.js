@@ -1,3 +1,4 @@
+// † extinct in season 696.
 // galquisa (P.2.8.15.5.3.29): drifted apart from the thufifis (P.2.8.15.5.3) in season 691; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
