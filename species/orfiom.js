@@ -1,3 +1,4 @@
+// † extinct in season 691.
 // orfiom (P.2.8.15.5.3.20.1): drifted apart from the orzulis (P.2.8.15.5.3.20) in season 687; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
