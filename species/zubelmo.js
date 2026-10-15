@@ -1,3 +1,4 @@
+// † extinct in season 755.
 // zubelmo (P.2.8.15.5.3.31.3): drifted apart from the fibeltys (P.2.8.15.5.3.31) in season 709; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
