@@ -1,3 +1,4 @@
+// † extinct in season 608.
 // orushor (P.2.8.9): drifted apart from the galras (P.2.8) in season 600; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
