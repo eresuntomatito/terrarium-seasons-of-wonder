@@ -1,3 +1,4 @@
+// † extinct in season 745.
 // omthuke (P.2.8.15.5.3.31.3.4.1): drifted apart from the kelimos (P.2.8.15.5.3.31.3.4) in season 733; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
