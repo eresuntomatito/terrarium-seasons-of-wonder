@@ -20,6 +20,14 @@
   #theme { float: right; background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px;
            padding: 1px 6px; cursor: pointer; }
   #theme:hover { color: var(--hi); }
+  #mindbtn { float: right; margin-right: 6px; background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px; cursor: pointer; }
+  #mindbtn.on { color: var(--hi); border-color: var(--hi); }
+  #mindkey { font-size: 10px; color: var(--dim); margin-top: 2px; }
+  b.stand { color: var(--hi); font-weight: 600; }
+  .portraitline { color: var(--hi); }
+  #mindkey .key { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin: 0 3px 0 8px; border-radius: 2px; }
+  #mindkey .key.trap { background: rgba(220,60,50,.7); }
+  #mindkey .key.food { background: rgba(230,180,60,.7); }
   #ranges { float: right; display: flex; gap: 4px; text-transform: none; letter-spacing: 0; }
   #ranges button { background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px; padding: 0 6px; cursor: pointer; }
   #ranges button.on, #ranges button:hover { color: var(--hi); border-color: var(--dim); }
@@ -76,16 +84,18 @@
 <body>
 <main><canvas id="world"></canvas><div id="toasts"></div></main>
 <aside>
-  <div><button id="theme" title="theme: auto, light, dark">auto</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="god"></div></div>
+  <div><button id="theme" title="theme: auto, light, dark">auto</button><button id="mindbtn" title="show what the kraken has learned: where it got stuck (red) and where it fed (gold)">kraken's mind</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="mindkey" hidden><b>kraken's mind:</b> <i class="key trap"></i> got stuck here <i class="key food"></i> fed here <span class="dim">· stronger colour = surer; it fades as the kraken forgets, and its egg inherits a blurred copy</span></div><div id="god"></div></div>
   <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart"></canvas></section>
-  <section><h2>Evolution</h2><canvas id="drift"></canvas><div class="dim">how far each species' code numbers have drifted from how they were written</div></section>
+  <section><h2>Evolution</h2><canvas id="drift"></canvas><div class="dim">how far each species has come from its line's founder: code numbers (solid) and body (dashed), across every split</div></section>
   <section><h2>Chronicle</h2><ul id="events"></ul></section>
   <footer><a href="/miniature.html">god in miniature</a></footer>
 </aside>
 
 <script>
 const $ = id => document.getElementById(id);
+let mind = null, showMind = false; // the kraken's map (traps, feeding grounds), and whether to draw it
+try { showMind = localStorage.getItem('mind') === '1'; } catch {}
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // Theme: auto (system), light or dark, remembered per browser. Charts redraw in the new ink.
 {
@@ -97,6 +107,8 @@ const css = name => getComputedStyle(document.documentElement).getPropertyValue(
     $('theme').textContent = theme;
     if (redraw) drawChart(); // not on the first call: the charts' state is not declared yet
   };
+  const mb = $('mindbtn'), key = () => { mb.classList.toggle('on', showMind); $('mindkey').hidden = !showMind; }; key();
+  mb.onclick = () => { showMind = !showMind; key(); try { localStorage.setItem('mind', showMind ? '1' : '0'); } catch {} };
   $('theme').onclick = () => { theme = order[(order.indexOf(theme) + 1) % 3]; try { localStorage.setItem('theme', theme); } catch {} apply(true); };
   matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => apply(true));
   apply(false);
@@ -108,6 +120,7 @@ const reefCanvas = document.createElement('canvas'), rg = reefCanvas.getContext(
 let eggs = [], cap = null;
 let climate = 0.5, tickRate = 0, lastTick = null, lastTickAt = 0;
 let divide = null; // the next great divide: { name, ticks } or null
+let krakenClock = null; // { awake, ticks }: when the kraken next rises, or when its season ends
 const speedLog = []; // [tick, ms] of recent frames, for the measured speed
 const trails = new Map();
 const SCALE = 2;
@@ -177,7 +190,7 @@ on('frame', f => {
   const [t0, ms0] = speedLog[0];
   if (nowMs - ms0 > 1500 && f.t > t0) tickRate = (f.t - t0) / ((nowMs - ms0) / 1000);
   lastTick = f.t; lastTickAt = nowMs;
-  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap; divide = f.divide ?? null;
+  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap; divide = f.divide ?? null; krakenClock = f.kraken ?? null; if (f.mind !== undefined) mind = f.mind;
   renderClock();
 });
 on('event', e => { events.push(e); renderEvents(); toast(e.text); });
@@ -390,6 +403,15 @@ function draw() {
 
   g.fillStyle = `rgba(70,110,160,${Math.max(0, rain - 0.5) * 0.06})`;
   g.fillRect(0, 0, meta.W, meta.H);
+  // The kraken's mind: where it learned it gets stuck (red) and where it fed (gold), stronger the surer it is.
+  if (showMind && mind) {
+    const cw = meta.W / mind.w, ch = meta.H / mind.h;
+    for (let i = 0; i < mind.w * mind.h; i++) {
+      const x = (i % mind.w) * cw, y = Math.floor(i / mind.w) * ch, t = mind.trap[i], f = mind.food[i];
+      if (f > 0.03) { g.fillStyle = `rgba(230,180,60,${Math.min(0.45, f * 0.6)})`; g.fillRect(x, y, cw, ch); }
+      if (t > 0.03) { g.fillStyle = `rgba(220,60,50,${Math.min(0.45, t * 0.6)})`; g.fillRect(x, y, cw, ch); }
+    }
+  }
 }
 requestAnimationFrame(draw);
 
@@ -401,7 +423,8 @@ function renderClock() {
   const mmss = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   const split = divide ? Math.ceil(divide.ticks / (tickRate || meta.TICKS_PER_SEC)) : null;
   $('clock').textContent = `season ${season} · day ${day} · ${sky} · ${era} · season ends in ${mmss(left)}`
-    + (divide ? ` · next great divide (${divide.name}s) in ${mmss(split)}` : ' · no great divide due');
+    + (divide ? ` · great divide (${divide.name}s, over a third) ${divide.ticks > 0 ? `in ${mmss(split)}` : 'now'}` : ' · no great divide due')
+    + (krakenClock ? ` · ${krakenClock.awake ? 'kraken sinks in' : 'kraken rises in'} ${mmss(Math.ceil(krakenClock.ticks / (tickRate || meta.TICKS_PER_SEC)))}` : '');
   if (tick % 30 === 0) renderSpecies();
   else for (const el of document.querySelectorAll('[data-count]')) el.textContent = counts()[el.dataset.count] ?? 0;
 }
@@ -410,6 +433,34 @@ function counts() {
   const n = {};
   if (cur) for (const c of cur.values()) { const name = species[c.s]?.name; if (name) n[name] = (n[name] ?? 0) + 1; }
   return n;
+}
+
+// How each species stands apart from its kin (living species of the same line, never the unique giants): per trait,
+// how far it sits from the others, in units of the trait's spread across the family (z); the 2–3 strongest standouts
+// as words; a distinctness score (mean |z|); and its nearest relative, with how far apart (share of each trait's range,
+// as in the ancestry measure).
+const KIN_TRAITS = [['size', 'larger', 'smaller', 'log'], ['gut', 'meat-leaning', 'grass-adapted', 1], ['legs', 'long-legged', 'short-legged', 1],
+  ['wind', 'long-winded', 'short-winded', 1], ['armor', 'shelled', 'soft', 1], ['toxin', 'toxic', 'mild', 1], ['litter', 'large litters', 'small litters', 2],
+  ['mature', 'late-maturing', 'early-maturing', 2], ['browse', 'browsing', 'grass-only', 1], ['gape', 'wide-mouthed', 'narrow-mouthed', 1],
+  ['resist', 'poison-resistant', 'unresistant', 1], ['eyes', 'sharp-eyed', 'dim-eyed', 1]];
+function kinship(living) {
+  const out = {}, byRoot = {};
+  for (const sp of living) if (traits[sp.name] && sp.root) (byRoot[sp.root] ??= []).push(sp);
+  for (const fam of Object.values(byRoot)) {
+    if (fam.length < 2) continue;
+    const val = (sp, k) => traits[sp.name][k] ?? 0;
+    const sd = Object.fromEntries(KIN_TRAITS.map(([k]) => { const v = fam.map(sp => val(sp, k)), m = v.reduce((a, b) => a + b, 0) / v.length; return [k, Math.sqrt(v.reduce((a, b) => a + (b - m) ** 2, 0) / v.length)]; }));
+    for (const sp of fam) {
+      const others = fam.filter(o => o !== sp), z = {};
+      for (const [k] of KIN_TRAITS) { const m = others.reduce((a, o) => a + val(o, k), 0) / others.length; z[k] = sd[k] > 1e-3 ? (val(sp, k) - m) / sd[k] : 0; }
+      const ranked = KIN_TRAITS.filter(([k]) => Math.abs(z[k]) >= 1).sort((a, b) => Math.abs(z[b[0]]) - Math.abs(z[a[0]])).slice(0, 3);
+      const apart = o => KIN_TRAITS.reduce((a, [k, , , sc]) => a + (sc === 'log' ? Math.abs(Math.log(val(sp, k) / val(o, k))) : Math.abs(val(sp, k) - val(o, k)) / sc), 0) / KIN_TRAITS.length;
+      const nearest = others.map(o => [o.name, apart(o)]).sort((a, b) => a[1] - b[1])[0];
+      out[sp.name] = { z, portrait: ranked.length ? ranked.map(([k, up, down]) => z[k] > 0 ? up : down).join(', ') : 'much like its kin',
+        distinct: KIN_TRAITS.reduce((a, [k]) => a + Math.abs(z[k]), 0) / KIN_TRAITS.length, nearest };
+    }
+  }
+  return out;
 }
 
 // Living species, most numerous first; each opens to show its lineage and the code it runs on.
@@ -422,12 +473,18 @@ function renderSpecies(force) {
   const eggRows = [];
   for (let i = 0; i < eggs.length; i += 4) {
     const sp = species[eggs[i + 3]];
-    eggRows.push(`<div class="egg">egg of the ${sp?.name ?? '?'}s · ${Math.round(eggs[i + 2] * 100)}% to hatching · at (${eggs[i]}, ${eggs[i + 1]})</div>`);
+    // An egg takes one season (eggTicks = SEASON_TICKS) from laying to hatching; time left at the measured speed.
+    const eggLeft = Math.max(0, Math.ceil((1 - eggs[i + 2]) * meta.SEASON_TICKS / (tickRate || meta.TICKS_PER_SEC)));
+    eggRows.push(`<div class="egg">egg of the ${sp?.name ?? '?'}s · ${Math.round(eggs[i + 2] * 100)}% to hatching · hatches in ${Math.floor(eggLeft / 60)}:${String(eggLeft % 60).padStart(2, '0')} · at (${eggs[i]}, ${eggs[i + 1]})</div>`);
   }
   const total = cur ? cur.size : 0;
   const head = `<div class="total">${total.toLocaleString('en')} creatures alive${cap ? ` · room for ${cap.toLocaleString('en')}` : ''} · ${living.length} species</div>`;
+  const kin = kinship(living);
   list.innerHTML = head + eggRows.join('') + living.map(sp => {
     const st = stats[sp.name] ?? {};
+    const kn = kin[sp.name], z = kn?.z ?? {};
+    // A trait that sets it apart from its kin is shown in bold with ▲ (above them) or ▼ (below).
+    const mark = (k, text) => Math.abs(z[k] ?? 0) >= 1 ? `<b class="stand">${text} ${z[k] > 0 ? '▲' : '▼'}</b>` : text;
     const origin = sp.variant ? `a variant of the ${sp.parent}s (still breeds with them), season ${sp.born}` : sp.parent ? `from the ${sp.parent}s, season ${sp.born}` : 'original';
     const fresh = sp.parent && sp.born === season ? ' · <span class="new">first season</span>' : '';
     const tr = traits[sp.name] ?? {};
@@ -436,7 +493,8 @@ function renderSpecies(force) {
     return `<details data-name="${sp.name}"${open.has(sp.name) ? ' open' : ''}><summary>
       <img class="portrait" src="${portraitOf(sp)}" alt=""><span>${sp.name}s <span class="dim">${sp.lineage ?? ''} · <span class="role-${tr.role}">${tr.label ?? tr.role ?? ''}</span>${sp.variant ? ' · variant' : ''}</span></span><b data-count="${sp.name}">${n[sp.name] ?? 0}</b>
       <small>${tr.food ? 'lives on: ' + Object.entries(tr.food).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join(' · ') + '<br>' : ''}${dietBreakdown(tr)}${origin}${fresh} · next branch ${progress}/${meta.GENERATIONS_PER_MUTATION} generations<br>
-      size ${tr.size ?? '?'} · gut ${tr.gut ?? '?'} · legs ${tr.legs ?? '?'} · fat ${tr.fat !== undefined ? Math.round(tr.fat * 100) + '%' : '?'} · stamina ${tr.wind ?? '?'} · armour ${tr.armor ?? '?'} · toxin ${tr.toxin ?? '?'} · litter ${tr.litter ?? '?'} · maturity ×${tr.mature ?? '?'} · browse ${tr.browse ?? '?'}${tr.role === 'hunter' || tr.role === 'apex' ? ` · gape ×${tr.gape ?? '?'}` : ''}${tr.browsers ? ` (${tr.browsers} browsing)` : ''} · thrift ${tr.thrift ?? '?'} · plasticity ${tr.plastic ?? '?'}${tr.turning ? ` (${tr.turning} turning)` : ''} · trophic level ${tr.tl ?? '?'} · code drifted ${Math.round((sp.drift ?? 0) * 100)}%<br>
+      ${kn ? `<i class="portraitline">${kn.portrait}</i> · distinct ${kn.distinct.toFixed(1)} · nearest: ${kn.nearest[0]}s (${Math.round(kn.nearest[1] * 100)}% apart)<br>` : ''}
+      ${mark('size', `size ${tr.size ?? '?'}`)} · ${mark('gut', `gut ${tr.gut ?? '?'}`)} · ${mark('legs', `legs ${tr.legs ?? '?'}`)} · fat ${tr.fat !== undefined ? Math.round(tr.fat * 100) + '%' : '?'} · ${mark('wind', `stamina ${tr.wind ?? '?'}`)} · ${mark('armor', `armour ${tr.armor ?? '?'}`)} · ${mark('toxin', `toxin ${tr.toxin ?? '?'}`)} · ${mark('litter', `litter ${tr.litter ?? '?'}`)} · ${mark('mature', `maturity ×${tr.mature ?? '?'}`)} · ${mark('browse', `browse ${tr.browse ?? '?'}`)} · ${mark('gape', `gape ×${tr.gape ?? '?'}`)} · ${mark('resist', `resistance ${tr.resist ?? '?'}`)} · ${mark('eyes', `eyes ${tr.eyes ?? '?'}`)}${tr.browsers ? ` (${tr.browsers} browsing)` : ''} · thrift ${tr.thrift ?? '?'} · plasticity ${tr.plastic ?? '?'}${tr.turning ? ` (${tr.turning} turning)` : ''} · trophic level ${tr.tl ?? '?'}${sp.driftRoot !== undefined && sp.root && sp.root !== sp.name ? ` · from the ${sp.root}s: code ${Math.round(sp.driftRoot * 100)}%, body ${Math.round((sp.bodyRoot ?? 0) * 100)}% (since its split: code ${Math.round((sp.drift ?? 0) * 100)}%)` : ` · code drifted ${Math.round((sp.drift ?? 0) * 100)}%${sp.bodyRoot !== undefined ? `, body ${Math.round(sp.bodyRoot * 100)}%` : ''}`}<br>
       mated ${st.mated ?? 0} · budded ${st.budded ?? 0} · ${deeds} · starved ${st.starved ?? 0}</small></summary>
       <pre>${esc(sp.code ?? '')}</pre></details>`;
   }).join('');
@@ -483,20 +541,24 @@ function drawDrift() {
   c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
   const cg = c.getContext('2d'), w = c.width, h = c.height;
   const t0 = history[0].t, t1 = history.at(-1).t, x = i => (history[i].t - t0) / (t1 - t0 || 1) * w;
-  const max = Math.max(0.1, ...history.flatMap(e => Object.values(e.traits ?? {}).map(t => t.drift ?? 0)));
-  for (const sp of species) {
+  // From the founder when measured (code solid, body dashed); older history has only drift since the species' own start.
+  const val = (t, key) => key === 'code' ? (t.driftRoot ?? t.drift) : t.bodyRoot;
+  const max = Math.max(0.1, ...history.flatMap(e => Object.values(e.traits ?? {}).flatMap(t => [val(t, 'code') ?? 0, val(t, 'body') ?? 0])));
+  for (const sp of species) for (const key of ['code', 'body']) {
     cg.strokeStyle = `hsl(${sp.hue} 60% 55%)`; cg.lineWidth = 1.4 * dpr;
+    cg.setLineDash(key === 'body' ? [4 * dpr, 3 * dpr] : []);
     cg.beginPath();
     let on = false;
     history.forEach((e, i) => {
-      const d = e.traits?.[sp.name]?.drift;
-      if (d === undefined) { on = false; return; }
+      const t = e.traits?.[sp.name], d = t && val(t, key);
+      if (d === undefined || d === null) { on = false; return; }
       const y = h - d / max * h * 0.92;
       if (on) cg.lineTo(x(i), y); else cg.moveTo(x(i), y);
       on = true;
     });
     cg.stroke();
   }
+  cg.setLineDash([]);
   cg.fillStyle = css('--ink'); cg.font = `${10 * dpr}px ui-monospace, monospace`;
   cg.fillText(`${Math.round(max * 100)}%`, 2, 11 * dpr);
 }

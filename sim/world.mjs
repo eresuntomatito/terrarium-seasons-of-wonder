@@ -48,7 +48,11 @@ export const PHYSICS = {
   cover: 0.6,            // plants this dense are tall grass: whatever stands in them is hidden …
   hideRange: 20,         // … from anyone further away than this
   shareRange: 40,        // every jaw this close to a kill grabs a share of it (scavenging, crowding)
-  growTicks: 0,          // newborns start at 40% of adult size and grow to full size over this many ticks (0 = born grown)
+  growTicks: 1200,       // newborns start at 40% of adult size and grow to full size over this many ticks (0 = born grown; 1200 since Luis, 09:35 Oct 15)
+  // Birth variation (Luis): every newborn's body varies by chance around its genes, and only the genes pass on.
+  birthSize: 0.08,       // body size × (1 ± this, normal spread)
+  birthGut: 0.04,        // gut ± this: a few of a grazing line are born with jaws, a few of a hunting line without
+  birthGape: 0.05,       // mouth size ± this
   cannibalHunger: 0.3,   // nobody eats its own kind unless its energy is below this share of its maximum
   mateReach: 8,          // the least distance at which two willing bodies can mate
   longingRelax: 150,     // choosiness relaxes as a willing body waits: ×(1 + ticks waited / this) …
@@ -56,12 +60,22 @@ export const PHYSICS = {
   budWait: 600,          // … and after this many with no partner at all, a well-fed body buds alone
   budLoss: 0.7,          // share of the gift lost when budding alone (mating loses nothing)
   roots: 0.15,           // what grazing always leaves of a plant, so it can regrow
+  // Grass that answers to the grazers (Luis, 01:00 Oct 15): a meadow bitten down to its roots again and again loses
+  // root health and regrows slower (at 0 it dies to bare ground); rest heals it. Grazers carry what they eat as dung
+  // and drop it where they go, and carry seeds that sprout on bare ground they walk over.
+  rootWear: 0.004,       // root health lost each time a cell is bitten to within 0.05 of its roots
+  rootHeal: 0.0015,      // root health regained per plant update (every 4 ticks), × moisture
+  dungShare: 0.4,        // share of each grass bite carried in the gut as fertility …
+  dungDrop: 0.01,        // … and the share of that load dropped on the ground each tick, wherever the body is
+  seedCarry: 0.995,      // seeds on a body fade by this each tick after its last grass bite …
+  seedDrop: 0.003,       // … and sprout on a bare cell it crosses with this chance per tick, × seeds × moisture
   seedBank: 0.0003,      // chance a bare cell sprouts on its own, times moisture and (0.1 + fertility): deserts recover
   scraps: 0.15,          // share of a kill left on the ground as carrion
   carrionBite: 0.1,      // energy a mouth can tear from a corpse per tick
   carrionEfficiency: 0.7,// share of carrion energy digested, times gut …
   carrionPeak: 0.6,        // … or, when set, best at this gut and falling to nothing carrionWidth away (a scavenger's niche)
-  carrionWidth: 0.4,
+  carrionWidth: 0.55,    // (0.4 → 0.55 with carrionGut, Luis 09:35: a slightly meat-leaning gut gets a little from a carcass)
+  carrionGut: 0.1,       // any gut above this can tear at a corpse (hunting jaws stay at P.jaws)
   rot: 0.0005,            // share of a corpse's energy that rots into the soil every few ticks
   rotToSoil: 0.2,        // fertility made from each unit of rotting energy
   dung: 0.25,            // fertility a creature returns to the soil for each unit of energy it digests
@@ -165,7 +179,7 @@ export const PHYSICS = {
   foulShed: 0.1,         // an infested host fouls the ground it walks on with this much (× strength) per 10 ticks …
   foulFade: 0.96,        // … fouling kept per 10 ticks …
   foulCatch: 0.02,       // … and a weak grazer of any kind standing on fully fouled ground catches it with this chance per 10 ticks
-  stealth: 70,           // the unique giants are only noticed within this distance
+  stealth: 45,           // the unique giants are only noticed within this distance
   gulp: 8,               // a filter-feeder takes at most this many creatures a tick …
   gulpReach: 1.0,        // … within (its size + theirs) × this (jaws reach 0.6) …
   growRate: 0.01,        // … and, well fed, turns at most this much energy a tick into body …
@@ -173,7 +187,7 @@ export const PHYSICS = {
   splitRange: 150,       // a split takes only the cluster's members within this distance of its densest spot
   // Browse (Phase 2): thicket shoots as a second plant food, reachable only by big bodies with a browsing gut.
   gapeMin: 0.15, gapeMax: 0.9, gapeDrift: 0.03, gapeWidth: 0.2, gapeFloor: 0.35, // Phase 3a: jaws suit prey near gape × own size
-  browseSize: 4.5,       // bodies at least this big reach the shoots …
+  browseSize: 4.0,       // bodies at least this big reach the shoots … (4.5 → 4.0 for the progenitors, Phase II, 00:45 Oct 15)
   browseFloor: 0.45,     // … which are eaten down to this density, no lower (dense hedge stays a refuge) …
   browseBite: 0.04, browseEnergy: 4, // … at this bite (× √mass, × browse) and energy per unit
   browseCost: 0.5,       // a gut fully given to browse digests grass this much worse
@@ -194,11 +208,27 @@ export const PHYSICS = {
   mineralGain: 0.0005,   // shell store gained per grazing tick, × mineral to hand (reef share of the 8 neighbours + soil mineral)
   storeFade: 0.0001,     // share of each store lost per tick
   storeBirth: 0.6,       // a newborn starts with this share of its parents' stores
-  divideShare: 0.6, divideSeasons: 4, divideMin: 10, divideGeo: 2, divideSeam: 0.15, // the great divide: over this share of all life, more than this many seasons running; quarters smaller than divideMin stay
+  divideShare: 1 / 3, divideRest: TICKS_PER_DAY, divideMin: 10, divideGeo: 2, divideSeam: 0.15, // the great divide: whenever a species holds over divideShare of all life it is divided (checked every 30 ticks), then rests divideRest ticks; groups under divideMin join their neighbours
+  // Sight (Luis, 01:30 Oct 15): how far a body sees = species perception × size factor × age curve × (0.5 + eyes), shortened
+  // inside thicket; every body also sees the reef, as rays: the distance to solid reef in 8 directions (0…1 of its sight).
+  eyesStart: 0.5, eyesDrift: 0.04, // the inherited eyes trait (0…1) a body starts with when nothing is inherited, and its drift
+  eyesUpkeep: 0.15,      // keen eyes cost upkeep: × (1 + this × (eyes − 0.5)); poor eyes save a little
+  sightThicket: 0.6,     // sight inside dense thicket is cut to this share
+  // The kraken's mind (Luis): a coarse map of where it got stuck and where it fed, learned in its own life, steering it,
+  // and passed to its egg (Lamarckian). Today's reflexes (wall-following, shove, rage) stay underneath.
+  mindW: 24, mindH: 16,  // the map's cells (40 × 40 px each)
+  mindTrap: 0.05,        // per 10 ticks stuck (bumps above 2): trap value += this × (1 − trap)
+  mindFeed: 0.08,        // per meal: food value += this × (1 − food)
+  mindForget: 0.9995,    // both fade by this every 10 ticks, so old lessons give way to new ground
+  mindPull: 0.8,         // how strongly the map turns its steering
+  mindKeep: 0.8,         // the egg inherits the map blurred and at this strength
   resistUpkeep: 0.2,     // toxin resistance (0..1) costs upkeep: a liver that breaks poison down burns energy all the time
   rageRadius: 4, rageCost: 2, rageCooldown: TICKS_PER_DAY, // the giant's rage: cells heaved aside, energy, and rest between …
   rageBumps: 4, rageHunger: 3.5, // … and it also rages when trapped (bumps above rageBumps) and hungry (energy below rageHunger; it still needs rageCost + 0.5 to spend)
-  dormantBelow: 0.15, wakeAt: 0.5, // a dormant giant sleeps while the world holds less than this share of its room, wakes at this
+  // The kraken, reconsidered (Luis, 02:30 Oct 15): it rises only one season in every krakenEvery, and sleeps the rest
+  // (life paused, unseen); while awake it eats only up to krakenAppetite of its satiation, and has no targeted hunger.
+  krakenEvery: 10, krakenAppetite: 0.75, targetedHunger: false,
+  dormantBelow: 0.30, wakeAt: 0.5, // a dormant giant sleeps while the world holds less than this share of its room, wakes at this
   crowdStart: 0.7,       // births start slowing when the world is this full (of its room) …
   capTarget: 1000,       // the creature cap shrinks 10% a season until it falls below this
   smallShare: 0.2,       // at the creature cap, species smaller than this share of it may still breed …
@@ -271,6 +301,7 @@ const drift = g => clamp01(g + (Math.random() - 0.5) * 2 * GENE_DRIFT);
 let sports = 0;
 const leap = () => (Math.random() < P.jumpChance ? (sports++, (Math.random() < 0.5 ? -1 : 1) * P.jumpSize * (0.5 + Math.random() * 0.5)) : 0);
 const wobble = d => (Math.random() - 0.5) * 2 * d;
+const gauss = () => { let u = 0; while (!u) u = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * Math.random()); };
 const driftSize = s => Math.min(P.maxSize, Math.max(P.minSize, s * (1 + wobble(P.sizeDrift) + leap())));
 const driftGut = g => clamp01(g + wobble(P.gutDrift) + leap());
 const driftLegs = l => Math.min(P.maxLegs, Math.max(P.minLegs, (l ?? 1) * (1 + wobble(P.legs) + leap())));
@@ -287,6 +318,12 @@ const driftBrowse = v => Math.min(1, Math.max(0, (v ?? 0.05) + wobble(P.browseDr
 // Gape (Phase 3a): the prey size a hunter's jaws suit best, as a ratio of its own size. Inherited, drifting, rare leaps.
 const driftGape = g => Math.min(P.gapeMax, Math.max(P.gapeMin, (g ?? 0.5) + wobble(P.gapeDrift) + leap() * 0.3));
 // Toxin resistance: how much toxin an eater shrugs off. Inherited, drifting, rare leaps (the predators' side of the arms race).
+// The body a line's founders start with, trait by trait, and how a difference is scaled (share of the trait's range, or
+// log ratio for size): used to measure how far a species has come from its founder.
+const BODY = [[c => c.size, r => r.size, 'log'], [c => c.gut, r => r.gut, 1], [c => c.legs ?? 1, () => 1, 1], [c => c.wind ?? 0.5, () => 0.5, 1],
+  [c => c.armor ?? 0, () => 0, 1], [c => c.toxin ?? 0, () => 0, 1], [c => c.litter ?? 1, () => 1, 2], [c => c.mature ?? 1, () => 1, 2],
+  [c => c.browse ?? 0.05, () => 0.05, 1], [c => c.gape ?? 0.5, () => 0.5, 1], [c => c.resist ?? 0.3, () => 0.3, 1], [c => c.eyes ?? 0.5, () => 0.5, 1]];
+const driftEyes = e => clamp01((e ?? P.eyesStart) + wobble(P.eyesDrift) + leap() * 0.3);
 const driftResist = r => Math.min(1, Math.max(0, (r ?? P.resistStart) + wobble(P.resistDrift) + leap() * 0.3));
 const driftLitter = l => Math.min(P.maxLitter, Math.max(1, (l ?? 1) + wobble(P.litterDrift) + leap() * 3));
 const driftHue = h => Math.min(P.hueRange, Math.max(-P.hueRange, (h ?? 0) + wobble(P.hueDrift) + leap() * 100));
@@ -332,6 +369,7 @@ export class World {
     this.satiation ??= 0.9;
     this.maxCreatures ??= MAX_CREATURES;
     this.thicket ??= new Float32Array(GW * GH);
+    if (!this.rootHealth) this.rootHealth = new Float32Array(GW * GH).fill(1);
     this.traffic = new Float32Array(GW * GH);
     this.foul = new Float32Array(GW * GH); // ground soiled by infested hosts; fades, never saved
     for (const name of this.living()) this.compile(name);
@@ -430,6 +468,16 @@ export class World {
   }
 
   // How different two creatures' code numbers are: mean |log ratio|. Too different, and they cannot breed.
+  // A line's founder (the species at the root of its lineage) and what it started as: its written code numbers and
+  // the body its founders were given.
+  rootRef(name) {
+    const head = (this.registry[name]?.lineage ?? '').split('.')[0];
+    const root = Object.keys(this.registry).find(n => this.registry[n].lineage === head && !this.registry[n].parent);
+    if (!root || !this.code[root]) return null;
+    this.rootCache ??= {};
+    return this.rootCache[root] ??= { name: root, consts: genomeOf(this.code[root].replace(/^\/\/ [†↺].*\n/gm, '')).consts, size: this.registry[root].size, gut: this.registry[root].gut };
+  }
+
   genomeGap(a, b) {
     if (!a?.length || a.length !== b?.length) return a?.length === b?.length ? 0 : Infinity;
     let sum = 0;
@@ -457,7 +505,7 @@ export class World {
     const sp = this.registry[name];
     return {
       id: this.nextId++, species: name, x: wrap(x, W), y: wrap(y, H), vx: 0, vy: 0,
-      energy: 1, age: 0, lifespan: Math.round(sp.lifespan * (0.7 + Math.random() * 0.6)), mature: driftMature(sp.avgMature ?? 1), browse: driftBrowse(sp.avgBrowse ?? 0.05), gape: driftGape(sp.avgGape ?? 0.5), resist: driftResist(sp.avgResist ?? P.resistStart),
+      energy: 1, age: 0, lifespan: Math.round(sp.lifespan * (0.7 + Math.random() * 0.6)), mature: driftMature(sp.avgMature ?? 1), browse: driftBrowse(sp.avgBrowse ?? 0.05), gape: driftGape(sp.avgGape ?? 0.5), resist: driftResist(sp.avgResist ?? P.resistStart), eyes: driftEyes(sp.avgEyes ?? P.eyesStart),
       gen, genes, size, gut, hue: sp.hue, memory: {}, broken: false,
       willing: false, give: 0.45, signal: 0, cooldown: 0, eats: true, k: this.jitterK(name),
       body: mass(size) * P.bodyEnergy * (gen > 0 ? P.bornBody : 1), // the god's newcomers arrive with full bodies
@@ -957,22 +1005,25 @@ export class World {
       const j = at(cx + Math.round(dx / d * (R + 1)), cy + Math.round(dy / d * (R + 1)));
       this.reef[j] = Math.min(1, this.reef[j] + this.reef[i]); moved += this.reef[i]; this.reef[i] = 0;
     }
-    c.energy -= P.rageCost; c.rageReady = this.tick + P.rageCooldown; c.raged = this.tick;
+    c.energy -= P.rageCost; c.rageReady = this.tick + P.rageCooldown; c.raged = this.tick; if (c.book) c.book.rages++;
     this.log(`The ${c.species} rages and heaves the reef aside${moved > 3 ? ', opening a clearing ringed by a new wall' : ''}.`);
   }
 
   // Dormancy (Luis): a giant that can sleep (sp.dormancy) goes dormant when the world holds under dormantBelow of its room,
   // its life paused, and wakes once it holds wakeAt again; waking walled in, it breaks away to open ground.
+  // Is this a kraken season? One in every krakenEvery (season index divisible by it).
+  krakenSeason(t = this.tick) { return Math.floor(t / SEASON_TICKS) % P.krakenEvery === 0; }
   dormancy() {
-    const share = this.creatures.length / (this.maxCreatures ?? MAX_CREATURES);
+    const share = this.creatures.length / (this.maxCreatures ?? MAX_CREATURES), season = this.krakenSeason();
     for (const c of this.creatures) {
       if (c.dead || !this.registry[c.species].dormancy) continue;
-      if (!c.dormant && share < P.dormantBelow) { c.dormant = true; c.shove = false; this.log(`The world is nearly empty. The ${c.species} sinks into slumber; its life is paused.`); }
-      else if (c.dormant && share >= P.wakeAt) {
+      if (!c.dormant && !season) { c.dormant = true; c.shove = false; this.log(`The ${c.species}'s season is over. It sinks into the deep and sleeps; its life is paused until it rises again.`); }
+      else if (!c.dormant && share < P.dormantBelow) { c.dormant = true; c.shove = false; this.log(`The world is nearly empty. The ${c.species} sinks into slumber; its life is paused.`); }
+      else if (c.dormant && season && share >= P.wakeAt) {
         c.dormant = false;
         const [x, y] = this.openGround(c.x, c.y), moved = Math.hypot(delta(c.x, x, W), delta(c.y, y, H)) > 1;
         if (moved) { c.x = x; c.y = y; }
-        this.log(`Life has returned. The ${c.species} wakes from its slumber${moved ? ' and breaks free of the reef' : ''}.`);
+        this.log(`The ${c.species} rises from the deep for its season${moved ? ', breaking free of the reef' : ''}.`);
       }
     }
   }
@@ -999,16 +1050,15 @@ export class World {
     });
   }
 
-  // Targeted hunger (Luis): the giant goes for the most numerous family first (a family: all species of one root line,
-  // T, S, B…). preyRank[species] is its family's rank, 0 for the most numerous; it only turns to a lesser family when
-  // none of a commoner one is in sight (or in reach).
+  // Targeted hunger (Luis; by species again since 01:40 Oct 15): the giant goes for the most numerous species first.
+  // preyRank[species] = 0 for the most numerous, 1 for the next, …; it only turns to a lesser species when none of a
+  // commoner one is in sight (or in reach).
   rankPrey() {
-    const fam = name => (this.registry[name].lineage ?? name).split('.')[0], n = {};
-    for (const c of this.creatures) if (!c.dead && !this.registry[c.species].unique) n[fam(c.species)] = (n[fam(c.species)] ?? 0) + 1;
-    const order = Object.fromEntries(Object.keys(n).sort((a, b) => n[b] - n[a]).map((f, i) => [f, i]));
-    this.preyRank = {};
-    for (const name of this.speciesNames) if (this.registry[name] && !this.registry[name].unique) this.preyRank[name] = order[fam(name)] ?? 99;
+    const n = {};
+    for (const c of this.creatures) if (!c.dead && !this.registry[c.species].unique) n[c.species] = (n[c.species] ?? 0) + 1;
+    this.preyRank = Object.fromEntries(Object.keys(n).sort((a, b) => n[b] - n[a]).map((name, i) => [name, i]));
   }
+
   // What a giant can feed on: every living creature that is not one of the unique giants (whatever it eats itself).
   preyCount() { let n = 0; for (const c of this.creatures) if (!c.dead && !this.registry[c.species].unique && !(this.toxinOf(c) > 0.3)) n++; return n; } // toxic ones are spat out, not food
 
@@ -1086,6 +1136,8 @@ export class World {
       const c = this.spawn(e.species, hx, hy, e.gen, e.genes, sp.size, e.gut);
       if (e.k?.length) c.k = e.k;
       if (e.resist !== undefined) c.resist = e.resist;
+      if (e.eyes !== undefined) c.eyes = e.eyes;
+      if (e.mind) { c.mind = { trap: e.mind.trap, food: e.mind.food }; c.inheritedMind = true; } // it hatches knowing what its parent learned
       c.energy = sp.maxEnergy * 0.8;
       this.creatures.push(c);
       this.lastCounts[e.species] = (this.lastCounts[e.species] ?? 0) + 1;
@@ -1127,17 +1179,19 @@ export class World {
         if (b > 0) {
           const f = this.fertility[i], before = b;
           if (!(P.smother && this.smothered[i])) {
-            const grow = 0.05 * b * (1 - b) * (m + f) * (P.soilNeed ? f / (f + P.soilNeed) : 1) * (1 - P.thicketShade * this.thicket[i]);
+            const grow = 0.05 * b * (1 - b) * (m + f) * (P.soilNeed ? f / (f + P.soilNeed) : 1) * (1 - P.thicketShade * this.thicket[i]) * this.rootHealth[i];
             b += grow;
             if (P.soilNeed) this.fertility[i] = Math.max(0, f - grow * P.uptake);
           }
           if (m < 0.3) b -= 0.02 * (0.3 - m);
+          if (this.rootHealth[i] < 0.05) b = 0; // grazed to death: bare ground until seed comes back
           if (lush === 8 && Math.random() < 0.003) b *= 0.3; // crowded meadows rot from inside
           if (b < 0.02) b = 0;
           if (P.soilNeed && b < before) this.fertility[i] = Math.min(2, this.fertility[i] + (before - b) * P.uptake); // withered plants return to the soil
         } else if ((lush && Math.random() < 0.006 * lush * m) || Math.random() < P.seedBank * m * (0.1 + this.fertility[i])) {
-          b = 0.05;
+          b = 0.05; this.rootHealth[i] = Math.max(this.rootHealth[i], 0.5); // a new sprout has young roots
         }
+        this.rootHealth[i] = Math.min(1, this.rootHealth[i] + P.rootHeal * m); // rest heals
         if (this.thicket[i] > 0.4 && m >= P.thicketHardy && b < P.thicketRoots) b = P.thicketRoots; // the thicket keeps grass alive through dry spells: a seed bank
         this.plants[i] = this.reef[i] >= P.reefSolid ? 0 : Math.min(1, b); // nothing grows on solid reef
         this.fertility[i] = this.fertility[i] * (1 - P.leach) + (P.soilNeed ? P.weathering * m : 0);
@@ -1183,6 +1237,66 @@ export class World {
         }
   }
 
+  // How far a body sees: its species' perception, scaled by its size against the species' reference, by age (the young
+  // see less, the old a little less), by its eyes, and cut short inside dense thicket.
+  sight(c) {
+    const sp = this.registry[c.species], m = P.maturity * (c.mature ?? 1), life = c.lifespan || 1;
+    const size = Math.min(1.4, Math.max(0.7, (this.bodySize(c) / sp.size) ** 0.25));
+    const age = c.age < m ? 0.6 + 0.4 * c.age / m : c.age > 0.8 * life ? 1 - 0.2 * Math.min(1, (c.age / life - 0.8) / 0.2) : 1;
+    const cover = this.thicket[cellAt(c.x, c.y)] > 0.4 ? P.sightThicket : 1;
+    return sp.perception * size * age * (0.5 + (c.eyes ?? P.eyesStart)) * cover;
+  }
+  // The reef as a body sees it: in 8 directions (east first, turning clockwise on screen), the distance to the first solid
+  // cell as a share of its sight (1 = open as far as it can see).
+  reefRays(c, r) {
+    const rays = [];
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4, dx = Math.cos(a), dy = Math.sin(a);
+      let d = CELL, hit = 1;
+      for (; d <= r; d += CELL) if (this.reef[cellAt(wrap(c.x + dx * d, W), wrap(c.y + dy * d, H))] >= P.reefSolid) { hit = d / r; break; }
+      rays.push(r2(hit));
+    }
+    return rays;
+  }
+
+  // The map an egg inherits: each cell blended with its neighbours, and weakened to mindKeep.
+  blurMind(mind) {
+    const out = { trap: [], food: [], inherited: true }, W2 = P.mindW, H2 = P.mindH;
+    for (const key of ['trap', 'food'])
+      for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) {
+        let sum = 0, n = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const w = dx || dy ? 0.5 : 1; sum += w * mind[key][((y + dy + H2) % H2) * W2 + (x + dx + W2) % W2]; n += w; }
+        out[key].push(r2(sum / n * P.mindKeep));
+      }
+    return out;
+  }
+  // The kraken's mind: learn where it gets stuck and where it eats (every 10 ticks), and keep its life's measures.
+  mindCell(x, y) { return Math.floor(wrap(y, H) / H * P.mindH) * P.mindW + Math.floor(wrap(x, W) / W * P.mindW); }
+  learn(c) {
+    const n = P.mindW * P.mindH;
+    c.mind ??= { trap: new Array(n).fill(0), food: new Array(n).fill(0) };
+    c.book ??= { ticks: 0, stuck: 0, meals: 0, rages: 0, dist: 0 };
+    const { trap, food } = c.mind, i = this.mindCell(c.x, c.y), stuck = (c.bumps ?? 0) > 2;
+    for (let j = 0; j < n; j++) { trap[j] *= P.mindForget; food[j] *= P.mindForget; }
+    if (stuck) trap[i] += P.mindTrap * (1 - trap[i]);
+    for (let m = 0; m < (c.mealsNew ?? 0); m++) food[i] += P.mindFeed * (1 - food[i]);
+    c.book.ticks += 10; if (stuck) c.book.stuck += 10; c.book.meals += c.mealsNew ?? 0; c.book.dist += Math.hypot(c.vx, c.vy) * 10;
+    c.mealsNew = 0;
+  }
+  // Where its map pulls it: toward remembered feeding grounds, away from remembered traps, one and two cells out.
+  mindPull(c) {
+    if (!c.mind) return [0, 0];
+    const cw = W / P.mindW, ch = H / P.mindH; let px = 0, py = 0;
+    for (let k = 0; k < 8; k++) {
+      const a = k * Math.PI / 4, dx = Math.cos(a), dy = Math.sin(a);
+      for (const step of [1, 2]) {
+        const j = this.mindCell(c.x + dx * cw * step, c.y + dy * ch * step), v = (c.mind.food[j] - 1.5 * c.mind.trap[j]) / step;
+        px += dx * v; py += dy * v;
+      }
+    }
+    return [px, py];
+  }
+
   hasJaws(c) { return c.gut > P.jaws; }
   grazes(c) { return c.gut < 1 - P.jaws; }
   // The body as it is now: juveniles are smaller than the adult size their genes promise.
@@ -1202,7 +1316,7 @@ export class World {
   // What a creature knows. Positions are unwrapped relative to it, so plain subtraction works.
   // Its food is whatever it could actually eat: plants if it grazes, creatures it could overpower if it has jaws.
   sense(c) {
-    const sp = this.registry[c.species], r = sp.perception;
+    const sp = this.registry[c.species], r = this.sight(c);
     const others = [], food = [];
     // Attention is limited: in a crowd a creature notices only its nearest neighbours.
     // Its own kind are always noticed first (up to KIN_ATTENTION), then the nearest of the rest (up to ATTENTION); in a
@@ -1232,7 +1346,7 @@ export class World {
             if (this.plants[ci] > P.cover) continue; // hidden in tall grass
             if (this.thicket[ci] > 0.4 && d2 > thicket2 && this.bodySize(o) < P.thicketHide) continue; // hidden in thicket (a giant feels through it within its reach)
           } else if (sp.unique && d2 > thicket2 && this.thicket[cellAt(o.x, o.y)] > 0.4 && this.bodySize(o) < P.thicketHide) continue;
-          if (d2 > stealth2 && this.registry[o.species].unique) continue; // a giant glides unseen until it is close
+          if (this.registry[o.species].unique && (o.dormant || d2 > stealth2)) continue; // a giant glides unseen until it is close; asleep in the deep, not at all
           const e = { o, dx, dy, d2 }, kin = o.species === c.species;
           if (++count <= ATTENTION) all.push(e);
           keep(kin ? kinTop : restTop, kin ? KIN_ATTENTION : ATTENTION, e);
@@ -1248,7 +1362,7 @@ export class World {
       others.push(seen);
       if (this.canOverpower(c, o) && this.wouldEat(c, o) && !(this.registry[c.species].unique && this.toxinOf(o) > (c.resist ?? 0.3))) food.push({ ...seen, plant: false }); // a giant does not chase what it would spit out
     }
-    if (this.registry[c.species].unique && this.preyRank) { // targeted hunger: it follows only the commonest kind in sight
+    if (P.targetedHunger && this.registry[c.species].unique && this.preyRank) { // targeted hunger: it follows only the commonest kind in sight
       const rank = f => f.plant || f.corpse ? Infinity : this.preyRank[f.species] ?? 99, best = Math.min(...food.map(rank));
       if (best < Infinity) for (let i = food.length - 1; i >= 0; i--) if (!food[i].plant && !food[i].corpse && rank(food[i]) > best) food.splice(i, 1);
     }
@@ -1256,7 +1370,7 @@ export class World {
       const browser = this.browses(c); // a big body with a browsing gut sees thicket shoots as food
       const patches = [], gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL);
       let enough = Infinity; // once ATTENTION patches are found, cells more than 1.5 cells further out cannot be nearer
-      for (const [dx, dy, ring] of cellsWithin(r)) {
+      for (const [dx, dy, ring] of cellsWithin(Math.ceil(r / CELL) * CELL)) { // whole cells for the cache key (sight varies continuously); exact distance is checked below
         if (ring > enough) break;
         if (patches.length >= ATTENTION && enough === Infinity) enough = ring + 1.5;
         const gx = gx0 + dx, gy = gy0 + dy;
@@ -1282,7 +1396,7 @@ export class World {
         size: r1(this.bodySize(c)), gut: r2(c.gut), genes: [...c.genes], fertile: this.fertile(c),
         legs: r2(c.legs), fat: r2(c.fat ?? 0), maxSpeed: r2(this.cruise(c)),
         smell: { prey: this.smellOf(this.scentPrey, c.x, c.y), danger: this.smellOf(this.scentHunt, c.x, c.y) }, bumped: r1(c.bumps ?? 0), stamina: r2(c.wind > 0 ? c.stamina / (c.wind * P.windTicks) : 0) },
-      { width: W, height: H, t: this.tick, season: r2((this.tick % SEASON_TICKS) / SEASON_TICKS), food, others, noise: this.noiseFn }, // season: 0 at its start … 1 at its end
+      { width: W, height: H, t: this.tick, season: r2((this.tick % SEASON_TICKS) / SEASON_TICKS), food, others, noise: this.noiseFn, reef: this.reefRays(c, r) }, // season: 0 at its start … 1 at its end
     ];
   }
 
@@ -1325,10 +1439,11 @@ export class World {
         c.shove = !!f.shove; // a desperate slender giant may shove even solid reef aside
         // Rage: its own (plenty in sight, yet walled off), or trapped and hungry, whatever it sees (Luis, 00:25 Oct 15).
         const giant = this.registry[name].unique, trapped = giant && (c.bumps ?? 0) > P.rageBumps && c.energy < P.rageHunger;
-        if ((f.rage || trapped) && giant && !(c.rageReady > this.tick) && c.energy > P.rageCost + 0.5) this.rage(c);
+        if ((f.rage || trapped) && giant && !c.dormant && !(c.rageReady > this.tick) && c.energy > P.rageCost + 0.5) this.rage(c); // never in its sleep
         if (f.give !== undefined) c.give = clamp01(f.give);
         if (f.signal !== undefined) c.signal = r2(clamp01(f.signal));
         c.fx = f.x; c.fy = f.y;
+        if (c.mind && this.registry[name].unique) { const [mx, my] = this.mindPull(c); c.fx += mx * P.mindPull; c.fy += my * P.mindPull; } // the kraken's map turns it
         this.steer(c, f.x, f.y);
         c.thought = t;
       });
@@ -1403,7 +1518,7 @@ export class World {
       if (c.digesting > 0) c.digesting--;
       if (c.cooldown > 0) c.cooldown -= c.pulse;
       const upkeep = Math.max(0.4, 1 + P.legUpkeep * (c.legs - 1) + P.windUpkeep * (c.wind - 0.5)) * (1 + P.fatUpkeep * this.fatLoad(c))
-        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart));
+        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5));
       if (c.aversion) { c.aversion.s *= P.aversionFade; if (c.aversion.s < 0.3) c.aversion = null; }
       const drag = 1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c));
       c.energy -= sp.metabolism * k ** 0.75 * upkeep + sp.moveCost * k * drag * (c.vx * c.vx + c.vy * c.vy);
@@ -1435,7 +1550,8 @@ export class World {
     this.census();
     if (this.eggs?.length && t % 30 === 0) this.hatchEggs();
     if (t % 10 === 0) this.infestations();
-    if (t % 30 === 0) { this.releaseWaves(); this.dormancy(); this.rankPrey(); }
+    if (t % 30 === 0) { this.releaseWaves(); this.dormancy(); this.rankPrey(); this.greatDivide(); }
+    if (t % 10 === 0) for (const c of this.creatures) if (!c.dead && !c.dormant && this.registry[c.species].egg) this.learn(c);
     // Scarcity calms the kraken at once (checked daily): few grazers, it feeds only when truly hungry.
     if (t % TICKS_PER_DAY === 0 && this.satiation !== undefined) {
       const g = this.preyCount(), floor = g < 50 ? 0.7 : g < 200 ? 0.8 : 1;
@@ -1476,7 +1592,7 @@ export class World {
   heartRate(c) {
     const speed = Math.min(1, Math.hypot(c.vx, c.vy) / (this.cruise(c) || 1));
     const bulk = Math.max(0.4, 1 + P.legUpkeep * ((c.legs ?? 1) - 1) + P.windUpkeep * ((c.wind ?? 0.5) - 0.5))
-      * (1 + P.fatUpkeep * this.fatLoad(c)) * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart));
+      * (1 + P.fatUpkeep * this.fatLoad(c)) * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5));
     return (mass(this.bodySize(c)) / mass(P.heartSize)) ** -P.heartPower * (P.idleHeart + P.runHeart * speed) * (c.sprinting ? P.sprintHeart : 1) * Math.sqrt(bulk);
   }
 
@@ -1512,14 +1628,14 @@ export class World {
   // meal, needs no time to handle it, and grows on what it cannot store.
   gulp(c, sp) {
     // Satiation follows the herds (this.satiation, adjusted each season): above it, it lets prey pass.
-    const full = (sp.unique ? this.satiation : 0.95) * sp.maxEnergy;
+    const full = (sp.unique ? this.satiation * P.krakenAppetite : 0.95) * sp.maxEnergy;
     if (c.energy >= full) return this.growOn(c, sp);
     const me = this.bodySize(c), eaten = [];
     this.near(c.x, c.y, me * (sp.gulpReach ?? 1) + 20, (o, dx, dy) => {
       const reach = (me + this.bodySize(o)) * (sp.gulpReach ?? P.gulpReach) + 2;
       if (eaten.length < (sp.gulp ?? P.gulp) && o !== c && !o.dead && !(this.toxinOf(o) > (c.resist ?? 0.3) + P.tolerate) && this.canOverpower(c, o) && this.wouldEat(c, o) && dx * dx + dy * dy <= reach * reach) eaten.push(o);
     });
-    if (this.preyRank && eaten.length) { // targeted hunger: of what is in reach, only the commonest kind
+    if (P.targetedHunger && this.preyRank && eaten.length) { // targeted hunger: of what is in reach, only the commonest kind
       const best = Math.min(...eaten.map(o => this.preyRank[o.species] ?? 99));
       for (let i = eaten.length - 1; i >= 0; i--) if ((this.preyRank[eaten[i].species] ?? 99) > best) eaten.splice(i, 1);
     }
@@ -1528,6 +1644,7 @@ export class World {
       const meat = Math.max(0, prey.energy) + this.bodyHeld(prey), level = this.registry[prey.species].tl;
       this.die(prey, 'eaten');
       this.stats[c.species].kills++;
+      c.mealsNew = (c.mealsNew ?? 0) + 1; // for its map
       // Acquired tolerance: prey a little more toxic than it can handle still goes down, at a price (less of the meal
       // kept, a little sickness), and the liver adapts: resistance creeps up with every such meal (and passes to the egg).
       const over = Math.max(0, this.toxinOf(prey) - (c.resist ?? 0.3));
@@ -1558,6 +1675,15 @@ export class World {
     return n / 8;
   }
   eat(c, sp, k) {
+    // What a grazer carries: dung dropped as it goes (fertility moves to where it rests), seeds that sprout on bare ground.
+    if (c.dung > 0.001 || c.seeds > 0.05) {
+      const j = cellAt(c.x, c.y);
+      if (c.dung > 0.001) { const d = c.dung * P.dungDrop; c.dung -= d; this.fertility[j] = Math.min(2, this.fertility[j] + d); }
+      if (c.seeds > 0.05) {
+        if (this.plants[j] === 0 && this.reef[j] < P.reefSolid && Math.random() < P.seedDrop * c.seeds * this.moisture[j]) { this.plants[j] = 0.05; this.rootHealth[j] = Math.max(this.rootHealth[j], 0.5); }
+        c.seeds *= P.seedCarry;
+      }
+    }
     c.toxStock = (c.toxStock ?? 1) * (1 - P.storeFade); c.minStock = (c.minStock ?? 1) * (1 - P.storeFade); // defences fade without supply
     if (c.eats !== false) {
       if (this.grazes(c)) {
@@ -1565,6 +1691,10 @@ export class World {
         const bite = Math.max(0, Math.min(sp.biteSize * Math.sqrt(k) * (1 - c.gut) * guard, this.plants[i] - P.roots)); // roots survive
         this.plants[i] -= bite;
         this.feed(c, bite * P.plantEnergy * (1 - c.gut) ** 2 * (1 - P.browseCost * (c.browse ?? 0)), 1, 'plant'); // a browsing gut grazes worse
+        if (bite > 0) {
+          if (this.plants[i] < P.roots + 0.05) this.rootHealth[i] = Math.max(0, this.rootHealth[i] - P.rootWear); // bitten to the roots
+          c.dung = (c.dung ?? 0) + bite * P.dungShare; c.seeds = 1; // it carries the meal on as dung, and seeds
+        }
         // Defences from food: hedge plants carry toxin, ground by the reef carries minerals for a shell.
         // Toxin: a body in the hedge nibbles its leaves whether or not there is grass to bite.
         c.toxStock = Math.min(1, (c.toxStock ?? 1) + P.toxinGain * this.thicket[i]);
@@ -1606,8 +1736,8 @@ export class World {
           c.digesting = Math.round(P.handling * Math.sqrt(preyMass / mass(me)));
         }
       }
-      // Carrion does not fight back: any jaws can tear at a corpse they touch.
-      if (this.hasJaws(c)) {
+      // Carrion does not fight back: a gut barely past grass can already tear at a corpse it touches (a step toward meat).
+      if (c.gut > P.carrionGut) {
         const me = this.bodySize(c), k2 = Math.sqrt(k);
         for (const corpse of this.corpses) {
           if (!(corpse.energy > 0.01)) continue;
@@ -1720,7 +1850,7 @@ export class World {
         const mind = mixed ? pick(c, partner) : c;
         const k = mixed ? mind.k.map(driftK) : c.k.map((v, j) => driftK(pick(v, partner.k[j])));
         born.push(this.child(mind, (c.x + partner.x) / 2, (c.y + partner.y) / 2, gift / n, genes, (mixed ? mind.gen : Math.max(c.gen, partner.gen)) + 1,
-          driftSize(pick(c.size, partner.size)), driftGut(pick(this.heritableGut(c), this.heritableGut(partner))), k,
+          driftSize(pick(c.sizeGene ?? c.size, partner.sizeGene ?? partner.size)), driftGut(pick(this.heritableGut(c), this.heritableGut(partner))), k,
           this.inherit(c, partner)));
       }
       this.maybeSlip(born.slice(-n));
@@ -1733,7 +1863,7 @@ export class World {
       c.energy -= gift;
       const n = this.litterOf(c.litter, kept);
       for (let i = 0; i < n; i++)
-        born.push(this.child(c, c.x, c.y, kept / n, c.genes.map(drift), c.gen + 1, driftSize(c.size), driftGut(this.heritableGut(c)), c.k.map(driftK),
+        born.push(this.child(c, c.x, c.y, kept / n, c.genes.map(drift), c.gen + 1, driftSize(c.sizeGene ?? c.size), driftGut(this.heritableGut(c)), c.k.map(driftK),
           this.inherit(c, c)));
       this.maybeSlip(born.slice(-n));
       this.stats[c.species].budded++;
@@ -1755,7 +1885,7 @@ export class World {
       legs: driftLegs(pick(a.legs, b.legs)), wind: driftWind(pick(a.wind, b.wind)), plastic: driftPlastic(pick(a.plastic, b.plastic)),
       thrift: driftThrift(pick(a.thrift, b.thrift)), armor: driftArmor(pick(a.armor, b.armor)), toxin: driftToxin(pick(a.toxin, b.toxin)),
       litter: driftLitter(pick(a.litter, b.litter)), hueShift: driftHue(pick(a.hueShift, b.hueShift)),
-      mature: driftMature(pick(a.mature, b.mature)), browse: driftBrowse(pick(a.browse, b.browse)), gape: driftGape(pick(a.gape, b.gape)), resist: driftResist(pick(a.resist, b.resist)),
+      mature: driftMature(pick(a.mature, b.mature)), browse: driftBrowse(pick(a.browse, b.browse)), gape: driftGape(pick(a.gapeGene ?? a.gape, b.gapeGene ?? b.gape)), resist: driftResist(pick(a.resist, b.resist)), eyes: driftEyes(pick(a.eyes, b.eyes)),
       toxStock: P.storeBirth * ((a.toxStock ?? 1) + (b.toxStock ?? 1)) / 2, minStock: P.storeBirth * ((a.minStock ?? 1) + (b.minStock ?? 1)) / 2,
     };
     if (sports > before) this.noteSport(a.species);
@@ -1810,6 +1940,10 @@ export class World {
   child(parent, x, y, energy, genes, gen, size, gut, k, traits) {
     const kid = this.spawn(parent.species, x + Math.random() * 8 - 4, y + Math.random() * 8 - 4, gen, genes, size, gut);
     Object.assign(kid, traits);
+    // Birth variation: the body differs by chance from the genes it carries (sizeGene, bornGut, gapeGene pass on; the luck does not).
+    kid.sizeGene = size; kid.size = Math.min(P.maxSize, Math.max(P.minSize, size * (1 + gauss() * P.birthSize)));
+    kid.bornGut = gut; kid.gut = clamp01(gut + gauss() * P.birthGut);
+    kid.gapeGene = kid.gape; kid.gape = Math.min(P.gapeMax, Math.max(P.gapeMin, (kid.gape ?? 0.5) + gauss() * P.birthGape));
     kid.lifespan = Math.round(kid.lifespan * (1 + P.matureLife * ((kid.mature ?? 1) - 1))); // late maturers live longer
     kid.energy = energy * (1 - P.bodyShare);
     kid.body += energy * P.bodyShare;
@@ -1838,9 +1972,15 @@ export class World {
     c.dead = true;
     // A giant that lays an egg (the kraken, like an octopus) leaves one when it dies of old age: its line goes on.
     const sp0 = this.registry[c.species];
+    if (sp0.egg && c.book) { // the kraken's life, measured: how often stuck, how well fed, how often it raged
+      const b = c.book;
+      (this.mindBook ??= []).push({ gen: c.gen, cause, ticks: b.ticks, stuck: r2(b.stuck / Math.max(1, b.ticks)), mealsPer1000: r2(b.meals / Math.max(1, b.ticks) * 1000), rages: b.rages, distPerMeal: Math.round(b.dist / Math.max(1, b.meals)), inherited: !!c.inheritedMind });
+      if (this.mindBook.length > 200) this.mindBook.shift();
+    }
     if (sp0.egg && cause === 'old') {
       (this.eggs ??= []).push({ species: c.species, x: c.x, y: c.y, laid: this.tick, hatch: this.tick + P.eggTicks, genes: c.genes.map(drift), k: c.k?.map(driftK), gen: c.gen + 1, gut: c.gut,
-        resist: Math.min(1, Math.max(0, (c.resist ?? 0.3) + wobble(P.resistDrift) + leap() * 0.3)) }); // toxin resistance passes on, drifting
+        resist: Math.min(1, Math.max(0, (c.resist ?? 0.3) + wobble(P.resistDrift) + leap() * 0.3)), // toxin resistance passes on, drifting
+        eyes: driftEyes(c.eyes), mind: c.mind ? this.blurMind(c.mind) : undefined }); // and what it learned of the world (Lamarckian)
       this.log(`The old ${c.species} lays an egg before it dies. Something will hatch from it.`);
     }
     this.stats[c.species][cause]++;
@@ -1872,7 +2012,7 @@ export class World {
       this.measureRoles();
       const pops = {};
       for (const c of this.creatures) pops[c.species] = (pops[c.species] ?? 0) + 1;
-      const traits = Object.fromEntries(this.living().map(n => [n, { size: this.registry[n].avgSize, drift: this.registry[n].drift ?? 0 }]));
+      const traits = Object.fromEntries(this.living().map(n => [n, { size: this.registry[n].avgSize, drift: this.registry[n].drift ?? 0, driftRoot: this.registry[n].driftRoot, bodyRoot: this.registry[n].bodyRoot }]));
       const entry = { t: this.tick, pops, plants: Math.round(this.plants.reduce((a, b) => a + b, 0)), traits };
       this.history.push(entry);
       // When full, thin out only the older half, so recent seasons keep their detail.
@@ -1903,6 +2043,12 @@ export class World {
           const mean = g.consts.map((_, i) => Math.exp(group.reduce((a, c) => a + Math.log(c.k[i]), 0) / group.length));
           sp.meanK = mean.map(v => Number(v.toPrecision(4)));
           sp.drift = r2(this.genomeGap(mean, g.consts));
+        }
+        // How far it has come from its line's founder, across every split: code numbers and body (Luis, 08:55 Oct 15).
+        const root = this.rootRef(name);
+        if (root) {
+          if (sp.meanK?.length) { const n = Math.min(sp.meanK.length, root.consts.length); let gap = 0; for (let i = 0; i < n; i++) gap += Math.abs(Math.log(sp.meanK[i] / root.consts[i])); sp.driftRoot = n ? r2(gap / n) : 0; }
+          sp.bodyRoot = r2(BODY.reduce((a, [f, start, scale]) => { const v = mean(f), r = start(root); return a + (scale === 'log' ? Math.abs(Math.log(v / r)) : Math.abs(v - r) / scale); }, 0) / BODY.length);
         }
       }
       if (d.energy > 0.5) {
@@ -2003,15 +2149,42 @@ export class World {
     }
   }
 
-  // The next great divide, as the world stands: the species over divideShare of all life now, and the ticks until the
-  // season end at which its streak would pass divideSeasons (if it stays over). Null when no species is that dominant.
+  // When the kraken next rises (or, in its season, sinks): { awake, ticks } for the viewer's clock.
+  krakenClock() {
+    const idx = Math.floor(this.tick / SEASON_TICKS), awake = idx % P.krakenEvery === 0;
+    const next = awake ? (idx + 1) * SEASON_TICKS : (Math.floor(idx / P.krakenEvery) + 1) * P.krakenEvery * SEASON_TICKS;
+    return { awake, ticks: next - this.tick };
+  }
+
+  // The kraken's map for the viewer (its 'mind' overlay): trap and food values, rounded.
+  mindFrame() {
+    const k = this.creatures.find(c => !c.dead && c.mind);
+    return k ? { w: P.mindW, h: P.mindH, trap: k.mind.trap.map(v => Math.round(v * 100) / 100), food: k.mind.food.map(v => Math.round(v * 100) / 100) } : null;
+  }
+
+  // The next great divide, as the world stands: the species over divideShare of all life now, and the ticks until its
+  // rest after its last divide is over (0: it divides at the next check). Null when no species is that dominant.
   nextDivide() {
+    const [name, share] = this.leader();
+    if (!name || share <= P.divideShare) return null;
+    return { name, ticks: Math.max(0, (this.registry[name].dividedAt ?? -Infinity) + P.divideRest - this.tick) }; // 0: as soon as it is checked
+  }
+  // The most numerous species (not the unique giants) and its share of all living bodies.
+  leader() {
     let total = 0; const n = {};
     for (const c of this.creatures) if (!c.dead) { total++; if (!this.registry[c.species].unique) n[c.species] = (n[c.species] ?? 0) + 1; }
     const [name, count] = Object.entries(n).sort((a, b) => b[1] - a[1])[0] ?? [];
-    if (!name || count / total <= P.divideShare) return null;
-    const ends = Math.max(1, P.divideSeasons + 1 - (this.dominance?.[name] ?? 0)); // season ends still needed
-    return { name, ticks: SEASON_TICKS - this.tick % SEASON_TICKS + (ends - 1) * SEASON_TICKS };
+    return name ? [name, count / total] : [null, 0];
+  }
+  // The great divide (Luis, 09:05 Oct 15): at any time, a species holding over a third of all life is divided, unless
+  // it (or the split it came from) was divided less than divideRest ago.
+  greatDivide() {
+    const [name, share] = this.leader();
+    if (!name || share <= P.divideShare || this.tick - (this.registry[name].dividedAt ?? -Infinity) < P.divideRest) return;
+    const before = new Set(this.speciesNames);
+    this.vicariance(name);
+    this.registry[name].dividedAt = this.tick;
+    for (const n of this.speciesNames) if (!before.has(n)) this.registry[n].dividedAt = this.tick; // the new species rest too
   }
 
   // K-means over place and kind; returns the groups, or null when the members show no real structure.
@@ -2104,17 +2277,6 @@ export class World {
 
   // A species born last season that is still alive now has survived its first full season.
   endSeason() {
-    // The great divide (Luis): a species holding over divideShare of all life for more than divideSeasons seasons in a
-    // row is cut in four by the land's quarters (vicariance), each quarter becoming a species of its own.
-    const bodies = this.creatures.filter(c => !c.dead), counts = {};
-    for (const c of bodies) counts[c.species] = (counts[c.species] ?? 0) + 1;
-    this.dominance ??= {};
-    for (const name of Object.keys(this.dominance)) if (!counts[name]) delete this.dominance[name];
-    for (const [name, n] of Object.entries(counts)) {
-      if (this.registry[name].unique || n / bodies.length <= P.divideShare) { delete this.dominance[name]; continue; }
-      this.dominance[name] = (this.dominance[name] ?? 0) + 1;
-      if (this.dominance[name] > P.divideSeasons) { this.dominance[name] = 0; this.vicariance(name); }
-    }
     // For the machine's sake (Luis): the creature cap shrinks 10% a season until it is below capTarget.
     if (this.maxCreatures >= P.capTarget) {
       this.maxCreatures = Math.round(this.maxCreatures * 0.9);
@@ -2154,7 +2316,7 @@ export class World {
   speciesList() {
     return this.speciesNames.map(name => {
       const { lineage, hue, shape, mark, parent, born, extinct, waiting, lastBranchGen } = this.registry[name];
-      return { name, lineage, hue: tint(hue, this.registry[name].avgGut ?? this.registry[name].gut), shape, mark, parent, born, extinct, waiting: !!waiting, lastBranchGen, drift: this.registry[name].drift ?? 0,
+      return { name, lineage, hue: tint(hue, this.registry[name].avgGut ?? this.registry[name].gut), shape, mark, parent, born, extinct, waiting: !!waiting, lastBranchGen, drift: this.registry[name].drift ?? 0, driftRoot: this.registry[name].driftRoot, bodyRoot: this.registry[name].bodyRoot, root: this.rootRef(name)?.name,
         variant: this.isVariant(name),
         code: extinct === null ? this.evolvedCode(name) : undefined };
     });
@@ -2172,6 +2334,7 @@ export class World {
         armor: r2(group.reduce((a, c) => a + (c.armor ?? 0), 0) / n), toxin: r2(group.reduce((a, c) => a + (c.toxin ?? 0), 0) / n),
         label: sp.dietLabel ?? sp.role, food: sp.food,
         mature: r2(group.reduce((a, c) => a + (c.mature ?? 1), 0) / n), browse: r2(group.reduce((a, c) => a + (c.browse ?? 0), 0) / n), gape: r2(group.reduce((a, c) => a + (c.gape ?? 0.5), 0) / n), browsers: group.filter(c => this.browses(c)).length,
+        resist: r2(group.reduce((a, c) => a + (c.resist ?? P.resistStart), 0) / n), eyes: r2(group.reduce((a, c) => a + (c.eyes ?? P.eyesStart), 0) / n),
         litter: r1(group.reduce((a, c) => a + (c.litter ?? 1), 0) / n), thrift: r2(group.reduce((a, c) => a + (c.thrift ?? 0.5), 0) / n), turning: group.filter(c => c.turning).length,
         // Who is what, one by one: bodies by gut (no jaws / both / meat only) and what each has mostly been eating.
         bodies: [group.filter(c => c.gut <= P.jaws).length, group.filter(c => c.gut > P.jaws && c.gut < 1 - P.jaws).length, group.filter(c => c.gut >= 1 - P.jaws).length],
@@ -2189,8 +2352,8 @@ export class World {
         shownHue(k), (k.broken ? 1 : 0) | (k.willing ? 2 : 0) | (k.sprinting ? 4 : 0) | (k.shove ? 8 : 0) | (k.infest > 0 ? 16 : 0) | (k.dormant ? 32 : 0) | (this.tick - (k.raged ?? -1e9) < 60 ? 64 : 0), r1(this.bodySize(k)), r2(k.legs ?? 1), r2((k.fat ?? 0) / mass(this.bodySize(k)) / P.maxFat), r2(this.armorOf(k)), r2(k.pulse ?? 1));
     const corpses = [];
     for (const k of this.corpses) corpses.push(Math.round(k.x), Math.round(k.y), r2(k.age / CORPSE_TICKS), k.cause === 'eaten' ? 1 : 0);
-    const eggs = (this.eggs ?? []).flatMap(e => [Math.round(e.x), Math.round(e.y), r2((this.tick - e.laid) / (e.hatch - e.laid)), index[e.species] ?? -1]);
-    return { t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide() };
+    const eggs = (this.eggs ?? []).flatMap(e => [Math.round(e.x), Math.round(e.y), Math.round((this.tick - e.laid) / (e.hatch - e.laid) * 1e4) / 1e4, index[e.species] ?? -1]); // progress, fine enough for a countdown
+    return { t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide(), kraken: this.krakenClock(), mind: this.tick % 30 === 0 ? this.mindFrame() : undefined };
   }
 
   // Plants, moisture and fertility per cell, as base64 bytes.
@@ -2213,7 +2376,7 @@ export class World {
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
       creatures: this.creatures.map(c => ({ ...c, memory: safeMemory(c.memory) })),
-      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, dominance: this.dominance ?? {}, maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), history: this.history, events: this.events,
+      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, dominance: this.dominance ?? {}, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), history: this.history, events: this.events,
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -2221,12 +2384,13 @@ export class World {
   restore(s) {
     Object.assign(this, {
       tick: s.tick, season: s.season, nextId: s.nextId, registry: s.registry, code: s.code,
-      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, dominance: s.dominance ?? {}, history: s.history, events: s.events,
+      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, dominance: s.dominance ?? {}, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
       stats: s.stats, records: s.records, diet: s.diet, lastCounts: s.lastCounts, since: s.since, lessons: s.lessons ?? [], pendingStudies: s.pendingStudies ?? [],
     });
     this.plants = Float32Array.from(s.plants);
     this.fertility = Float32Array.from(s.fertility);
     if (s.thicket?.length) this.thicket = Float32Array.from(s.thicket);
+    if (s.rootHealth?.length) this.rootHealth = Float32Array.from(s.rootHealth);
     if (s.reef) { this.reef = Float32Array.from(s.reef); this.mineral = Float32Array.from(s.mineral); this.grains = s.grains ?? []; }
     this.ensureBooks();
     // Older saves: judge each species from its record. Hunters by their lessons (a release that lasted a season);
