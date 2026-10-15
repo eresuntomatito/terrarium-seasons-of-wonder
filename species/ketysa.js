@@ -1,3 +1,4 @@
+// † extinct in season 641.
 // ketysa (P.2.8.15.5.3.7): drifted apart from the thufifis (P.2.8.15.5.3) in season 638; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
