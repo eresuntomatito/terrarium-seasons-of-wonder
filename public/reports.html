@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Status Reports</title>
+<style>
+  /* The same palette as the world viewer; light or dark follows the system unless the viewer's toggle chose one. */
+  :root { --bg: #080a09; --fg: #aab6ae; --dim: #56635b; --line: #1a221d; --hi: #d4dfd7; --panel: #0e1210; --accent: #c9b77a; color-scheme: dark; }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+    --bg: #f3f1ea; --fg: #3d4740; --dim: #7c867e; --line: #d9d6cb; --hi: #141a16; --panel: #e9e6dc; --accent: #8a6d14; color-scheme: light; } }
+  :root[data-theme="light"] { --bg: #f3f1ea; --fg: #3d4740; --dim: #7c867e; --line: #d9d6cb; --hi: #141a16; --panel: #e9e6dc; --accent: #8a6d14; color-scheme: light; }
+  :root[data-theme="dark"] { --bg: #080a09; --fg: #aab6ae; --dim: #56635b; --line: #1a221d; --hi: #d4dfd7; --panel: #0e1210; --accent: #c9b77a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif; }
+  header { display: flex; align-items: baseline; gap: 16px; padding: 14px 24px; border-bottom: 1px solid var(--line); }
+  header h1 { margin: 0; font-size: 16px; color: var(--hi); font-weight: 600; }
+  header a { color: var(--dim); font-size: 12px; text-decoration: none; }
+  header a:hover { color: var(--hi); }
+  .wrap { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 52px); }
+  nav { border-right: 1px solid var(--line); padding: 12px; background: var(--panel); }
+  nav h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 4px 8px 8px; }
+  nav button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; color: var(--fg); font: inherit; font-size: 13px; padding: 7px 10px; cursor: pointer; }
+  nav button small { display: block; color: var(--dim); font-size: 11px; }
+  nav button:hover { background: var(--line); }
+  nav button.on { background: var(--line); color: var(--hi); }
+  main { padding: 24px 40px 60px; max-width: 980px; }
+  main h1 { font-size: 24px; color: var(--hi); margin: 0 0 12px; }
+  main h2 { font-size: 17px; color: var(--hi); margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+  main h3 { font-size: 14px; color: var(--hi); margin: 20px 0 6px; }
+  main p, main li { color: var(--fg); }
+  main strong { color: var(--hi); }
+  main code { font: 12px ui-monospace, Menlo, monospace; background: var(--panel); padding: 1px 5px; border-radius: 4px; }
+  main table { border-collapse: collapse; margin: 10px 0 16px; font-size: 13px; }
+  main th, main td { border: 1px solid var(--line); padding: 5px 10px; text-align: left; vertical-align: top; }
+  main th { background: var(--panel); color: var(--hi); font-weight: 600; }
+  main ul, main ol { padding-left: 22px; }
+  main a { color: var(--accent); }
+  .empty { color: var(--dim); }
+  @media (max-width: 720px) { .wrap { grid-template-columns: 1fr; } nav { border-right: 0; border-bottom: 1px solid var(--line); } main { padding: 16px; } }
+</style>
+</head>
+<body>
+<header><h1>World Status Reports</h1><a href="/">← back to the world</a></header>
+<div class="wrap">
+  <nav><h2>Reports</h2><div id="list"><div class="empty">loading…</div></div></nav>
+  <main id="report"><p class="empty">Choose a report.</p></main>
+</div>
+<script>
+const $ = id => document.getElementById(id);
+try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
+
+// A small Markdown renderer for the reports: headings, paragraphs, bold/italic/code/links, lists, tables, rules.
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const inline = s => esc(s)
+  .replace(/`([^`]+)`/g, '<code>$1</code>')
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+  .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
+  .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, text, href) => href.endsWith('.md') ? `<a href="#${href}">${text}</a>` : `<a href="${href}">${text}</a>`);
+function render(md) {
+  const lines = md.replace(/\r/g, '').split('\n'), out = [];
+  let i = 0;
+  const cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  while (i < lines.length) {
+    const l = lines[i];
+    if (!l.trim()) { i++; continue; }
+    let m;
+    if ((m = l.match(/^(#{1,4})\s+(.*)/))) { out.push(`<h${m[1].length}>${inline(m[2])}</h${m[1].length}>`); i++; continue; }
+    if (/^---+\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+    if (l.trim().startsWith('|') && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] ?? '')) {
+      const head = cells(l); i += 2; const rows = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) rows.push(cells(lines[i++]));
+      out.push(`<table><thead><tr>${head.map(h => `<th>${inline(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+      continue;
+    }
+    if (/^\s*([-*]|\d+\.)\s+/.test(l)) {
+      const ordered = /^\s*\d+\./.test(l), items = [];
+      while (i < lines.length && /^\s*([-*]|\d+\.)\s+/.test(lines[i])) {
+        let item = lines[i++].replace(/^\s*([-*]|\d+\.)\s+/, '');
+        while (i < lines.length && /^\s{2,}\S/.test(lines[i]) && !/^\s*([-*]|\d+\.)\s+/.test(lines[i])) item += ' ' + lines[i++].trim();
+        items.push(`<li>${inline(item)}</li>`);
+      }
+      out.push(ordered ? `<ol>${items.join('')}</ol>` : `<ul>${items.join('')}</ul>`);
+      continue;
+    }
+    const para = [];
+    while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|\s*([-*]|\d+\.)\s|\s*\|)/.test(lines[i])) para.push(lines[i++].trim());
+    if (para.length) out.push(`<p>${inline(para.join(' '))}</p>`); else i++;
+  }
+  return out.join('\n');
+}
+
+const label = f => { const m = f.match(/^(\d{4}-\d{2}-\d{2})_s(\d+)\.md$/); return m ? { title: `Season ${m[2]}`, sub: m[1] } : { title: f, sub: '' }; };
+async function show(file) {
+  for (const b of document.querySelectorAll('nav button')) b.classList.toggle('on', b.dataset.file === file);
+  const r = await fetch('/reports/status/' + encodeURIComponent(file));
+  $('report').innerHTML = r.ok ? render(await r.text()) : '<p class="empty">This report could not be loaded.</p>';
+  location.hash = file;
+  window.scrollTo(0, 0);
+}
+(async () => {
+  const files = await (await fetch('/api/reports')).json();
+  if (!files.length) { $('list').innerHTML = '<div class="empty">No reports yet.</div>'; return; }
+  $('list').innerHTML = files.map(f => { const l = label(f); return `<button data-file="${f}">${l.title}<small>${l.sub}</small></button>`; }).join('');
+  for (const b of document.querySelectorAll('nav button')) b.onclick = () => show(b.dataset.file);
+  const wanted = decodeURIComponent(location.hash.slice(1));
+  show(files.includes(wanted) ? wanted : files[0]);
+})();
+window.addEventListener('hashchange', () => { const f = decodeURIComponent(location.hash.slice(1)); if (f && !document.querySelector(`nav button.on[data-file="${f}"]`)) show(f); });
+</script>
+</body>
+</html>

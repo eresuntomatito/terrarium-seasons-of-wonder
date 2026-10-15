@@ -208,7 +208,7 @@ export const PHYSICS = {
   mineralGain: 0.0005,   // shell store gained per grazing tick, × mineral to hand (reef share of the 8 neighbours + soil mineral)
   storeFade: 0.0001,     // share of each store lost per tick
   storeBirth: 0.6,       // a newborn starts with this share of its parents' stores
-  divideShare: 1 / 3, divideRest: TICKS_PER_DAY, divideMin: 10, divideGeo: 2, divideSeam: 0.15, // the great divide: whenever a species holds over divideShare of all life it is divided (checked every 30 ticks), then rests divideRest ticks; groups under divideMin join their neighbours
+  divideShare: 0.6, divideRest: TICKS_PER_DAY, divideMin: 15, divideGeo: 2, divideSeam: 0.15, // the great divide: whenever a species holds over divideShare of all life it is divided (checked every 30 ticks), then rests divideRest ticks; groups under divideMin join their neighbours
   // Sight (Luis, 01:30 Oct 15): how far a body sees = species perception × size factor × age curve × (0.5 + eyes), shortened
   // inside thicket; every body also sees the reef, as rays: the distance to solid reef in 8 directions (0…1 of its sight).
   eyesStart: 0.5, eyesDrift: 0.04, // the inherited eyes trait (0…1) a body starts with when nothing is inherited, and its drift
@@ -277,7 +277,17 @@ export const PHYSICS = {
   isolation: 0.2,
   gutIsolation: 1,       // bodies count too: |gut difference| × this, plus |log size ratio| × sizeIsolation, adds to the gap
   sizeIsolation: 0.5,        // mates whose code numbers differ by more than this (mean |log ratio|) cannot breed
-  splitMin: 10,          // a species splits in two when a group this big can no longer breed with the rest
+  splitMin: 15,          // a species splits in two when a group this big can no longer breed with the rest (10 → 15, Luis 10:10 Oct 15: groups under 10 never lasted, 15–24 lasted twice as long as 10–14)
+  morphChoice: 0.1,
+  // Rollout (Luis, 10:25 Oct 15), one per season: (1) kin — relatedness over the whole creature; (4) home — the
+  // descendants keep a home range; (3) niche — a local group living differently splits off. world.rollout holds the seasons.
+  kinCode: 0.5,          // (1) code numbers count at half weight (most drift neutrally) …
+  kinBody: 1,            // … the 12 body traits from the genes (scaled as in the ancestry measure) at full weight …
+  kinGenes: 0.3,         // … and the 4 personal genes at this weight
+  homeRange: 120,        // (4) beyond this distance from its birthplace a body is pulled home …
+  homePull: 1.0,         // … harder the further it strays (up to 1.5 × this)
+  nicheShare: 0.6,       // (3) a body lives 'differently' when over this share of its food is browse, or meat (flesh + carrion) …
+  nicheDays: 1,          // … and a local group of splitMin such bodies, held this many days, splits off      // a different mind (a hidden slip) counts this much against a pairing: like prefers like
 };
 const P = PHYSICS;
 const mass = size => (size / 5) ** 2;
@@ -323,6 +333,12 @@ const driftGape = g => Math.min(P.gapeMax, Math.max(P.gapeMin, (g ?? 0.5) + wobb
 const BODY = [[c => c.size, r => r.size, 'log'], [c => c.gut, r => r.gut, 1], [c => c.legs ?? 1, () => 1, 1], [c => c.wind ?? 0.5, () => 0.5, 1],
   [c => c.armor ?? 0, () => 0, 1], [c => c.toxin ?? 0, () => 0, 1], [c => c.litter ?? 1, () => 1, 2], [c => c.mature ?? 1, () => 1, 2],
   [c => c.browse ?? 0.05, () => 0.05, 1], [c => c.gape ?? 0.5, () => 0.5, 1], [c => c.resist ?? 0.3, () => 0.3, 1], [c => c.eyes ?? 0.5, () => 0.5, 1]];
+// Relatedness over the whole creature (rollout 1): body traits from the genes (not the luck of birth), and personal genes.
+const geneOf = (c, k) => k === 'size' ? c.sizeGene ?? c.size : k === 'gut' ? c.bornGut ?? c.gut : k === 'gape' ? c.gapeGene ?? c.gape ?? 0.5 : c[k];
+const KIN_BODY = [['size', 'log'], ['gut', 1], ['legs', 1, 1], ['wind', 1, 0.5], ['armor', 1, 0], ['toxin', 1, 0], ['litter', 2, 1], ['mature', 2, 1],
+  ['browse', 1, 0.05], ['gape', 1, 0.5], ['resist', 1, 0.3], ['eyes', 1, 0.5]];
+const kinBody = (a, b) => KIN_BODY.reduce((s, [k, sc, d]) => { const x = geneOf(a, k) ?? d, y = geneOf(b, k) ?? d; return s + (sc === 'log' ? Math.abs(Math.log(x / y)) : Math.abs(x - y) / sc); }, 0) / KIN_BODY.length;
+const kinGenes = (a, b) => a.genes.reduce((s, g, i) => s + Math.abs(g - (b.genes[i] ?? g)), 0) / a.genes.length;
 const driftEyes = e => clamp01((e ?? P.eyesStart) + wobble(P.eyesDrift) + leap() * 0.3);
 const driftResist = r => Math.min(1, Math.max(0, (r ?? P.resistStart) + wobble(P.resistDrift) + leap() * 0.3));
 const driftLitter = l => Math.min(P.maxLitter, Math.max(1, (l ?? 1) + wobble(P.litterDrift) + leap() * 3));
@@ -372,8 +388,9 @@ export class World {
     if (!this.rootHealth) this.rootHealth = new Float32Array(GW * GH).fill(1);
     this.traffic = new Float32Array(GW * GH);
     this.foul = new Float32Array(GW * GH); // ground soiled by infested hosts; fades, never saved
-    for (const name of this.living()) this.compile(name);
+    for (const name of this.living()) { this.compile(name); this.compileMorphs(name); }
     this.ensureGenomes();
+    this.rollout ??= { kin: this.season + 1, home: this.season + 2, niche: this.season + 3 }; // one change a season
     if (this.newSeeds?.some(n => this.registry[n].scavenger)) this.reintroduceScavengers();
     // A seed designed to be set down at once (the steward's new hunters) arrives as a pack.
     for (const n of this.newSeeds ?? []) if (this.registry[n].releaseOnArrival && (this.registry[n].avgGut ?? this.registry[n].gut) >= 0.5) this.reintroduce(true, n);
@@ -434,8 +451,18 @@ export class World {
     return base.map(v => v * (1 + (Math.random() - 0.5) * 0.1));
   }
 
+  // A species' hidden minds (slips carried within it, Luis 10:10 Oct 15): each compiled as species#id.
+  compileMorphs(name) {
+    for (const [id, m] of Object.entries(this.registry[name]?.morphs ?? {})) {
+      const key = `${name}#${id}`, g = this.genome[key] = genomeOf(m.code);
+      this.behaviors[key] = compileBehavior(key, g.template, g.consts);
+    }
+  }
+  mindKey(c) { return c.morph && this.behaviors[`${c.species}#${c.morph}`] ? `${c.species}#${c.morph}` : c.species; }
   ensureGenomes() {
     for (const c of this.creatures) {
+      if (c.morph && !this.genome[`${c.species}#${c.morph}`]) c.morph = 0; // a mind that no longer exists
+      if (c.morph) continue; // a hidden mind keeps its own numbers
       const n = this.genome[c.species]?.consts.length ?? 0;
       if (this.freshK?.has(c.species)) c.k = this.jitterK(c.species);
       else if (Array.isArray(c.k) && c.k.length < n) c.k = [...c.k, ...this.jitterK(c.species).slice(c.k.length)];
@@ -464,8 +491,11 @@ export class World {
   // How related two creatures are: their code numbers' gap plus how different their bodies have become.
   // Across a slip the code numbers no longer line up, so only bodies count.
   relatedGap(a, b) {
-    return (a.species === b.species ? this.genomeGap(a.k, b.k) : 0) + P.gutIsolation * Math.abs(a.gut - b.gut) + P.sizeIsolation * Math.abs(Math.log(a.size / b.size));
+    const code = a.species === b.species && (a.morph ?? 0) === (b.morph ?? 0) ? this.genomeGap(a.k, b.k) : 0;
+    if (this.rolled('kin')) return P.kinCode * code + P.kinBody * kinBody(a, b) + P.kinGenes * kinGenes(a, b);
+    return code + P.gutIsolation * Math.abs(a.gut - b.gut) + P.sizeIsolation * Math.abs(Math.log(a.size / b.size));
   }
+  rolled(key) { return this.season >= (this.rollout?.[key] ?? Infinity); }
 
   // How different two creatures' code numbers are: mean |log ratio|. Too different, and they cannot breed.
   // A line's founder (the species at the root of its lineage) and what it started as: its written code numbers and
@@ -1412,12 +1442,14 @@ export class World {
     for (const c of this.creatures) { let g = bySpecies.get(c.species); if (!g) bySpecies.set(c.species, g = []); g.push(c); }
     for (const name of this.living()) {
       // Each creature re-decides every other tick (half the world on each), steering by its last decision between.
-      const group = (bySpecies.get(name) ?? []).filter(c => !c.broken && (c.id + t) % THINK_EVERY === 0);
-      if (!group.length) continue;
+      const thinking = (bySpecies.get(name) ?? []).filter(c => !c.broken && (c.id + t) % THINK_EVERY === 0);
+      const batches = new Map(); // one batch per mind: the species' own, and each hidden mind it carries
+      for (const c of thinking) { const key = this.mindKey(c); let b = batches.get(key); if (!b) batches.set(key, b = []); b.push(c); }
+      for (const [key, group] of batches) {
       const inputs = group.map(c => [...this.sense(c), c.k]);
       let forces;
       try {
-        forces = this.behaviors[name](inputs);
+        forces = this.behaviors[key](inputs);
       } catch {
         this.stats[name].seizures++;
         continue;
@@ -1444,9 +1476,15 @@ export class World {
         if (f.signal !== undefined) c.signal = r2(clamp01(f.signal));
         c.fx = f.x; c.fy = f.y;
         if (c.mind && this.registry[name].unique) { const [mx, my] = this.mindPull(c); c.fx += mx * P.mindPull; c.fy += my * P.mindPull; } // the kraken's map turns it
-        this.steer(c, f.x, f.y);
+        if (this.rolled('home') && !this.registry[name].unique) { // rollout 4: a home range, so local populations can form
+          c.home ??= { x: c.x, y: c.y };
+          const hx = delta(c.x, c.home.x, W), hy = delta(c.y, c.home.y, H), away = Math.hypot(hx, hy);
+          if (away > P.homeRange) { const pull = P.homePull * Math.min(1.5, (away - P.homeRange) / P.homeRange); c.fx += hx / away * pull; c.fy += hy / away * pull; }
+        }
+        this.steer(c, c.fx, c.fy);
         c.thought = t;
       });
+      }
     }
     for (const c of this.creatures) if (c.thought !== t && !c.broken && c.fx !== undefined) this.steer(c, c.fx, c.fy);
 
@@ -1790,6 +1828,7 @@ export class World {
     c.ate = (c.ate ?? 0) + energy;
     if (carrion) c.carrion = (c.carrion ?? 0) + energy;
     if (kind === 'plant' || kind === 'browse') c.grazed = (c.grazed ?? 0) + energy;
+    if (kind === 'browse') c.browsed = (c.browsed ?? 0) + energy;
     const i = cellAt(c.x, c.y);
     this.fertility[i] = Math.min(2, this.fertility[i] + energy * P.dung); // dung: what is digested feeds the soil
     const d = this.diet[c.species];
@@ -1834,7 +1873,8 @@ export class World {
         // The wish to mate comes first: the longer a body waits, the less it minds, and after a long wait any of its kind will do.
         const gap = this.relatedGap(c, o), hue = Math.abs((c.hueShift ?? 0) - (o.hueShift ?? 0)) / 180 * P.hueChoice;
         const longing = c.longing ?? 0, picky = P.choosiness * (1 + longing / P.longingRelax);
-        if (gap < P.isolation && (longing >= P.anyMate || Math.random() < Math.exp(-(gap + hue) / picky))) partner = o;
+        const mindGap = (c.morph ?? 0) !== (o.morph ?? 0) ? P.morphChoice : 0; // like prefers like
+        if (gap < P.isolation && (longing >= P.anyMate || Math.random() < Math.exp(-(gap + hue + mindGap) / picky))) partner = o;
       }
     });
     if (partner) {
@@ -1843,7 +1883,7 @@ export class World {
       if (gift < P.minChild) return;
       c.energy -= c.give * c.energy;
       partner.energy -= partner.give * partner.energy;
-      const pick = pickOf, n = this.litterOf(pick(c.litter, partner.litter), gift), mixed = c.species !== partner.species;
+      const pick = pickOf, n = this.litterOf(pick(c.litter, partner.litter), gift), mixed = c.species !== partner.species || (c.morph ?? 0) !== (partner.morph ?? 0);
       for (let i = 0; i < n; i++) {
         const genes = c.genes.map((g, j) => drift(pick(g, partner.genes[j])));
         // Same kind: code numbers mix. Across a slip: the child takes one parent's whole mind.
@@ -1909,24 +1949,13 @@ export class World {
       const out = run([[me, world, mg.consts]])[0];
       if (!out || out.error || !Number.isFinite(out.x) || !Number.isFinite(out.y)) return; // stillborn idea: the child is born as usual
     } catch { return; }
-    const p = this.registry[parent];
-    let name;
-    do { name = inventName(); } while (this.speciesNames.includes(name) || this.isTaken?.(name));
-    p.branches = (p.branches ?? 0) + 1;
-    this.registry[name] = { ...p, ...this.distinctLook((p.avgGut ?? p.gut) >= 0.5), parent, born: this.season, extinct: null, waiting: false,
-      lastBranchGen: 0, lineage: `${p.lineage}.${p.branches}`, branches: 0, meanK: undefined, drift: 0, releasedAt: this.tick,
-      size: kid.size, gut: kid.gut, avgSize: undefined, avgGut: undefined, slip: s.what, variant: false, graduated: undefined, intent: `born with ${s.what}` };
-    this.code[name] = s.code;
-    this.compile(name);
-    this.ensureBooks();
-    this.registry[name].statsAtRelease = { ...this.stats[name] };
-    for (const k of litter) Object.assign(k, { species: name, hue: this.registry[name].hue, gen: 0, k: mg.consts.map(v => v * (1 + (Math.random() - 0.5) * 0.02)) });
-    this.lastCounts[name] = litter.length;
-    this.log(litter.length > 1
-      ? `A litter of ${litter.length} ${plural(parent)} is born with a slip in their minds (${s.what}): a new variant of the ${plural(parent)}, the ${plural(name)} (${this.registry[name].lineage}).`
-      : `A ${parent} is born with a slip in its mind (${s.what}): a new variant of the ${plural(parent)}, the ${plural(name)} (${this.registry[name].lineage}).`);
-    this.onSplit?.(name, parent);
-    this.onSpecies?.();
+    // The slip stays hidden in the species (Luis, 10:10 Oct 15): its carriers are a mind among others, inherited and
+    // mixed like any trait; only when splitMin of them stand together does the drift split make them a species.
+    const p = this.registry[parent], id = p.morphSeq = (p.morphSeq ?? 0) + 1;
+    (p.morphs ??= {})[id] = { code: s.code, what: s.what, born: this.tick };
+    this.compileMorphs(parent);
+    for (const k of litter) Object.assign(k, { morph: id, k: mg.consts.map(v => v * (1 + (Math.random() - 0.5) * 0.02)) });
+    this.log(`A new way of thinking (${s.what}) appears among the ${plural(parent)}: ${litter.length === 1 ? 'one young carries' : `${litter.length} young carry`} it.`);
   }
 
   // The chronicle mentions a strange birth now and then (at most once a day per species).
@@ -1948,6 +1977,8 @@ export class World {
     kid.energy = energy * (1 - P.bodyShare);
     kid.body += energy * P.bodyShare;
     kid.k = k;
+    kid.morph = parent.morph ?? 0; // the mind it took (its parent's hidden slip, if any)
+    kid.home = { x: kid.x, y: kid.y }; // where it was born
     kid.hue = parent.hue;
     const name = parent.species, sp = this.registry[name], rec = this.records[name];
     this.stats[name].born++;
@@ -2040,7 +2071,8 @@ export class World {
         sp.avgHueShift = mean(c => c.hueShift ?? 0);
         const g = this.genome[name];
         if (g?.consts.length) {
-          const mean = g.consts.map((_, i) => Math.exp(group.reduce((a, c) => a + Math.log(c.k[i]), 0) / group.length));
+          const own = group.filter(c => !c.morph && c.k?.length === g.consts.length); // hidden minds have numbers of their own
+          const mean = g.consts.map((_, i) => own.length ? Math.exp(own.reduce((a, c) => a + Math.log(c.k[i]), 0) / own.length) : g.consts[i]);
           sp.meanK = mean.map(v => Number(v.toPrecision(4)));
           sp.drift = r2(this.genomeGap(mean, g.consts));
         }
@@ -2084,14 +2116,32 @@ export class World {
   // Then it has become two species, without the god: the smaller group gets a new name and lineage code.
   checkSplits() {
     // Each creature as its code numbers (log) plus its body; the gap matches relatedGap.
-    const gap = (a, b) => a.l.reduce((s, v, i) => s + Math.abs(v - b.l[i]), 0) / a.l.length
-      + P.gutIsolation * Math.abs(a.g - b.g) + P.sizeIsolation * Math.abs(a.s - b.s);
-    const mean = rows => ({ l: rows[0].l.map((_, i) => rows.reduce((s, r) => s + r.l[i], 0) / rows.length),
+    const kin = this.rolled('kin');
+    const gap = (a, b) => kin
+      ? P.kinCode * a.l.reduce((s, v, i) => s + Math.abs(v - b.l[i]), 0) / a.l.length + P.kinBody * a.b.reduce((s, v, i) => s + Math.abs(v - b.b[i]), 0) / a.b.length + P.kinGenes * a.e.reduce((s, v, i) => s + Math.abs(v - b.e[i]), 0) / a.e.length
+      : a.l.reduce((s, v, i) => s + Math.abs(v - b.l[i]), 0) / a.l.length + P.gutIsolation * Math.abs(a.g - b.g) + P.sizeIsolation * Math.abs(a.s - b.s);
+    const avg = (rows, key) => rows[0][key].map((_, i) => rows.reduce((s, r) => s + r[key][i], 0) / rows.length);
+    const mean = rows => ({ l: avg(rows, 'l'), b: avg(rows, 'b'), e: avg(rows, 'e'),
       g: rows.reduce((s, r) => s + r.g, 0) / rows.length, s: rows.reduce((s, r) => s + r.s, 0) / rows.length });
     for (const name of this.living()) {
-      const group = this.creatures.filter(c => c.species === name && c.k?.length);
+      // A hidden mind carried by splitMin or more becomes a kind of its own (the drift split for slips).
+      const minds = {};
+      for (const c of this.creatures) if (c.species === name && c.morph && !c.dead) (minds[c.morph] ??= []).push(c);
+      for (const id of Object.keys(this.registry[name].morphs ?? {})) {
+        const carriers = minds[id] ?? [];
+        if (!carriers.length) { delete this.registry[name].morphs[id]; continue; } // a mind nobody carries any more
+        if (carriers.length < P.splitMin) continue;
+        const g = this.genome[`${name}#${id}`], n = g.consts.length, values = [];
+        for (let j = 0; j < n; j++) values.push(Math.exp(carriers.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / carriers.length));
+        const what = this.registry[name].morphs[id].what;
+        this.splitSpecies(name, carriers, values, `${name}#${id}`, `${carriers.length} ${plural(name)} who think differently (${what}) have become a kind of their own`);
+        delete this.registry[name].morphs[id];
+      }
+      if (this.rolled('niche')) this.nicheSplit(name);
+      const group = this.creatures.filter(c => c.species === name && !c.morph && c.k?.length);
       if (group.length < P.splitMin * 2) continue;
-      const logs = group.map(c => ({ l: c.k.map(Math.log), g: c.gut, s: Math.log(c.size) }));
+      const logs = group.map(c => ({ l: c.k.map(Math.log), g: c.gut, s: Math.log(c.size),
+        b: KIN_BODY.map(([k, sc, d]) => sc === 'log' ? Math.log(geneOf(c, k)) : (geneOf(c, k) ?? d) / sc), e: c.genes.slice() }));
       // Two-means in log space, seeded with two far-apart creatures.
       let a = logs[Math.floor(Math.random() * logs.length)];
       let b = logs.reduce((f, r) => (gap(r, a) > gap(f, a) ? r : f));
@@ -2119,6 +2169,32 @@ export class World {
     }
   }
 
+  // How a body lives (rollout 3): 'browse' or 'meat' when over nicheShare of what it has eaten comes from there, else 'grass'.
+  nicheOf(c) {
+    const ate = c.ate ?? 0; if (ate < 0.5) return 'grass';
+    const meat = ate - (c.grazed ?? 0);
+    return meat / ate > P.nicheShare ? 'meat' : (c.browsed ?? 0) / ate > P.nicheShare ? 'browse' : 'grass';
+  }
+  // A local group of splitMin bodies of a species living differently (browsing, or eating meat), seen on nicheDays daily
+  // checks in a row, becomes a kind of its own.
+  nicheSplit(name) {
+    const sp = this.registry[name], group = this.creatures.filter(c => !c.dead && c.species === name && !c.morph && c.k?.length);
+    sp.nicheSeen ??= {};
+    for (const niche of ['browse', 'meat']) {
+      const them = group.filter(c => this.nicheOf(c) === niche);
+      if (them.length < P.splitMin || them.length > group.length - P.splitMin) { delete sp.nicheSeen[niche]; continue; }
+      const near = (p, q) => Math.hypot(delta(p.x, q.x, W), delta(p.y, q.y, H)) < P.splitRange;
+      let local = [];
+      for (const centre of them) { const here = them.filter(c => near(centre, c)); if (here.length > local.length) local = here; }
+      if (local.length < P.splitMin) { delete sp.nicheSeen[niche]; continue; }
+      if ((sp.nicheSeen[niche] = (sp.nicheSeen[niche] ?? 0) + 1) < P.nicheDays + 1) continue;
+      const values = local[0].k.map((_, j) => Math.exp(local.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / local.length));
+      this.splitSpecies(name, local, values, name, `${local.length} ${plural(name)} that live ${niche === 'meat' ? 'on meat' : 'by browsing'} have become a kind of their own`);
+      delete sp.nicheSeen[niche];
+      return;
+    }
+  }
+
   // Vicariance (Luis): a species is divided along its own seams. K-means on where its members live (on the wrapped
   // land: each axis as a circle) and what they are (body traits, standardised), place weighted divideGeo : 1 over
   // kind; 2 to 4 groups, as many as separate best (silhouette). Groups under divideMin join their nearest neighbour.
@@ -2143,8 +2219,9 @@ export class World {
       ? `The ${plural(parent)} divide along their own seams: ${order.length} groups${this.divideNote ? ` (${this.divideNote})` : ''}. None can breed with the others any more.`
       : `The land is cut in four. The ${plural(parent)} of each part can no longer breed with the others.`);
     for (const q of order.slice(1)) {
-      const n = Math.min(...q.map(c => c.k.length)), values = [];
-      for (let j = 0; j < n; j++) values.push(Math.exp(q.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / q.length));
+      const own = q.filter(c => !c.morph).length ? q.filter(c => !c.morph) : q; // the species' own mind sets the new code's numbers
+      const n = Math.min(...own.map(c => c.k.length)), values = [];
+      for (let j = 0; j < n; j++) values.push(Math.exp(own.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / own.length));
       this.splitSpecies(parent, q, values);
     }
   }
@@ -2191,6 +2268,8 @@ export class World {
   divideByKind(group) {
     const TRAITS = [c => this.bodySize(c), c => c.gut, c => this.armorOf(c), c => this.toxinOf(c), c => c.legs ?? 1, c => c.wind ?? 0.5,
       c => c.mature ?? 1, c => c.browse ?? 0, c => c.gape ?? 0.5, c => c.resist ?? P.resistStart, c => c.litter ?? 1];
+    const minds = [...new Set(group.map(c => c.morph).filter(Boolean))].slice(0, 3); // hidden minds count as kind too
+    for (const id of minds) TRAITS.push(c => (c.morph === id ? 1 : 0));
     const raw = group.map(c => TRAITS.map(f => f(c))), m = TRAITS.length;
     const mean = TRAITS.map((_, j) => raw.reduce((a, r) => a + r[j], 0) / raw.length);
     const sd = TRAITS.map((_, j) => { const v = Math.sqrt(raw.reduce((a, r) => a + (r[j] - mean[j]) ** 2, 0) / raw.length); return v > 1e-6 ? v : Infinity; }); // a trait all share counts for nothing
@@ -2243,7 +2322,7 @@ export class World {
     const parts = [...new Set(best.label)].map(l => group.filter((_, n) => best.label[n] === l));
     // What sets each group apart: its most distinctive trait against the whole.
     const NAMES = [['larger', 'smaller'], ['meat-leaning', 'plant-leaning'], ['more shelled', 'softer'], ['more toxic', 'less toxic'], ['longer-legged', 'shorter-legged'],
-      ['longer-winded', 'shorter-winded'], ['later-maturing', 'earlier-maturing'], ['more browsing', 'less browsing'], ['wider-mouthed', 'narrower-mouthed'], ['more resistant', 'less resistant'], ['bigger litters', 'smaller litters']];
+      ['longer-winded', 'shorter-winded'], ['later-maturing', 'earlier-maturing'], ['more browsing', 'less browsing'], ['wider-mouthed', 'narrower-mouthed'], ['more resistant', 'less resistant'], ['bigger litters', 'smaller litters'], ...minds.map(() => ['of a new mind', 'of the old mind'])];
     this.divideNote = parts.map(q => {
       const z = TRAITS.map((f, j) => (q.reduce((a, c) => a + f(c), 0) / q.length - mean[j]) / sd[j]);
       const j = z.reduce((bj, v, i) => Math.abs(v) > Math.abs(z[bj]) ? i : bj, 0);
@@ -2252,8 +2331,8 @@ export class World {
     return parts;
   }
 
-  splitSpecies(parent, members, values) {
-    const p = this.registry[parent], g = this.genome[parent];
+  splitSpecies(parent, members, values, mindKey = parent, story = null) {
+    const p = this.registry[parent], g = this.genome[mindKey];
     let name;
     do { name = inventName(); } while (this.speciesNames.includes(name) || this.isTaken?.(name));
     p.branches = (p.branches ?? 0) + 1;
@@ -2261,16 +2340,19 @@ export class World {
       lineage: `${p.lineage}.${p.branches}`, branches: 0, meanK: undefined, drift: 0, releasedAt: this.tick,
       // A split keeps its parent's reference body: physiology scales from it, and a new reference at the members' own size
       // would make a split pay more upkeep per meal than its parents, beside them, and starve.
-      size: p.size, gut: r2(members.reduce((a, c) => a + c.gut, 0) / members.length),
+      morphs: undefined, morphSeq: 0, size: p.size, gut: r2(members.reduce((a, c) => a + c.gut, 0) / members.length),
       avgSize: undefined, avgGut: undefined, slip: undefined, variant: false, graduated: undefined };
     this.code[name] = fillTemplate(g.template, values); // its own evolved numbers become its written code
     this.compile(name);
     this.ensureBooks();
     this.registry[name].statsAtRelease = { ...this.stats[name] };
-    for (const c of members) Object.assign(c, { species: name, hue: this.registry[name].hue, gen: 0 });
+    // Members that carry a hidden mind keep it in the new species (a divide cuts through minds, it does not erase them).
+    const carried = mindKey === parent ? [...new Set(members.filter(c => c.morph).map(c => c.morph))] : [];
+    if (carried.length) { this.registry[name].morphs = Object.fromEntries(carried.map(id => [id, p.morphs?.[id]]).filter(([, m]) => m)); this.registry[name].morphSeq = p.morphSeq ?? 0; this.compileMorphs(name); }
+    for (const c of members) Object.assign(c, { species: name, hue: this.registry[name].hue, gen: 0, morph: mindKey === parent ? c.morph ?? 0 : 0 });
     this.lastCounts[name] = members.length;
     this.lastCounts[parent] -= members.length;
-    this.log(`The ${plural(parent)} have drifted apart. ${members.length} of them can no longer breed with the rest: they are ${plural(name)} (${this.registry[name].lineage}) now.`);
+    this.log(story ? `${story}: they are ${plural(name)} (${this.registry[name].lineage}) now.` : `The ${plural(parent)} have drifted apart. ${members.length} of them can no longer breed with the rest: they are ${plural(name)} (${this.registry[name].lineage}) now.`);
     this.onSplit?.(name, parent);
     this.onSpecies?.();
   }
@@ -2334,6 +2416,7 @@ export class World {
         armor: r2(group.reduce((a, c) => a + (c.armor ?? 0), 0) / n), toxin: r2(group.reduce((a, c) => a + (c.toxin ?? 0), 0) / n),
         label: sp.dietLabel ?? sp.role, food: sp.food,
         mature: r2(group.reduce((a, c) => a + (c.mature ?? 1), 0) / n), browse: r2(group.reduce((a, c) => a + (c.browse ?? 0), 0) / n), gape: r2(group.reduce((a, c) => a + (c.gape ?? 0.5), 0) / n), browsers: group.filter(c => this.browses(c)).length,
+        minds: Object.entries(group.reduce((m, c) => { if (c.morph) m[c.morph] = (m[c.morph] ?? 0) + 1; return m; }, {})).map(([id, count]) => ({ what: sp.morphs?.[id]?.what, count })).sort((a, b) => b.count - a.count),
         resist: r2(group.reduce((a, c) => a + (c.resist ?? P.resistStart), 0) / n), eyes: r2(group.reduce((a, c) => a + (c.eyes ?? P.eyesStart), 0) / n),
         litter: r1(group.reduce((a, c) => a + (c.litter ?? 1), 0) / n), thrift: r2(group.reduce((a, c) => a + (c.thrift ?? 0.5), 0) / n), turning: group.filter(c => c.turning).length,
         // Who is what, one by one: bodies by gut (no jaws / both / meat only) and what each has mostly been eating.
@@ -2376,7 +2459,7 @@ export class World {
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
       creatures: this.creatures.map(c => ({ ...c, memory: safeMemory(c.memory) })),
-      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, dominance: this.dominance ?? {}, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), history: this.history, events: this.events,
+      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, dominance: this.dominance ?? {}, rollout: this.rollout, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), history: this.history, events: this.events,
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -2384,7 +2467,7 @@ export class World {
   restore(s) {
     Object.assign(this, {
       tick: s.tick, season: s.season, nextId: s.nextId, registry: s.registry, code: s.code,
-      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, dominance: s.dominance ?? {}, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
+      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, dominance: s.dominance ?? {}, rollout: s.rollout, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
       stats: s.stats, records: s.records, diet: s.diet, lastCounts: s.lastCounts, since: s.since, lessons: s.lessons ?? [], pendingStudies: s.pendingStudies ?? [],
     });
     this.plants = Float32Array.from(s.plants);

@@ -22,6 +22,8 @@
   #theme:hover { color: var(--hi); }
   #mindbtn { float: right; margin-right: 6px; background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px; cursor: pointer; }
   #mindbtn.on { color: var(--hi); border-color: var(--hi); }
+  #reportslink { float: right; margin-right: 6px; border: 1px solid var(--line); color: var(--dim); font-size: 10px; padding: 0 6px; text-decoration: none; }
+  #reportslink:hover { color: var(--hi); }
   #mindkey { font-size: 10px; color: var(--dim); margin-top: 2px; }
   b.stand { color: var(--hi); font-weight: 600; }
   .portraitline { color: var(--hi); }
@@ -84,7 +86,7 @@
 <body>
 <main><canvas id="world"></canvas><div id="toasts"></div></main>
 <aside>
-  <div><button id="theme" title="theme: auto, light, dark">auto</button><button id="mindbtn" title="show what the kraken has learned: where it got stuck (red) and where it fed (gold)">kraken's mind</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="mindkey" hidden><b>kraken's mind:</b> <i class="key trap"></i> got stuck here <i class="key food"></i> fed here <span class="dim">· stronger colour = surer; it fades as the kraken forgets, and its egg inherits a blurred copy</span></div><div id="god"></div></div>
+  <div><button id="theme" title="theme: auto, light, dark">auto</button><a id="reportslink" href="/reports.html" title="status reports of the world">reports</a><button id="mindbtn" title="show what the kraken has learned: where it got stuck (red) and where it fed (gold)">kraken's mind</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="mindkey" hidden><b>kraken's mind:</b> <i class="key trap"></i> got stuck here <i class="key food"></i> fed here <span class="dim">· stronger colour = surer; it fades as the kraken forgets, and its egg inherits a blurred copy</span></div><div id="god"></div></div>
   <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart"></canvas></section>
   <section><h2>Evolution</h2><canvas id="drift"></canvas><div class="dim">how far each species has come from its line's founder: code numbers (solid) and body (dashed), across every split</div></section>
@@ -493,6 +495,7 @@ function renderSpecies(force) {
     return `<details data-name="${sp.name}"${open.has(sp.name) ? ' open' : ''}><summary>
       <img class="portrait" src="${portraitOf(sp)}" alt=""><span>${sp.name}s <span class="dim">${sp.lineage ?? ''} · <span class="role-${tr.role}">${tr.label ?? tr.role ?? ''}</span>${sp.variant ? ' · variant' : ''}</span></span><b data-count="${sp.name}">${n[sp.name] ?? 0}</b>
       <small>${tr.food ? 'lives on: ' + Object.entries(tr.food).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join(' · ') + '<br>' : ''}${dietBreakdown(tr)}${origin}${fresh} · next branch ${progress}/${meta.GENERATIONS_PER_MUTATION} generations<br>
+      ${tr.minds?.length ? `hidden minds: ${tr.minds.map(m => `${m.count} carry “${m.what}”`).join(' · ')} <span class="dim">(a kind of its own at 15)</span><br>` : ''}
       ${kn ? `<i class="portraitline">${kn.portrait}</i> · distinct ${kn.distinct.toFixed(1)} · nearest: ${kn.nearest[0]}s (${Math.round(kn.nearest[1] * 100)}% apart)<br>` : ''}
       ${mark('size', `size ${tr.size ?? '?'}`)} · ${mark('gut', `gut ${tr.gut ?? '?'}`)} · ${mark('legs', `legs ${tr.legs ?? '?'}`)} · fat ${tr.fat !== undefined ? Math.round(tr.fat * 100) + '%' : '?'} · ${mark('wind', `stamina ${tr.wind ?? '?'}`)} · ${mark('armor', `armour ${tr.armor ?? '?'}`)} · ${mark('toxin', `toxin ${tr.toxin ?? '?'}`)} · ${mark('litter', `litter ${tr.litter ?? '?'}`)} · ${mark('mature', `maturity ×${tr.mature ?? '?'}`)} · ${mark('browse', `browse ${tr.browse ?? '?'}`)} · ${mark('gape', `gape ×${tr.gape ?? '?'}`)} · ${mark('resist', `resistance ${tr.resist ?? '?'}`)} · ${mark('eyes', `eyes ${tr.eyes ?? '?'}`)}${tr.browsers ? ` (${tr.browsers} browsing)` : ''} · thrift ${tr.thrift ?? '?'} · plasticity ${tr.plastic ?? '?'}${tr.turning ? ` (${tr.turning} turning)` : ''} · trophic level ${tr.tl ?? '?'}${sp.driftRoot !== undefined && sp.root && sp.root !== sp.name ? ` · from the ${sp.root}s: code ${Math.round(sp.driftRoot * 100)}%, body ${Math.round((sp.bodyRoot ?? 0) * 100)}% (since its split: code ${Math.round((sp.drift ?? 0) * 100)}%)` : ` · code drifted ${Math.round((sp.drift ?? 0) * 100)}%${sp.bodyRoot !== undefined ? `, body ${Math.round(sp.bodyRoot * 100)}%` : ''}`}<br>
       mated ${st.mated ?? 0} · budded ${st.budded ?? 0} · ${deeds} · starved ${st.starved ?? 0}</small></summary>

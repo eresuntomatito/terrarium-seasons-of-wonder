@@ -104,6 +104,22 @@ http.createServer(async (req, res) => {
     return;
   }
 
+  // Status reports (reports/status/*.md): the list as JSON, and each report's text, for public/reports.html.
+  if (url.pathname === '/api/reports') {
+    const dir = path.join(ROOT, 'reports', 'status');
+    const list = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}_s\d+\.md$/.test(f)).sort().reverse() : [];
+    res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+    res.end(JSON.stringify(list));
+    return;
+  }
+  if (url.pathname.startsWith('/reports/status/')) {
+    const file = path.normalize(path.join(ROOT, url.pathname.slice(1)));
+    if (!file.startsWith(path.join(ROOT, 'reports', 'status')) || !file.endsWith('.md') || !fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+    fs.createReadStream(file).pipe(res);
+    return;
+  }
+
   // Static files: / -> public/index.html, /species/* -> species/*, everything else from public/.
   const rel = url.pathname === '/' ? 'public/index.html'
     : url.pathname.startsWith('/species/') ? url.pathname.slice(1)
