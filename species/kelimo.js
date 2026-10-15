@@ -1,3 +1,4 @@
+// † extinct in season 877.
 // kelimo (P.2.8.15.5.3.31.3.4): drifted apart from the zubelmos (P.2.8.15.5.3.31.3) in season 723; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
