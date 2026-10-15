@@ -1,3 +1,4 @@
+// † extinct in season 607.
 // ushrathu (P.2.8.10): drifted apart from the galras (P.2.8) in season 600; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
