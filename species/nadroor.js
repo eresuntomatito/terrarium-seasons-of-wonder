@@ -1,3 +1,4 @@
+// † extinct in season 879.
 // nadroor (P.2.8.15.5.3.31.3.4.8.1.1): drifted apart from the kethulis (P.2.8.15.5.3.31.3.4.8.1) in season 855; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
