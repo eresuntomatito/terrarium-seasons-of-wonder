@@ -1,3 +1,4 @@
+// † extinct in season 989.
 // modroli (P.2.8.15.5.3.31.3.4.8.1.3.2): drifted apart from the dronathus (P.2.8.15.5.3.31.3.4.8.1.3) in season 932; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
