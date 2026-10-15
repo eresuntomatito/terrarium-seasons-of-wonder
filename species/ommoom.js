@@ -1,3 +1,4 @@
+// † extinct in season 906.
 // ommoom (P.2.8.15.5.3.31.3.4.8.1.2): drifted apart from the kethulis (P.2.8.15.5.3.31.3.4.8.1) in season 869; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
