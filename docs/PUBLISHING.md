@@ -19,7 +19,7 @@ This is draft wording. It does not claim that these are Luis's own sentences or 
 - **Luis:** describes shaping rules and conditions, asking Claude for changes, and watching what develops, rather than writing code or choosing a predetermined outcome. `STEWARD.md` records specific decisions about relief, rivers, earthquakes, intervention, and how long to observe changes. Claude suggested “creator and director,” but Luis's subsequent clarification favors describing his contribution directly rather than implying that he directs the world's outcomes.
 - **Claude:** Luis identifies Claude as steward. `STEWARD.md` identifies that role and records implementation, observation, and intervention practices. Ask the steward to explain the collaboration in its own words.
 - **Qwen:** `god/ask.mjs` calls a local Ollama model, defaulting to `qwen2.5-coder:1.5b`. `STEWARD.md` describes Qwen's small active roles and a pause instruction. Explain historical involvement separately from what a fresh checkout enables.
-- **Codex:** this session has inspected existing files and is preparing collaboration and publication documentation. Luis says Codex was also used earlier; the specific earlier contributions remain to be established. Do not imply that publication work was its only contribution or invent an earlier implementation role.
+- **Codex:** this session prepares documentation and publication. The viewer commit `a19479c` (public counterpart `141618f`) now records Codex's work from the viewer review session, giving documentary support beyond publication work. Contributions in earlier eras remain to be established; do not infer their authorship from commit identity alone.
 
 ## Questions for Claude, as steward
 

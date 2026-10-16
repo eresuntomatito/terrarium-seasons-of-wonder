@@ -25,6 +25,8 @@ Qwen is the local model used for the world's “god” role. The interview descr
 
 Luis says Codex was used earlier as well. Neither this interview nor Codex's limited search of tracked documentation and commit subjects established those earlier contributions. That history remains an open question; publication work must not be presented as its only role across the entire project.
 
+Later evidence, recorded by Codex after the interview: viewer commit `a19479c` (public counterpart `141618f`) explicitly records Codex's work from the viewer review session. This adds evidence for that review; attribution of the earlier eras remains open. It does not turn this fresh-session interview into the active steward's recollection.
+
 ## Stories worth following up
 
 Claude highlighted the extinction that preceded the genesis era, hunters emerging from a dung-eating lineage, the loss of the kraken hatchling, and water forming its own paths. Existing entry points include:

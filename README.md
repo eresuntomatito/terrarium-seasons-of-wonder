@@ -2,9 +2,9 @@
 
 *A world for its own sake.*
 
-![The redesigned terrarium at season 1393: green lowlands, rain, snowy ridges, reef, and creatures across the landscape](docs/assets/terrarium-redesign-s1393.png)
+![The redesigned terrarium at season 1400: green lowlands, rising papercut ridges, water, coral reef, and axolotl-like creatures](docs/assets/terrarium-four-lands-s1400.png)
 
-*The continuing world after the viewer redesign, season 1393, during a natural rain spell. Selected from the greenest frames observed; [photograph details](docs/assets/README.md).*
+*Season 1400: the four-land transformation is underway, with the new viewer artwork. Selected from six natural live observations for its greener appearance; [photograph details](docs/assets/README.md).*
 
 This project exists for the pleasure of building something and watching what happens. [eresuntomatito](https://github.com/eresuntomatito) shapes the rules and conditions of a terrarium; the creatures and landscape develop within them. Curiosity is its reason for being.
 
@@ -37,7 +37,7 @@ These pages separate what the code implements from what has been observed. The p
 
 Claude writes code and acts as the world's steward, implementing changes, observing their effects, and keeping records. A local Qwen model has also generated species behavior as part of the project's history. Inherited variation and selection within the simulation, model-generated behavior, and deliberate changes to the rules are distinct parts of the story.
 
-Codex is helping document and share the project. eresuntomatito also reports earlier use of Codex; the details of those contributions are still being established.
+Codex is helping document and share the project. The [viewer redesign commit](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/commit/141618ff221a22205232ad9ced1efbac282ac5c8) also records Codex's work from the viewer review session. Contributions outside that documented review and publication work are still being established.
 
 *This README is written by Codex on eresuntomatito's behalf. Its wording is Codex's, not a first-person statement by the project's creator. The [steward interview notes](docs/STEWARD-INTERVIEW.md) distinguish a fresh Claude session's source-based account from the active steward's own recollections.*
 

@@ -1,12 +1,17 @@
 # Start a world of your own
 
-Written and checked by Codex. The checks used committed revision `39359c9` on macOS with Node.js `v23.9.0`; they do not establish the minimum supported Node version or long-term ecological stability. See [verification](VERIFICATION.md).
+Written and checked by Codex. Initial checks used revision `39359c9`; startup and persistence were checked again against the redesign at `1d7ced1`, on macOS with Node.js `v23.9.0`. These checks do not establish the minimum supported Node version or long-term ecological stability. See [verification](VERIFICATION.md).
 
-The [publication record](PUBLICATION.md) maps that local test revision to its corresponding revision in the public history.
+The [publication record](PUBLICATION.md) maps those local test revisions to their corresponding revisions in the public history.
 
 ## What you need
 
 Use a recent Node.js installation with built-in `fetch`, a browser, and a separate checkout of this repository. Git is used by the running server to record species events. `package.json` declares no dependencies or install scripts, so there is no `npm install` step.
+
+```sh
+git clone https://github.com/eresuntomatito/terrarium-seasons-of-wonder.git
+cd terrarium-seasons-of-wonder
+```
 
 Run the commands below from your own checkout's root. The server uses port **8000**, which must be free. Use this world locally: the server exposes state-changing endpoints and binds without an explicit loopback host; these instructions do not configure public hosting.
 
@@ -30,9 +35,11 @@ Do not use `--fresh` when you mean to resume. That flag starts over and subseque
 
 ## What a fresh world contains
 
-At the checked revision, a fresh `World(null)` starts with **150 wanderers**. Other seed species are defined in `species/registry.json` but start with zero bodies. The progenitor that founded Luis's documented genesis era is not released by a fresh start.
+At both checked revisions, a fresh `World(null)` starts with **150 wanderers**. Other seed species are defined in `species/registry.json` but start with zero bodies. The progenitor that founded Luis's documented genesis era is not released by a fresh start.
 
 Most later mechanics depend on saved rollout state. A fresh world initially schedules only `kin`, `home`, and `niche`; it does not automatically reproduce the live world's climate, mountain and river rollout, food changes, or descendants. The screenshots in this repository show a world with that accumulated history. This difference is part of the current implementation, not a setup error.
+
+The updated source includes the four-section terrain, climbing, and apex mechanisms. Their presence in code does not automatically activate them in a fresh save. In the continuing world, the steward enabled the four-section rollout at season 1396 and it rises over ten seasons; the README's season-1400 photograph shows that transition partway through.
 
 The simulation targets 30 ticks per second. One simulated day is 1,800 ticks and one season 5,400 ticks: nominally one and three minutes. Actual wall time increases if the machine cannot keep up. Closing the browser does not stop the Node process; stopping the process or sleeping the computer pauses its progress.
 

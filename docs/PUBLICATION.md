@@ -2,6 +2,21 @@
 
 Maintained by Codex on eresuntomatito's behalf.
 
+## Redesign source update: 2026-10-17
+
+The steward supplied two completed commits and confirmed the four-section rollout is live. The publication update reviews the five commits since the initial source boundary, including the intervening species events, across 20 changed paths.
+
+| Local development revision | Corresponding public revision | Scope |
+| --- | --- | --- |
+| `a19479c368af8f5416b0abf713130b799973b4ab` | `141618ff221a22205232ad9ced1efbac282ac5c8` | Committed viewer redesign |
+| `1d7ced1f118991d781c31d440594ac418da89eaa` | `f619e4e5460cc1f6968e924b696b78471577fdc5` | Four sections, apex rules, age fields, tools, and reports |
+
+The same privacy filtering reproduces the initial source commit `b108b3b` exactly and retains all 2,570 source-history commits through the new boundary. That source history was fetched locally and merged into the existing publication branch, preserving the already-published documentation commits. No force-push or rewrite of public history is required. All 943 source files at the new boundary match the steward's committed tree, excluding `.claude` metadata. The existing public license and Codex documentation are additional files, not modifications to the steward's source.
+
+The isolated startup and mechanism checks passed against `1d7ced1`. The live save independently recorded `rollout.sections = 1396` and crossing records. The new README photograph is from season 1400, around 44% through the ten-season rise. It shows the confirmed active transformation rather than implying the terrain has finished changing. See [verification](VERIFICATION.md) and [photograph provenance](assets/README.md).
+
+The source merge and documentation update are prepared for push; the final public checks are recorded after publication succeeds.
+
 ## First release boundary
 
 The first publication is available at [eresuntomatito/terrarium-seasons-of-wonder](https://github.com/eresuntomatito/terrarium-seasons-of-wonder), with MIT licensing and public credit to **eresuntomatito**. It includes the reviewed source and its species history, plus Codex's attributed documentation. It does not include the continuing world's save or other collaborators' unfinished working changes.
@@ -27,7 +42,7 @@ The first public issue-queue check at 2026-10-16 21:28 UTC found no open issues 
 
 ## Keeping the living world separate
 
-The README photograph was refreshed after the viewer redesign using a direct season-1393 rain-spell capture, published in commit `2917cbb`. Its [capture and selection details](assets/README.md) identify the scene, source fingerprint, and limits. Unauthenticated HTTP checks confirmed that the public README, photograph, and provenance match the selected local files. This image comes from ongoing development beyond the initial published implementation; the photograph update does not expand the reviewed source boundary.
+The first photograph refresh used a direct season-1393 rain-spell capture, published in commit `2917cbb`. It showed the new artwork before the four-section rollout was active, while the public source still reflected the initial boundary. Luis clarified that the intended world transformation needed confirming too. The subsequent redesign update above includes the completed code and a new, readiness-checked season-1400 photograph; the [provenance](assets/README.md) retains that distinction.
 
 The development checkout and its running processes are left in place. Its Git history, index, branch, and remotes are not rewritten by this publication. Future updates need a reviewed export or a deliberate synchronization strategy; publishing this copy does not automatically publish subsequent species events or code changes from the living world.
 

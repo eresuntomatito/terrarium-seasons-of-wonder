@@ -1,6 +1,6 @@
 # Armour: a capacity and a carried defence
 
-Written by Codex. Mechanisms checked at source revision `39359c9`; observations below refer to season 1328 of Luis's continuing world.
+Written by Codex. The original mechanism was checked at `39359c9`; the crushing modifier below was checked at the redesign revision `1d7ced1`. Observations refer to season 1328 of Luis's continuing world, before that later modifier.
 
 Armour represents a protective body covering through a small set of numerical effects. The model does not construct a shell's anatomy or calculate material strength. It raises the size a hunter needs to overpower prey, slows the protected body, and adds upkeep.
 
@@ -20,13 +20,24 @@ At birth, `inherit` selects an armour value from one parent and mutates it throu
 
 | Effect | Checked implementation |
 | --- | --- |
-| Base predation threshold | Required hunter size is `prey size × 1.2 × (1 + 0.6 × effective armour)`, before later weakness, hunting-skill, or pack modifiers. |
+| Base predation threshold | Required hunter size is `prey size × 1.2 × (1 + 0.6 × effective armour)`, before crushing, weakness, hunting-skill, or pack modifiers. |
 | Speed | The movement limit includes a multiplier `1 − 0.2 × effective armour`, alongside hunger, fat, vegetation, slope, and water effects. |
 | Upkeep | The metabolism multiplier includes `+0.2 × inherited armour`, alongside costs from other traits. |
 
 The asymmetry matters. When supply fades, the body can lose protection while still paying the inherited capacity's upkeep cost. At full effective armour, the base predation threshold is 60% higher than for an otherwise identical unarmoured prey; the armour speed multiplier is 0.8. These are effects within the model, not biological measurements.
 
 In an isolated check, a size-7 hunter could overpower full-grown size-5 prey with no effective armour, but could not do so when its armour and mineral stock were both 1. A separate controlled feeding comparison changed effective armour through mineral access while holding the inherited value fixed. See [verification](../../VERIFICATION.md).
+
+## A later counter: shell-cracking bites
+
+The redesign adds a `crush` rollout. When active for an ordinary hunter, it multiplies the prey's armour contribution by:
+
+```text
+max(0, 1 − 0.8 × max(0, hunter/prey body-size ratio − 1)
+         − 0.5 × max(0, hunter gape − 0.7))
+```
+
+Larger attackers and wider mouths can therefore reduce a shell's protection. The inherited armour cost and its mineral-supply requirement remain. In a controlled comparison, a full-grown size-8.5 hunter with gape 0.7 failed against size-5 prey with effective armour 1 before the rollout, and succeeded after it. This is an implemented counter, not evidence that an apex lineage has already evolved. A fresh checkout does not activate this rollout automatically.
 
 ## What the reports measure
 

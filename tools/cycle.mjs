@@ -16,7 +16,7 @@ const book = e => e && e.n ? { n: e.n, ...Object.fromEntries(Object.keys(TRAITS)
 const species = {};
 for (const c of C) (species[c.species] ??= []).push(c);
 const plants = w.history?.at(-1)?.plants ?? 0; // the world's own grass total (the save stores grass rounded per cell)
-const niche = c => { const r = c.recent; if (!r || r.ate < 0.3) return 'grazer'; if ((r.host ?? 0) / r.ate >= 0.25) return 'parasite'; if ((r.dung ?? 0) / r.ate >= 0.25) return 'decomposer'; const meat = r.meat / r.ate, br = r.browse / r.ate, grass = 1 - meat - br, dead = r.meat > 0 ? (r.carrion ?? 0) / r.meat : 0;
+const niche = c => { const r = c.recent; if (!r || r.ate < 0.3) return 'grazer'; if ((r.host ?? 0) / r.ate >= 0.25) return 'parasite'; if ((r.dung ?? 0) / r.ate >= 0.25) return 'decomposer'; if ((r.apex ?? 0) / r.ate >= 0.3) return 'apex'; const meat = r.meat / r.ate, br = r.browse / r.ate, grass = 1 - meat - br, dead = r.meat > 0 ? (r.carrion ?? 0) / r.meat : 0;
   if (meat >= 0.6) return dead >= 0.5 ? 'scavenger' : 'hunter'; if (meat >= 0.3 && dead >= 0.5) return 'scavenger'; if (meat >= 0.2) return 'omnivore'; if (br >= 0.5) return 'browser'; if (br >= 0.2 && grass >= 0.2) return 'mixed feeder'; return 'grazer'; };
 const snap = {
   label: process.argv[2] ?? '', time: new Date().toISOString(), tick: w.tick, season: Math.floor(w.tick / S), bodies: C.length, plants: Math.round(plants),

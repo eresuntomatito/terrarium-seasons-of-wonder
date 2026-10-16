@@ -43,3 +43,13 @@ A separate unassisted predation-threshold check used a full-grown size-7 hunter 
 ## Documentation checks
 
 The README's season-1328 image and the tracked `latest-page.png` viewer capture were visually inspected. The README uses the existing dated report as caption evidence. All 72 local links in the archived reports resolve. The initial pass checked 54 local links across 14 new documentation files without missing targets; the final expanded documentation is rechecked before packaging. The README's image has a valid PNG signature. Existing report inconsistencies are recorded as limits in the wiki, not silently corrected in files owned by the steward.
+
+## Redesign update: 2026-10-17
+
+The steward committed the viewer as `a19479c` and the simulation/report update as `1d7ced1`. A fresh archive of `1d7ced1` was tested separately from the running world. The startup, 400-tick headless run, HTTP/SSE checks, signal save, resume, initial population, initial rollouts, and controlled mineral/armour checks all passed again. The source reports list now contains 28 entries. Saving and resuming advanced the test from tick 13 to tick 23.
+
+An additional frame check confirmed 14 values per creature, a correctly encoded age share of 0.8 for a controlled body, and agreement with the server's stride-14 advertisement and the viewer's extra-field handling. A controlled shell-cracking check used a full-grown size-8.5 hunter, gape 0.7, and size-5 prey with effective armour 1: capture was disallowed before `crush` and allowed after it was activated. This verifies the new modifier, not a long-term ecological result.
+
+The live save independently confirmed the four-section rollout at season 1396 and recorded section crossings. A real browser loaded the live viewer successfully and captured six observations; there were no console errors or failed requests. Canvas readback produced one performance warning because the comparison reads pixels, not an application failure. The selected season-1400 photograph has separately recorded [provenance](assets/README.md).
+
+The source delta contains five commits and 20 changed paths, including a deleted scratch `latest-world.png`. Credential-pattern checks found no matches in the updated text files. Two automatically generated species files have pre-existing extra blank lines at EOF; those source bytes were preserved rather than reformatted. Documentation checks are scoped separately from those generated-file warnings. See the [publication record](PUBLICATION.md) for the source mapping and merge method.
