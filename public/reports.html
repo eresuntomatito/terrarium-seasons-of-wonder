@@ -24,6 +24,8 @@
   nav button small { display: block; color: var(--dim); font-size: 11px; }
   nav button:hover { background: var(--line); }
   nav button.on { background: var(--line); color: var(--hi); }
+  nav button.unread { font-weight: 600; color: var(--hi); }
+  nav button.unread::before { content: '●'; color: var(--accent); margin-right: 6px; font-size: 10px; vertical-align: 1px; }
   main { padding: 24px 40px 60px; max-width: 980px; }
   main h1 { font-size: 24px; color: var(--hi); margin: 0 0 12px; }
   main h2 { font-size: 17px; color: var(--hi); margin: 28px 0 8px; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
@@ -36,6 +38,7 @@
   main th { background: var(--panel); color: var(--hi); font-weight: 600; }
   main ul, main ol { padding-left: 22px; }
   main a { color: var(--accent); }
+  main figure { margin: 12px 0 20px; } main figure img { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; display: block; } main figcaption { color: var(--dim); font-size: 12px; margin-top: 4px; }
   .empty { color: var(--dim); }
   @media (max-width: 720px) { .wrap { grid-template-columns: 1fr; } nav { border-right: 0; border-bottom: 1px solid var(--line); } main { padding: 16px; } }
 </style>
@@ -53,6 +56,7 @@ try { const t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark'
 // A small Markdown renderer for the reports: headings, paragraphs, bold/italic/code/links, lists, tables, rules.
 const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const inline = s => esc(s)
+  .replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m, alt, src) => `<figure><img src="/reports/status/${src}" alt="${alt}"><figcaption>${alt}</figcaption></figure>`)
   .replace(/`([^`]+)`/g, '<code>$1</code>')
   .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
   .replace(/(^|[^*])\*([^*\s][^*]*)\*/g, '$1<em>$2</em>')
@@ -90,21 +94,25 @@ function render(md) {
   return out.join('\n');
 }
 
-const label = f => { const m = f.match(/^(\d{4}-\d{2}-\d{2})_s(\d+)\.md$/); return m ? { title: `Season ${m[2]}`, sub: m[1] } : { title: f, sub: '' }; };
+const label = f => { const m = f.match(/^(\d{4}-\d{2}-\d{2})_s(\d+)(?:-([a-z0-9-]+))?\.md$/); return m ? { title: `Season ${m[2]}${m[3] ? ' · ' + m[3].replace(/-/g, ' ') : ''}`, sub: m[1] } : { title: f, sub: '' }; };
 async function show(file) {
   for (const b of document.querySelectorAll('nav button')) b.classList.toggle('on', b.dataset.file === file);
   const r = await fetch('/reports/status/' + encodeURIComponent(file));
   $('report').innerHTML = r.ok ? render(await r.text()) : '<p class="empty">This report could not be loaded.</p>';
+  if (r.ok) { // opening a report marks it read
+    fetch('/api/reports/read', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ file }) }).catch(() => {});
+    document.querySelector(`nav button[data-file="${file}"]`)?.classList.remove('unread');
+  }
   location.hash = file;
   window.scrollTo(0, 0);
 }
 (async () => {
-  const files = await (await fetch('/api/reports')).json();
+  const reports = await (await fetch('/api/reports')).json(), files = reports.map(r => r.file), unread = new Set(reports.filter(r => !r.read).map(r => r.file));
   if (!files.length) { $('list').innerHTML = '<div class="empty">No reports yet.</div>'; return; }
-  $('list').innerHTML = files.map(f => { const l = label(f); return `<button data-file="${f}">${l.title}<small>${l.sub}</small></button>`; }).join('');
+  $('list').innerHTML = files.map(f => { const l = label(f); return `<button data-file="${f}" class="${unread.has(f) ? 'unread' : ''}" title="${unread.has(f) ? 'not read yet' : 'read'}">${l.title}<small>${l.sub}${unread.has(f) ? ' · new' : ''}</small></button>`; }).join('');
   for (const b of document.querySelectorAll('nav button')) b.onclick = () => show(b.dataset.file);
   const wanted = decodeURIComponent(location.hash.slice(1));
-  show(files.includes(wanted) ? wanted : files[0]);
+  show(files.includes(wanted) ? wanted : (files.find(f => unread.has(f)) ?? files[0])); // the newest unread first
 })();
 window.addEventListener('hashchange', () => { const f = decodeURIComponent(location.hash.slice(1)); if (f && !document.querySelector(`nav button.on[data-file="${f}"]`)) show(f); });
 </script>

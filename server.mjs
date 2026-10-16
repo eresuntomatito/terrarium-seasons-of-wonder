@@ -50,6 +50,7 @@ setInterval(() => {
   }
   if (world.tick % 2 === 0) broadcast('frame', world.frame());
   if (world.tick % 20 === 0) broadcast('terrain', world.terrain());
+  if (world.tick % 60 === 0) { const wf = world.waterFrame(); if (wf) broadcast('water', wf); }
   if (world.tick % 60 === 0) broadcast('reef', { map: world.reefMap(), thicket: world.thicketMap(), climate: world.climate() });
   if (world.tick % 900 === 0) broadcast('species', world.speciesList()); // evolved code and drift
   if (world.tick % 300 === 0) stewardRelease();
@@ -105,17 +106,35 @@ http.createServer(async (req, res) => {
   }
 
   // Status reports (reports/status/*.md): the list as JSON, and each report's text, for public/reports.html.
+  // Reports and whether Luis has read them (data/reports-read.json): GET lists [{file, read}], newest first;
+  // POST /api/reports/read {"file"} marks one read.
+  const READ = path.join(ROOT, 'data', 'reports-read.json');
+  const readSet = () => { try { return new Set(JSON.parse(fs.readFileSync(READ, 'utf8'))); } catch { return new Set(); } };
   if (url.pathname === '/api/reports') {
-    const dir = path.join(ROOT, 'reports', 'status');
-    const list = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}_s\d+\.md$/.test(f)).sort().reverse() : [];
+    const dir = path.join(ROOT, 'reports', 'status'), read = readSet();
+    const list = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}_s\d+(-[a-z0-9-]+)?\.md$/.test(f)).sort().reverse() : [];
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
-    res.end(JSON.stringify(list));
+    res.end(JSON.stringify(list.map(file => ({ file, read: read.has(file) }))));
+    return;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/reports/read') {
+    let body = '';
+    req.on('data', d => { body += d; if (body.length > 1000) req.destroy(); });
+    req.on('end', () => {
+      try {
+        const { file } = JSON.parse(body);
+        if (typeof file === 'string' && /^\d{4}-\d{2}-\d{2}_s\d+(-[a-z0-9-]+)?\.md$/.test(file) && fs.existsSync(path.join(ROOT, 'reports', 'status', file))) {
+          const read = readSet(); read.add(file); fs.writeFileSync(READ, JSON.stringify([...read]));
+          res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}');
+        } else res.writeHead(400).end('bad report');
+      } catch { res.writeHead(400).end('bad request'); }
+    });
     return;
   }
   if (url.pathname.startsWith('/reports/status/')) {
     const file = path.normalize(path.join(ROOT, url.pathname.slice(1)));
-    if (!file.startsWith(path.join(ROOT, 'reports', 'status')) || !file.endsWith('.md') || !fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
-    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+    if (!file.startsWith(path.join(ROOT, 'reports', 'status')) || !/\.(md|png)$/.test(file) || !fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
+    res.writeHead(200, { 'content-type': file.endsWith('.png') ? 'image/png' : 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
     fs.createReadStream(file).pipe(res);
     return;
   }
