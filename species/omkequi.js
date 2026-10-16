@@ -1,3 +1,4 @@
+// † extinct in season 1174.
 // omkequi (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.3): drifted apart from the tyormos (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6) in season 1160; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
