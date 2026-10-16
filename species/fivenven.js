@@ -1,3 +1,4 @@
+// † extinct in season 1230.
 // fivenven (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.4.7): drifted apart from the quilitys (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.4) in season 1229; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
