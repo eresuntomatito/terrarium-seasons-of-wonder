@@ -1,3 +1,4 @@
+// † extinct in season 1326.
 // omgalna (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.5.5.4): drifted apart from the thuzulis (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.5.5) in season 1319; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
