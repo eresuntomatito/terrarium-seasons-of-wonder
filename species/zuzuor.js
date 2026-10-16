@@ -1,3 +1,4 @@
+// † extinct in season 1043.
 // zuzuor (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.5): drifted apart from the saomors (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4) in season 1037; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
