@@ -112,7 +112,9 @@ http.createServer(async (req, res) => {
   const readSet = () => { try { return new Set(JSON.parse(fs.readFileSync(READ, 'utf8'))); } catch { return new Set(); } };
   if (url.pathname === '/api/reports') {
     const dir = path.join(ROOT, 'reports', 'status'), read = readSet();
-    const list = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}_s\d+(-[a-z0-9-]+)?\.md$/.test(f)).sort().reverse() : [];
+    const list = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}_s\d+(-[a-z0-9-]+)?\.md$/.test(f))
+      // newest first by season (numeric: s998 before s1021 in time), then by when the file was written
+      .map(f => ({ f, s: +f.match(/_s(\d+)/)[1], m: fs.statSync(path.join(dir, f)).mtimeMs })).sort((a, b) => b.s - a.s || b.m - a.m).map(x => x.f) : [];
     res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
     res.end(JSON.stringify(list.map(file => ({ file, read: read.has(file) }))));
     return;

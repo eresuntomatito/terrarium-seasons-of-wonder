@@ -3,6 +3,7 @@
 One file per report, named `YYYY-MM-DD_sSEASON.md` (status) or `YYYY-MM-DD_sSEASON-topic.md` (a test or study), newest last. Each covers the last 30 seasons:
 
 0. The world at the moment of the report (a screenshot of the viewer, `img/<report>-world.png`, taken with `tools/snapshot.mjs`)
+0b. The land (orography "X-ray", Luis s1235): the land alone — elevation colours with hill shading and contour lines, steep ground in red, water depth with flow arrows, snow, the frost line, recent quake faults (`node tools/orography.mjs`, then the browser skill with `tools/orography-shot.mjs` → `img/<report>-orography.png`), with a few lines on the river's course, canyon depth, lakes, snow and quakes in the window
 1. In one paragraph
 2. Then and now (population, species, kraken, grass; family body averages)
    2b. Species alive at the report (each with its body, kills, distance from the founder and standing)
@@ -12,6 +13,7 @@ One file per report, named `YYYY-MM-DD_sSEASON.md` (status) or `YYYY-MM-DD_sSEAS
 6. Backlog (worth doing now / pending)
 7. Risks (collapse, mass extinction, the kraken line, the server)
 8. Next to watch
+8b. Diversity (Luis, s1339): species alive, new species and extinctions per 30 seasons, how species were born (kind, founding size) and died (cause, lifetime), predation/starvation/old-age shares, and the era's founding-size → lifetime table — `node tools/diversity.mjs <previous report season> <this season>`, pasted as is
 9. What shapes the species (selection by cause from the ledger — traits of breeders and of each cause of death vs the living — and which rules and conditions drove the changes; data from data/cycles.jsonl and world.ledger)
 
 Read them formatted at http://localhost:8000/reports.html (linked as "reports" in the world viewer).
@@ -40,3 +42,7 @@ Sources: `data/world.json`, `data/server.log` (the chronicle), `data/steward.md`
 | [2026-10-16_s1172-orography-proposal](2026-10-16_s1172-orography-proposal.md) | 1172 | Proposal (+ decisions, progress and visuals, s1186): a mountain range (peak west, meseta east) across the map at 35% from the bottom, a wrapping river at 32% from the left, cold from height, slopes, river crossings, erosion, earthquakes — 5 phases, 6 decisions for Luis |
 | [2026-10-16_s1194](2026-10-16_s1194.md) | 1194 | Leaner grass at its 35% floor, room by mass still binds; the family turns to dung (decomposer 0.37 → 0.52, 254 dung-eaters); the relief begins to rise |
 | [2026-10-16_s1224](2026-10-16_s1224.md) | 1224 | The orography arrives: full relief, water (a lake, streams, a carved canyon, snow), wading/swimming, quakes armed; speed fix; legs rise, swimming stirs; tyormos (mother line, 105 seasons) gone |
+| [2026-10-16_s1260](2026-10-16_s1260.md) | 1260 | A smaller, shell-bearing world: room cut 40%, armour 0.35 → 0.54, the galushty family ends; the great quake (s1236) and a branching drainage; first orography X-ray |
+| [2026-10-16_s1298](2026-10-16_s1298.md) | 1298 | Two body plans: small shelled browsers (navennas, armour 0.78) vs bigger hunters; swimming doubles; lakes and deep carving on the range, two small quakes drawn in the X-ray |
+| [2026-10-16_s1326-whitepaper-what-shapes-species](2026-10-16_s1326-whitepaper-what-shapes-species.md) | 1326 | Whitepaper: what shapes species, diversity and food-chain complexity across the genesis era — fat and predation shape traits; species count stable (5–7) while turnover varies; predation drives complexity (r = +0.60); tried vs untried, 10 ideas ranked |
+| [2026-10-16_s1328](2026-10-16_s1328.md) | 1328 | The oldest lines end (quilitys, 153 seasons); 4 species, shelled browsers win (armour 0.71, navennas 0.85); hunters thin; the meseta carved into ribs; a quake crosses the peak |

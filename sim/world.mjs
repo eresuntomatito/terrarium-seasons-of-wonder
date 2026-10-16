@@ -208,7 +208,7 @@ export const PHYSICS = {
   mineralGain: 0.0005,   // shell store gained per grazing tick, × mineral to hand (reef share of the 8 neighbours + soil mineral)
   storeFade: 0.0001,     // share of each store lost per tick
   storeBirth: 0.6,       // a newborn starts with this share of its parents' stores
-  divideShare: 0.6, divideRest: TICKS_PER_DAY, divideMin: 15, divideGeo: 2, divideSeam: 0.15, // the great divide: whenever a species holds over divideShare of all life it is divided (checked every 30 ticks), then rests divideRest ticks; groups under divideMin join their neighbours
+  divideShare: 0.6, divideRest: TICKS_PER_DAY, divideMin: 30, divideGeo: 5, divideMaxK: 2, divideSeam: 0.15, // (s1329, Luis: bigger pieces ≥ 30 (was 15), at most 2 (was 4), place weighs 5 (was 2) — regional halves that live) // the great divide: whenever a species holds over divideShare of all life it is divided (checked every 30 ticks), then rests divideRest ticks; groups under divideMin join their neighbours
   // Sight (Luis, 01:30 Oct 15): how far a body sees = species perception × size factor × age curve × (0.5 + eyes), shortened
   // inside thicket; every body also sees the reef, as rays: the distance to solid reef in 8 directions (0…1 of its sight).
   eyesStart: 0.5, eyesDrift: 0.04, // the inherited eyes trait (0…1) a body starts with when nothing is inherited, and its drift
@@ -325,6 +325,16 @@ export const PHYSICS = {
   // energy becomes the hunter (nature keeps ~10%; was fleshEfficiency 0.9), so meat-eaters need much more prey than they
   // weigh; (lunge) a hunter whose prey slips out of its jaws pays lungeCost — failed attacks are not free.
   pyramidFlesh: 0.35, lungeCost: 0.03,
+  // NEW WAYS OF LIFE, each paying from the first step (Luis, s1339; rollout.waterfood, .highfood, .parasitesmooth, .carcass, .meatspec):
+  // (waterfood) water plants grow in standing and slow water (world.aqua); a body in water grazes them — waders at the edge
+  // (deep ≤ legs: 0.4 + 0.6 × swim), deeper only by swimming (access = 2 × swim) — so swimming has something to win;
+  // (highfood) a slow, cold-hardy lichen grows on high ground (elevation > lichenAbove), best in the cold, untouched by frost
+  // (world.lichen); worth more to a thick coat (× (0.5 + coat)) — the heights get a way of life of their own;
+  // (parasitesmooth) any parasite ability can infest a weak, crowded host of another kind, with a chance growing with the
+  // ability from zero (it needed 0.25 before); (carcass) carcasses keep longer (rot and age × carcassKeep) and feed more
+  // (× carcassRich); (meatspec) meat keeps pyramidFlesh for a half-way gut but up to fleshEfficiency for a meat gut (0.5 → 0.9).
+  aquaGrow: 0.01, aquaBite: 0.06, aquaEnergy: 1, lichenAbove: 0.35, lichenGrow: 0.002, lichenBite: 0.03, lichenEnergy: 0.8,
+  infestSmooth: 0.15, carcassKeep: 0.6, carcassRich: 1.3,
   // GRASS THAT EVOLVES (Luis, 08:10 Oct 16; rollout.grassvar): each grass cell carries a strain — hardiness and sweetness,
   // 0…1 — passed to a bare cell that sprouts from a lush neighbour (copied from one of them), from a grazer's seed (the
   // strain it last ate) or from the seed bank (the strain that last grew there), mutating by ±grassMut each time.
@@ -492,7 +502,7 @@ export class World {
     if (!this.rootHealth) this.rootHealth = new Float32Array(GW * GH).fill(1);
     if (!this.grassHardy) this.grassHardy = new Float32Array(GW * GH).fill(P.grassStart);
     if (!this.grassSweet) this.grassSweet = new Float32Array(GW * GH).fill(P.grassStart);
-    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH);
+    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH); this.aqua ??= new Float32Array(GW * GH); this.lichen ??= new Float32Array(GW * GH);
     this.flow = new Float32Array(GW * GH); this.flowDir = new Int8Array(GW * GH * 2); this.bank = new Float32Array(GW * GH);
     this.traffic = new Float32Array(GW * GH);
     this.foul = new Float32Array(GW * GH); // ground soiled by infested hosts; fades, never saved
@@ -1320,8 +1330,13 @@ export class World {
     if (this.rolled('smooth')) for (const b of this.creatures) {
       const pw = b.parasitism ?? 0;
       if (b.dead || pw <= 0.005 || this.isParasite(b) || this.registry[b.species].unique || this.registry[b.species].parasite) continue;
+      const spread = this.rolled('parasitesmooth');
       this.near(b.x, b.y, this.bodySize(b) + 6, o => {
-        if (o.dead || o === b || o.species === b.species || !(o.infest > 0)) return;
+        if (o.dead || o === b || o.species === b.species) return;
+        if (!(o.infest > 0)) { // smooth parasitism: any ability can infest a weak, crowded host, more likely the stronger it is
+          if (spread && this.weakHost(o) && Math.random() < P.infestCatch * P.infestSmooth * pw * (this.rolled('climate') ? 0.5 + this.tempAt(o.y, undefined, o.x) : 1) && this.crowded(o)) o.infest = 0.5;
+          return;
+        }
         const take = Math.min(0.04 * pw, o.energy); o.energy -= take; this.feed(b, take * 0.5, 2, 'host');
       });
     }
@@ -1403,6 +1418,7 @@ export class World {
       const Trow = this.tempAt((gy + 0.5) * CELL, era), relief = this.reliefRise() > 0; // the temperature of this row …
       for (let gx = 0; gx < GW; gx++) {
         const i = gy * GW + gx, T = relief ? this.tempAt((gy + 0.5) * CELL, era, (gx + 0.5) * CELL) : Trow; // … or of this cell, on relief
+        if (relief && this.rolled('highfood')) { const e = this.elevAt((gx + 0.5) * CELL, (gy + 0.5) * CELL); if (e > P.lichenAbove) this.lichen[i] += P.lichenGrow * (1 - this.lichen[i]) * (T < 0.45 ? 1 : 0.3); else if (this.lichen[i] > 0) this.lichen[i] *= 0.99; } // lichen on the heights, best in the cold
         // Moisture drifts slowly, so its noise is only redrawn about once a second.
         const m = fresh ? (this.moisture[i] = Math.max(clamp01(rain + (noise3(gx * 0.05, gy * 0.05, t * 0.0003) - 0.5) * 0.9), this.bank?.[i] ?? 0)) : this.moisture[i]; // river banks stay wet
         let lush = 0;
@@ -1546,7 +1562,8 @@ export class World {
   // How much of a kill's energy a gut keeps: gut ** fleshPower, flatter with the valley switch.
   // A sprouting grass cell's strain drifts a little (hardiness and sweetness, kept within 0…1).
   mutateGrass(i) { const w = () => (Math.random() - 0.5) * 2 * P.grassMut; this.grassHardy[i] = clamp01(this.grassHardy[i] + w()); this.grassSweet[i] = clamp01(this.grassSweet[i] + w()); }
-  fleshEff(c) { return this.rolled('pyramid') && !this.registry[c.species].unique ? P.pyramidFlesh : P.fleshEfficiency; }
+  fleshEff(c) { if (!this.rolled('pyramid') || this.registry[c.species].unique) return P.fleshEfficiency;
+    return this.rolled('meatspec') ? P.pyramidFlesh + (P.fleshEfficiency - P.pyramidFlesh) * clamp01(((c.gut ?? 0) - 0.5) / 0.4) : P.pyramidFlesh; } // a meat gut keeps more of a kill
   fleshGut(c) { return c.gut ** (this.rolled('valley') && !this.registry[c.species].unique ? P.valleyPower : P.fleshPower); }
   grazes(c) { return c.gut < 1 - P.jaws; }
   // The body as it is now: juveniles are smaller than the adult size their genes promise.
@@ -1653,13 +1670,13 @@ export class World {
     }
     if (this.grazes(c)) {
       const browser = this.browses(c); // a big body with a browsing gut sees thicket shoots as food
-      const patches = [], gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL);
+      const patches = [], gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL), aquaOn = this.rolled('waterfood'), highOn = this.rolled('highfood');
       let enough = Infinity; // once ATTENTION patches are found, cells more than 1.5 cells further out cannot be nearer
       for (const [dx, dy, ring] of cellsWithin(Math.ceil(r / CELL) * CELL)) { // whole cells for the cache key (sight varies continuously); exact distance is checked below
         if (ring > enough) break;
         if (patches.length >= ATTENTION && enough === Infinity) enough = ring + 1.5;
         const gx = gx0 + dx, gy = gy0 + dy;
-        const ci = (gy < 0 ? gy + GH : gy >= GH ? gy - GH : gy) * GW + (gx < 0 ? gx + GW : gx >= GW ? gx - GW : gx), b = this.plants[ci];
+        const ci = (gy < 0 ? gy + GH : gy >= GH ? gy - GH : gy) * GW + (gx < 0 ? gx + GW : gx >= GW ? gx - GW : gx), b = Math.max(this.plants[ci], aquaOn ? this.aqua[ci] * (0.4 + 0.6 * (c.swim ?? 0)) : 0, highOn ? this.lichen[ci] * 0.8 : 0); // water plants and lichen are food to see too
         const th = this.thicket[ci], shoots = browser ? (th - P.browseFloor) * (c.browse ?? 0) * 2 : 0;
         if (shoots > 0.25 && shoots >= b) { const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2; if (d2 <= r * r) patches.push({ fx, fy, b: Math.min(1, shoots), d2 }); continue; }
         if (b < 0.25 || th >= 0.5) continue; // grass guarded by dense thicket is not food: it cannot be reached
@@ -1839,7 +1856,7 @@ export class World {
 
     const climateOn = this.rolled('climate'), eraNow = climateOn ? this.tempEra() : 0;
     for (const corpse of this.corpses) {
-      const spoil = climateOn ? 0.5 + P.rotHeat * this.tempAt(corpse.y, eraNow, corpse.x) : 1; // the cold keeps the dead, heat spoils them
+      const spoil = (climateOn ? 0.5 + P.rotHeat * this.tempAt(corpse.y, eraNow, corpse.x) : 1) * (this.rolled('carcass') ? P.carcassKeep : 1); // the cold keeps the dead, heat spoils them
       corpse.age += spoil;
       if (t % PLANT_EVERY === 0 && corpse.energy > 0) {
         const rotted = corpse.energy * P.rot * spoil, i = cellAt(corpse.x, corpse.y);
@@ -2011,6 +2028,12 @@ export class World {
           if (this.plants[i] < P.roots + 0.05) this.rootHealth[i] = Math.max(0, this.rootHealth[i] - P.rootWear * (this.rolled('grassvar') ? 1 + P.sweetRoots * this.grassSweet[i] : 1)); // bitten to the roots (sweet grass's roots are weaker)
           c.dung = (c.dung ?? 0) + bite * P.dungShare; c.seeds = 1; c.seedH = this.grassHardy[i]; c.seedS = this.grassSweet[i]; // it carries the meal on as dung, and seeds
         }
+        if (this.rolled('waterfood') && this.aqua[i] > 0.02) { const acc = this.aquaAccess(c, i); if (acc > 0) { // water plants, for waders and swimmers
+          const b2 = Math.min(this.aqua[i], P.aquaBite * Math.sqrt(k) * acc * (1 - c.gut)); this.aqua[i] -= b2;
+          this.feed(c, b2 * P.aquaEnergy * P.plantEnergy * this.grassGut(c.gut) * (this.grassFood ?? 1), 1, 'plant'); } }
+        if (this.rolled('highfood') && this.lichen[i] > 0.02) { // lichen on the heights, worth more to a thick coat
+          const b3 = Math.min(this.lichen[i], P.lichenBite * Math.sqrt(k) * (1 - c.gut)); this.lichen[i] -= b3;
+          this.feed(c, b3 * P.lichenEnergy * (0.5 + (c.coat ?? P.coatStart)) * P.plantEnergy * this.grassGut(c.gut) * (this.grassFood ?? 1), 1, 'plant'); }
         // Defences from food: hedge plants carry toxin, ground by the reef carries minerals for a shell.
         // Toxin: a body in the hedge nibbles its leaves whether or not there is grass to bite.
         c.toxStock = Math.min(1, (c.toxStock ?? 1) + P.toxinGain * this.thicket[i]);
@@ -2068,7 +2091,7 @@ export class World {
           if (sp.soilEngineer) { const ci = cellAt(corpse.x, corpse.y); this.fertility[ci] = Math.min(2, this.fertility[ci] + bite * P.beetleSoil); }
           corpse.energy -= bite;
           if (P.carrionDung) { const i = cellAt(corpse.x, corpse.y); this.fertility[i] = Math.min(2, this.fertility[i] + bite * P.carrionDung); }
-          this.feed(c, bite * this.carrionDigests(c.gut) * (1 + (c.decomp ?? 0)), this.registry[corpse.species]?.tl ?? 2, 'carrion'); // a decomposer's gut gets more from the dead
+          this.feed(c, bite * this.carrionDigests(c.gut) * (1 + (c.decomp ?? 0)) * (this.rolled('carcass') ? P.carcassRich : 1), this.registry[corpse.species]?.tl ?? 2, 'carrion'); // a decomposer's gut gets more from the dead
           break;
         }
       }
@@ -2669,7 +2692,7 @@ export class World {
       return sum / pts.length;
     };
     let best = null;
-    for (let k = 2; k <= 4; k++) { const label = kmeans(k), sc = silhouette(label); if (!best || sc > best.sc) best = { label, sc, k }; }
+    for (let k = 2; k <= P.divideMaxK; k++) { const label = kmeans(k), sc = silhouette(label); if (!best || sc > best.sc) best = { label, sc, k }; }
     if (best.sc < P.divideSeam) { this.divideNote = null; return null; }
     const parts = [...new Set(best.label)].map(l => group.filter((_, n) => best.label[n] === l));
     // What sets each group apart: its most distinctive trait against the whole.
@@ -2753,6 +2776,10 @@ export class World {
       if (this.reef[i] > 0) { const wash = Math.min(this.reef[i], P.reefWash * f); this.reef[i] -= wash; this.fertility[best] = Math.min(2, this.fertility[best] + wash); }
     }
     this.water = W2;
+    if (this.rolled('waterfood')) for (let i = 0; i < n; i++) { // water plants: grow where water stands and is not frozen, wither where it dries
+      if (W2[i] > 0.01 && temp[i] >= P.freezeAt) this.aqua[i] += P.aquaGrow * (1 - this.aqua[i]) * (0.5 + temp[i]);
+      else if (this.aqua[i] > 0) this.aqua[i] *= W2[i] > 0.01 ? 0.995 : 0.97;
+    }
     // Wet banks: water and the cells around it stay moist.
     const B = this.bank; B.fill(0);
     for (let i = 0; i < n; i++) if (W2[i] > 0.01) {
@@ -2760,6 +2787,8 @@ export class World {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const j = at(gx + dx, gy + dy); B[j] = Math.max(B[j], dx || dy ? P.bankWet : 1); }
     }
   }
+  // How well a body reaches water plants where it stands: waders at the edge (water no deeper than its legs), swimmers anywhere.
+  aquaAccess(c, i) { const d = this.water?.[i] ?? 0; if (d < 0.005) return 0; const deep = d * P.depthPx / Math.max(1, (c.legs ?? 1) * this.bodySize(c)), swim = c.swim ?? 0; return deep <= 1 ? 0.4 + 0.6 * swim : Math.min(1, 2 * swim); }
   // Water underfoot for a creature: its depth (0 if frozen or dry) and whether it is ice.
   waterAt(x, y) { const i = cellAt(x, y), d = this.water?.[i] ?? 0; if (d < 0.005) return { d: 0, ice: false, i }; const ice = this.tempAt(y, undefined, x) < P.freezeAt; return { d: ice ? 0 : d, ice, i }; }
 
@@ -2803,6 +2832,8 @@ export class World {
     const where = Math.abs(delta(y0, P.ridgeY * H, H)) < P.mesetaHalf * H ? 'in the mountains' : 'in the lowlands';
     this.log(`${big ? 'A great earthquake' : 'The earth shakes'} ${where} (strength ${mag.toFixed(2)}): a fault ${Math.round(len)} px long breaks the ground; the land on its ${dir} side rises, the other side sinks${shattered ? `; reef shatters in ${shattered} places` : ''}.`);
     this.quakeNow = { x: Math.round(x0), y: Math.round(y0), ang: +ang.toFixed(3), len: Math.round(len), mag: +mag.toFixed(3), big, until: this.tick + 300 };
+    (this.quakeLog ??= []).push({ season: this.season, x: this.quakeNow.x, y: this.quakeNow.y, ang: this.quakeNow.ang, len: this.quakeNow.len, mag: this.quakeNow.mag, big }); // for the reports' orography view
+    if (this.quakeLog.length > 50) this.quakeLog.shift();
     this._reliefKey = null;
     return this.quakeNow;
   }
@@ -2915,7 +2946,8 @@ export class World {
       if (d > 0.005) { const gx = i % GW, gy = (i / GW) | 0; w[i] = Math.min(127, Math.round(d * 600)) + (this.tempAt((gy + 0.5) * CELL, era, (gx + 0.5) * CELL) < P.freezeAt ? 128 : 0); }
       sn[i] = Math.min(255, Math.round(this.snow[i] * 2000));
     }
-    return { w: Buffer.from(w).toString('base64'), snow: Buffer.from(sn).toString('base64') };
+    const aq = Uint8Array.from(this.aqua ?? [], v => Math.round(Math.min(1, v) * 255)), li = Uint8Array.from(this.lichen ?? [], v => Math.round(Math.min(1, v) * 255));
+    return { w: Buffer.from(w).toString('base64'), snow: Buffer.from(sn).toString('base64'), aqua: Buffer.from(aq).toString('base64'), lichen: Buffer.from(li).toString('base64') };
   }
 
   terrain() {
@@ -2937,7 +2969,7 @@ export class World {
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
       creatures: this.creatures.map(c => ({ ...c, memory: safeMemory(c.memory) })),
-      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, grooved: this.grooved ?? false, history: this.history, events: this.events,
+      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -2958,7 +2990,9 @@ export class World {
     if (s.carve?.length) this.carve = Float32Array.from(s.carve);
     if (s.snow?.length) this.snow = Float32Array.from(s.snow);
     if (s.tectonic?.length) this.tectonic = Float32Array.from(s.tectonic);
-    this.nextQuake = s.nextQuake; this.lastBigQuake = s.lastBigQuake; this.quakeNow = null;
+    if (s.aqua?.length) this.aqua = Float32Array.from(s.aqua);
+    if (s.lichen?.length) this.lichen = Float32Array.from(s.lichen);
+    this.nextQuake = s.nextQuake; this.lastBigQuake = s.lastBigQuake; this.quakeNow = null; this.quakeLog = s.quakeLog ?? [];
     this.grooved = s.grooved ?? false;
     if (s.reef) { this.reef = Float32Array.from(s.reef); this.mineral = Float32Array.from(s.mineral); this.grains = s.grains ?? []; }
     this.ensureBooks();

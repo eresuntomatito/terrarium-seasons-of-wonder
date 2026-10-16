@@ -68,9 +68,10 @@
   summary { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; cursor: pointer; list-style: none; }
   .portrait { width: 22px; height: 22px; }
   summary::-webkit-details-marker { display: none; }
-  summary i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  summary > i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   summary b { font-weight: normal; color: var(--hi); font-variant-numeric: tabular-nums; }
   summary small { grid-column: 2 / 4; color: var(--dim); }
+  summary > span, summary small { min-width: 0; overflow-wrap: anywhere; }
   details:hover summary span { color: var(--hi); }
   .new { color: var(--warm); }
   .role-omnivore { color: var(--omni); } .role-hunter { color: var(--hunter); } .role-apex { color: var(--apex); font-weight: bold; }
@@ -92,7 +93,7 @@
 <body>
 <main><canvas id="world"></canvas><div id="toasts"></div></main>
 <aside>
-  <div><button id="theme" title="theme: auto, light, dark">auto</button><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="mindbtn" title="show what the kraken has learned: where it got stuck (red) and where it fed (gold)">kraken's mind</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="mindkey" hidden><b>kraken's mind:</b> <i class="key trap"></i> got stuck here <i class="key food"></i> fed here <span class="dim">· stronger colour = surer; it fades as the kraken forgets, and its egg inherits a blurred copy</span></div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the north (cold) to the south (warm)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div><div id="god"></div></div>
+  <div><button id="theme" title="theme: auto, light, dark">auto</button><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="mindbtn" title="show what the kraken has learned: where it got stuck (red) and where it fed (gold)">kraken's mind</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="mindkey" hidden><b>kraken's mind:</b> <i class="key trap"></i> got stuck here <i class="key food"></i> fed here <span class="dim">· stronger colour = surer; it fades as the kraken forgets, and its egg inherits a blurred copy</span></div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div><div id="god"></div></div>
   <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart"></canvas></section>
   <section><h2>Evolution</h2><canvas id="drift"></canvas><div class="dim">how far each species has come from its line's founder: code numbers (solid) and body (dashed), across every split</div></section>
@@ -189,7 +190,8 @@ on('terrain', paintTerrain);
 // The river (orography step 2): water depth per cell (+128 frozen) and snow on the heights, painted into a small canvas.
 const waterCanvas = document.createElement('canvas'), wtg = waterCanvas.getContext('2d');
 let waterNow = null, riverGauge = '';
-on('water', ({ w, snow }) => {
+on('water', ({ w, snow, aqua, lichen }) => {
+  const A8 = aqua ? Uint8Array.from(atob(aqua), ch => ch.charCodeAt(0)) : null, L8 = lichen ? Uint8Array.from(atob(lichen), ch => ch.charCodeAt(0)) : null;
   if (!meta) return;
   const W8 = Uint8Array.from(atob(w), ch => ch.charCodeAt(0)), S8 = Uint8Array.from(atob(snow), ch => ch.charCodeAt(0));
   waterCanvas.width = meta.GW; waterCanvas.height = meta.GH;
@@ -200,6 +202,8 @@ on('water', ({ w, snow }) => {
     if (W8[i]) { wet++; vol += d; if (frozen) ice++; }
     if (frozen) { img.data[o] = 225; img.data[o + 1] = 240; img.data[o + 2] = 250; img.data[o + 3] = 200; }
     else if (W8[i]) { img.data[o] = 40; img.data[o + 1] = 110 + 60 * (1 - d); img.data[o + 2] = 215; img.data[o + 3] = Math.round(Math.min(240, 140 + d * 500)); }
+    if (W8[i] && !frozen && A8 && A8[i] > 20) { const a = A8[i] / 255; img.data[o] = 60 + 20 * a; img.data[o + 1] = 130 + 50 * a; img.data[o + 2] = 160 - 60 * a; } // water plants green the water
+    if (!W8[i] && L8 && L8[i] > 25 && S8[i] <= 8) { const a = L8[i] / 255; img.data[o] = 170; img.data[o + 1] = 180; img.data[o + 2] = 150; img.data[o + 3] = Math.round(40 + a * 110); } // lichen: a pale grey-green crust on the heights
     else if (S8[i] > 8) { const a = Math.min(200, S8[i]); img.data[o] = 245; img.data[o + 1] = 248; img.data[o + 2] = 255; img.data[o + 3] = a; snowSum += S8[i]; }
   }
   wtg.putImageData(img, 0, 0);
@@ -355,6 +359,17 @@ function draw() {
   g.setTransform(SCALE, 0, 0, SCALE, shake ? (Math.random() - 0.5) * shake * SCALE : 0, shake ? (Math.random() - 0.5) * shake * SCALE : 0);
   g.imageSmoothingEnabled = true;
   g.drawImage(terrainCanvas, 0, 0, meta.W, meta.H);
+  // Layers, bottom to top (Luis, s1330): soil and grass → relief and frost → water, ice and snow → the quake's crack →
+  // reef and thicket → corpses and eggs → creatures → the air (rain wash, falling rain and snow, heat, the quake's dust)
+  // → overlays (the kraken's mind).
+  drawWeather(g, performance.now()); // (the frame's 'now' is set further down)
+  if (waterNow) { g.imageSmoothingEnabled = true; g.drawImage(waterCanvas, 0, 0, meta.W, meta.H); }
+  if (quakeSeen && qAge < 60) { // the fault: a jagged crack along the break, fading over a minute
+    const q = quakeSeen, ux = Math.cos(q.ang), uy = Math.sin(q.ang), fade = 1 - qAge / 60;
+    g.strokeStyle = `rgba(40,25,15,${0.85 * fade})`; g.lineWidth = q.big ? 3 : 2; g.beginPath();
+    for (let k = 0; k <= 24; k++) { const t = (k / 24 - 0.5) * q.len, j = ((k * 7919) % 13 - 6) * (q.big ? 1.2 : 0.7); const x = q.x + ux * t - uy * j, y = q.y + uy * t + ux * j; k ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  }
   g.imageSmoothingEnabled = false; // reef keeps its hard, branching edges
   g.drawImage(reefCanvas, 0, 0, meta.W, meta.H);
   g.imageSmoothingEnabled = true;
@@ -450,18 +465,10 @@ function draw() {
     g.restore();
   }
 
-  g.fillStyle = `rgba(70,110,160,${Math.max(0, rain - 0.5) * 0.06})`;
+  g.fillStyle = `rgba(70,110,160,${Math.max(0, rain - 0.5) * 0.06})`; // the rain's grey wash, in the air
   g.fillRect(0, 0, meta.W, meta.H);
-  drawWeather(g, now);
-  if (waterNow) { g.imageSmoothingEnabled = true; g.drawImage(waterCanvas, 0, 0, meta.W, meta.H); }
-  // The fault: a jagged crack along the break (fading over a minute) and a dust ring spreading from the epicentre.
-  if (quakeSeen && qAge < 60) {
-    const q = quakeSeen, ux = Math.cos(q.ang), uy = Math.sin(q.ang), fade = 1 - qAge / 60;
-    g.strokeStyle = `rgba(40,25,15,${0.85 * fade})`; g.lineWidth = q.big ? 3 : 2; g.beginPath();
-    for (let k = 0; k <= 24; k++) { const t = (k / 24 - 0.5) * q.len, j = ((k * 7919) % 13 - 6) * (q.big ? 1.2 : 0.7); const x = q.x + ux * t - uy * j, y = q.y + uy * t + ux * j; k ? g.lineTo(x, y) : g.moveTo(x, y); }
-    g.stroke();
-    if (qAge < 6) { g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); }
-  }
+  drawAir(g, now);
+  if (quakeSeen && qAge < 6) { const q = quakeSeen; g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); } // the quake's dust
   // The kraken's mind: where it learned it gets stuck (red) and where it fed (gold), stronger the surer it is.
   if (showMind && mind) {
     const cw = meta.W / mind.w, ch = meta.H / mind.h;
@@ -512,6 +519,7 @@ function paintRelief() {
   }
   rlg.putImageData(img, 0, 0);
 }
+// The ground's weather (drawn under the creatures): the relief and its temperature tint, and frost glints.
 function drawWeather(g, now) {
   if (!climateNow?.rows?.length) return;
   const rows = climateNow.rows, bh = meta.H / rows.length, frost = climateNow.frost ?? 0.18;
@@ -533,13 +541,29 @@ function drawWeather(g, now) {
     g.globalAlpha = Math.min(1, k) * tw; g.fillRect(x - 1.5, y, 3, 0.8); g.fillRect(x - 0.4, y - 1.1, 0.8, 3);
   }
   g.globalAlpha = 1;
+}
+// The air above everything (drawn over the creatures): heat shimmer, and falling rain or snow.
+function drawAir(g, now) {
+  if (!climateNow?.rows?.length) return;
+  const rows = climateNow.rows, bh = meta.H / rows.length;
   // Heat: wavering amber lines drifting over the hottest ground.
   g.lineWidth = 1;
   for (let j = 0; j < rows.length; j++) {
-    const k = (rows[j] - 0.56) / 0.14; if (k <= 0) continue;
-    g.strokeStyle = `rgba(255,200,120,${Math.min(0.22, k * 0.18)})`;
+    if (!climateNow.relief) {
+      const k = (rows[j] - 0.56) / 0.14; if (k <= 0) continue;
+      g.strokeStyle = `rgba(255,200,120,${Math.min(0.22, k * 0.18)})`;
+    }
     for (let line = 0; line < 2; line++) {
-      const y0 = (j + 0.3 + line * 0.45) * bh; g.beginPath();
+      const y0 = (j + 0.3 + line * 0.45) * bh;
+      if (climateNow.relief) {
+        for (let x = 0; x < meta.W; x += 12) {
+          const y = y0 + Math.sin(x * 0.04 + now * 0.002 + j + line * 2) * 2.2, k = (tempOf(y, x) - 0.56) / 0.14; if (k <= 0) continue;
+          const x1 = Math.min(x + 12, meta.W), y1 = y0 + Math.sin(x1 * 0.04 + now * 0.002 + j + line * 2) * 2.2;
+          g.strokeStyle = `rgba(255,200,120,${Math.min(0.22, k * 0.18)})`; g.beginPath(); g.moveTo(x, y); g.lineTo(x1, y1); g.stroke();
+        }
+        continue;
+      }
+      g.beginPath();
       for (let x = 0; x <= meta.W; x += 12) { const y = y0 + Math.sin(x * 0.04 + now * 0.002 + j + line * 2) * 2.2; x ? g.lineTo(x, y) : g.moveTo(x, y); }
       g.stroke();
     }
@@ -602,7 +626,7 @@ function drawDial() {
   dg.lineWidth = 2; dg.strokeStyle = '#111'; dg.stroke();
   const word = T => T < fr ? 'frost' : T < 0.4 ? 'cold' : T < 0.47 ? 'cool' : T <= 0.53 ? 'mild' : T <= 0.6 ? 'warm' : 'hot';
   const wet = w > 0.66 ? 'wet' : w < 0.34 ? 'dry' : w > 0.5 ? 'wetting' : 'drying';
-  $('climatetext').innerHTML = `<b>now:</b> ${wet}, ${word(h)}<br>${climateNow.relief ? 'peak' : 'north'}: ${word(climateNow.north)}<br>${climateNow.relief ? 'lowlands' : 'south'}: ${word(climateNow.south)}${riverGauge ? '<br>' + riverGauge : ''}<br>today: ${rain > 0.75 ? 'storms' : rain > 0.55 ? 'rain' : rain > 0.35 ? 'overcast' : rain > 0.2 ? 'dry' : 'drought'}<br><span style="opacity:.8">dot = now · line = last 30 seasons · bar = north→south</span>`;
+  $('climatetext').innerHTML = `<b>now:</b> ${wet}, ${word(h)}<br>${climateNow.relief ? 'peak' : 'north'}: ${word(climateNow.north)}<br>${climateNow.relief ? 'lowlands' : 'south'}: ${word(climateNow.south)}${riverGauge ? '<br>' + riverGauge : ''}<br>today: ${rain > 0.75 ? 'storms' : rain > 0.55 ? 'rain' : rain > 0.35 ? 'overcast' : rain > 0.2 ? 'dry' : 'drought'}<br><span style="opacity:.8">dot = now · line = last 30 seasons · bar = ${climateNow.relief ? 'peak→lowlands' : 'north→south'}</span>`;
 }
 
 function renderClock() {
@@ -615,7 +639,7 @@ function renderClock() {
   const heat = climateNow ? (climateNow.era > 0.05 ? ' · warm era' : climateNow.era < -0.05 ? ' · cold era' : ' · mild era') : '';
   const lean = grassFood < 0.999 ? ` · grass worth ${Math.round(grassFood * 100)}%` : '';
   $('clock').textContent = `season ${season} · day ${day} · ${sky} · ${era}${heat}${lean} · season ends in ${mmss(left)}`
-    + (divide ? ` · great divide (${divide.name}s, over a third) ${divide.ticks > 0 ? `in ${mmss(split)}` : 'now'}` : ' · no great divide due')
+    + (divide ? ` · great divide (${divide.name}s, over 60%) ${divide.ticks > 0 ? `in ${mmss(split)}` : 'now'}` : ' · no great divide due')
     + (krakenClock ? ` · ${krakenClock.awake ? 'kraken sinks in' : 'kraken rises in'} ${mmss(Math.ceil(krakenClock.ticks / (tickRate || meta.TICKS_PER_SEC)))}` : '');
   if (tick % 30 === 0) { renderSpecies(); drawDial(); }
   else for (const el of document.querySelectorAll('[data-count]')) el.textContent = counts()[el.dataset.count] ?? 0;
@@ -738,7 +762,8 @@ function drawDrift() {
   // From the founder when measured (code solid, body dashed); older history has only drift since the species' own start.
   const val = (t, key) => key === 'code' ? (t.driftRoot ?? t.drift) : t.bodyRoot;
   const max = Math.max(0.1, ...history.flatMap(e => Object.values(e.traits ?? {}).flatMap(t => [val(t, 'code') ?? 0, val(t, 'body') ?? 0])));
-  for (const sp of species) for (const key of ['code', 'body']) {
+  const seen = new Set(); for (const e of history) for (const k in e.traits ?? {}) seen.add(k);
+  for (const sp of species.filter(sp => seen.has(sp.name))) for (const key of ['code', 'body']) {
     cg.strokeStyle = `hsl(${sp.hue} 60% 55%)`; cg.lineWidth = 1.4 * dpr;
     cg.setLineDash(key === 'body' ? [4 * dpr, 3 * dpr] : []);
     cg.beginPath();
@@ -790,8 +815,8 @@ function drawChart() {
   const total = e => Object.values(e.pops).reduce((a, b) => a + b, 0);
   const max = Math.max(...history.map(total), 1);
   const base = new Float32Array(history.length);
-  for (const sp of species) {
-    if (!history.some(e => e.pops[sp.name])) continue;
+  const seen = new Set(); for (const e of history) for (const k in e.pops) if (e.pops[k]) seen.add(k);
+  for (const sp of species.filter(sp => seen.has(sp.name))) {
     cg.fillStyle = `hsl(${sp.hue} 55% ${(traits[sp.name]?.tl ?? 2) >= 2.5 ? 55 : 42}%)`;
     cg.beginPath();
     history.forEach((e, i) => cg.lineTo(x(i), h - (base[i] + (e.pops[sp.name] ?? 0)) / max * h));
