@@ -1,3 +1,4 @@
+// † extinct in season 1158.
 // mokena (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.8.2): drifted apart from the kelitys (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.8) in season 1151; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
