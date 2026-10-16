@@ -1,3 +1,4 @@
+// † extinct in season 1160.
 // kethu (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1): drifted apart from the thuzunas (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7) in season 1052; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
