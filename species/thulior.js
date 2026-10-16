@@ -1,3 +1,4 @@
+// † extinct in season 1041.
 // thulior (P.2.8.15.5.3.31.3.4.8.1.3.1.3.2): drifted apart from the tytyvens (P.2.8.15.5.3.31.3.4.8.1.3.1.3) in season 1032; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
