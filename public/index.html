@@ -20,6 +20,9 @@
   #theme { float: right; background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px;
            padding: 1px 6px; cursor: pointer; }
   #theme:hover { color: var(--hi); }
+  #zoom { position: absolute; top: 22px; right: 22px; display: flex; gap: 5px; align-items: center; padding: 4px; background: color-mix(in srgb, var(--bg) 82%, transparent); color: var(--dim); font-size: 10px; }
+  #zoom button { background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--line); color: var(--dim); font: inherit; padding: 1px 6px; cursor: pointer; }
+  #zoom button:hover { color: var(--hi); }
   #mindbtn { float: right; margin-right: 6px; background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px; cursor: pointer; }
   #mindbtn.on { color: var(--hi); border-color: var(--hi); }
   #reportslink { float: right; margin-right: 6px; border: 1px solid var(--line); color: var(--dim); font-size: 10px; padding: 0 6px; text-decoration: none; }
@@ -45,6 +48,9 @@
          display: grid; grid-template-columns: 1fr 340px; }
   main { display: grid; place-items: center; padding: 16px; min-width: 0; position: relative; }
   /* Chronicle pop-ups: news slides up at the bottom of the world view, then fades. */
+  #tip { position: absolute; pointer-events: none; background: color-mix(in srgb, var(--bg) 85%, transparent); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font: 11px monospace; color: var(--fg); backdrop-filter: blur(4px); max-width: 220px; line-height: 1.4; }
+  #tip b { color: var(--hi); }
+  #tip .states { color: var(--warm); }
   #toasts { position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); width: min(80%, 620px);
             display: flex; flex-direction: column; gap: 6px; pointer-events: none; align-items: center; }
   .toast { background: color-mix(in srgb, var(--bg) 82%, transparent); color: var(--fg); border: 1px solid var(--line);
@@ -56,7 +62,7 @@
   .toast.leaving { animation: toastOut 1.2s ease forwards; }
   @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-6px); } }
   @keyframes toast { 0% { opacity: 0; transform: translateY(10px); } 6% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
-  #world { max-width: 100%; max-height: calc(100vh - 32px); aspect-ratio: 3 / 2; border: 1px solid var(--line); }
+  #world { width: 1920px; max-width: min(100%, calc(150vh - 51px)); max-height: calc(100vh - 32px); height: auto; aspect-ratio: 3 / 2; box-sizing: content-box; border: 1px solid var(--line); touch-action: none; }
   aside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
   h1 { font-size: 13px; font-weight: normal; letter-spacing: .2em; text-transform: uppercase; margin: 0; color: var(--hi); }
   h2 { font-size: 11px; font-weight: normal; letter-spacing: .15em; text-transform: uppercase; margin: 0 0 6px; color: var(--dim); }
@@ -77,7 +83,7 @@
   .role-omnivore { color: var(--omni); } .role-hunter { color: var(--hunter); } .role-apex { color: var(--apex); font-weight: bold; }
   pre { margin: 6px 0 4px; padding: 8px; background: var(--panel); border: 1px solid var(--line); font-size: 10.5px; line-height: 1.4;
         max-height: 320px; overflow: auto; white-space: pre; }
-  #extinct { color: var(--dim); }
+  #extinct { color: var(--dim); overflow-wrap: anywhere; }
   .total { padding: 2px 0 6px; font-weight: 700; color: var(--dim); }
   .egg { padding: 4px 0; color: hsl(35 85% 55%); font-weight: 600; }
   #extinct s { text-decoration-color: var(--strike); }
@@ -91,7 +97,7 @@
 </style>
 </head>
 <body>
-<main><canvas id="world"></canvas><div id="toasts"></div></main>
+<main><canvas id="world"></canvas><div id="zoom"><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="toasts"></div><div id="tip" hidden></div></main>
 <aside>
   <div><button id="theme" title="theme: auto, light, dark">auto</button><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="mindbtn" title="show what the kraken has learned: where it got stuck (red) and where it fed (gold)">kraken's mind</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="mindkey" hidden><b>kraken's mind:</b> <i class="key trap"></i> got stuck here <i class="key food"></i> fed here <span class="dim">· stronger colour = surer; it fades as the kraken forgets, and its egg inherits a blurred copy</span></div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div><div id="god"></div></div>
   <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
@@ -144,6 +150,77 @@ const trails = new Map();
 const SCALE = 2;
 let meta, frameMs, cur = null, prev = null, recvAt = 0, rain = 0, tick = 0, season = 1;
 let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null;
+// The camera eases toward a clamped target; zoom keeps its chosen world point under the pointer.
+const camera = { z: 1, cx: 0, cy: 0 }, target = { ...camera }, pointers = new Map();
+let following = null, drawn = [], anchor = null, gesture = null, viewShakeX = 0, viewShakeY = 0;
+// Hover shares the click's nearest-body test.
+const tip = $('tip'); let hovered = null, hoverPoint = null;
+function hideTip() { hovered = null; hoverPoint = null; tip.hidden = true; }
+function creatureAt(w) { let hit = null, distance = Infinity; for (const c of drawn) { const d = Math.hypot(w.x - c.x, w.y - c.y); if (d <= (c.hitRadius ?? Math.max(8, c.s)) && d < distance) { hit = c; distance = d; } } return hit; }
+function placeTip() { if (!hoverPoint || tip.hidden) return; const main = tip.parentElement, r = main.getBoundingClientRect(), x = hoverPoint.x - r.left - main.clientLeft, y = hoverPoint.y - r.top - main.clientTop, w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = `${Math.max(0, Math.min(main.clientWidth - w, x + 14 + w > main.clientWidth ? x - w - 14 : x + 14))}px`; tip.style.top = `${Math.max(0, Math.min(main.clientHeight - h, y + 14 + h > main.clientHeight ? y - h - 14 : y + 14))}px`; }
+function refreshTip() {
+  if (hovered === null) return;
+  const c = cur?.get(hovered), sp = c && species[c.s]; if (gesture || !sp) { hideTip(); return; }
+  const ci = cellOf(c.x, c.y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7);
+  const states = [[2, 'ready to mate'], [4, 'sprinting'], [8, 'shoving'], [16, 'infested'], [1, 'broken'], [32, 'asleep'], [64, 'raging']].filter(([flag]) => c.b & flag).map(([, label]) => label); if (hid) states.push('hidden in cover');
+  tip.innerHTML = `<b>${esc(sp.name)} · ${esc(sp.unique ? 'giant' : traits[sp.name]?.label ?? '')} · ${lifeStage(c)==='juvenile'?'young':lifeStage(c)}</b><br>${esc(`size ${c.z.toFixed(1)} · energy ${Math.round(c.e * 100)}% · fat ${Math.round((c.f ?? 0) * 100)}%`)}<br>${esc(`legs ${(c.l ?? 1).toFixed(2)} · armour ${(c.r ?? 0).toFixed(2)}${c.g===undefined?'':` · ${Math.round(c.g*100)}% of its life`}`)}${states.length ? `<br><span class="states">${esc(states.join(' · '))}</span>` : ''}`;
+  tip.hidden = false; placeTip();
+}
+setInterval(refreshTip, 200);
+canvas.addEventListener('pointerleave', hideTip);
+function clampCamera(c) { const hx = meta.W / (2 * c.z), hy = meta.H / (2 * c.z); c.cx = Math.max(hx, Math.min(meta.W - hx, c.cx)); c.cy = Math.max(hy, Math.min(meta.H - hy, c.cy)); }
+function cameraCursor() { canvas.style.cursor = gesture?.drag ? 'grabbing' : target.z > 1 ? 'grab' : 'default'; }
+function resizeWorld() { const r = canvas.getBoundingClientRect(), d = devicePixelRatio || 1, w = Math.max(1, Math.round((r.width - 2 * canvas.clientLeft) * d)), h = Math.max(1, Math.round((r.height - 2 * canvas.clientTop) * d)); if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; } }
+new ResizeObserver(resizeWorld).observe(canvas);
+window.addEventListener('resize', resizeWorld);
+function canvasPoint(e) { const r = canvas.getBoundingClientRect(); return { u: (e.clientX - r.left - canvas.clientLeft) / (r.width - 2 * canvas.clientLeft), v: (e.clientY - r.top - canvas.clientTop) / (r.height - 2 * canvas.clientTop) }; }
+function worldPoint(q) { return { x: camera.cx + (q.u - 0.5) * meta.W / camera.z - viewShakeX, y: camera.cy + (q.v - 0.5) * meta.H / camera.z - viewShakeY }; }
+function zoomTo(z, q = { u: 0.5, v: 0.5 }, at = null) {
+  if (!meta) return;
+  const w = at || worldPoint(q); anchor = { ...w, ...q }; target.z = Math.max(1, Math.min(6, z));
+  target.cx = w.x - (q.u - 0.5) * meta.W / target.z; target.cy = w.y - (q.v - 0.5) * meta.H / target.z; clampCamera(target); cameraCursor();
+}
+function fitWorld() { if (!meta) return; following = null; anchor = null; Object.assign(target, { z: 1, cx: meta.W / 2, cy: meta.H / 2 }); cameraCursor(); }
+canvas.addEventListener('wheel', e => { e.preventDefault(); zoomTo(target.z * Math.exp(-e.deltaY * 0.0015), canvasPoint(e)); }, { passive: false });
+canvas.addEventListener('dblclick', e => { e.preventDefault(); zoomTo(target.z * 2, canvasPoint(e)); });
+function pinchInfo() { const [a, b] = [...pointers.values()]; return { distance: Math.hypot(a.x - b.x, a.y - b.y), q: canvasPoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }) }; }
+canvas.addEventListener('pointerdown', e => {
+  hideTip();
+  if (!meta || e.button !== 0 || pointers.size >= 2) return;
+  canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2) { const p = pinchInfo(); following = null; gesture = { pinch: true, drag: true, distance: Math.max(1, p.distance), z: camera.z, at: worldPoint(p.q) }; }
+  else gesture = { x: e.clientX, y: e.clientY, q: canvasPoint(e), at: worldPoint(canvasPoint(e)), drag: false };
+  cameraCursor();
+});
+canvas.addEventListener('pointermove', e => {
+  if (gesture) hideTip();
+  else if (e.pointerType === 'mouse' && meta) { const hit = creatureAt(worldPoint(canvasPoint(e))); if (hit && cur?.has(hit.id)) { const changed = hovered !== hit.id; hovered = hit.id; hoverPoint = { x: e.clientX, y: e.clientY }; if (changed) refreshTip(); else placeTip(); } else hideTip(); }
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2) { const p = pinchInfo(); zoomTo(gesture.z * p.distance / gesture.distance, p.q, gesture.at); return; }
+  if (!gesture || gesture.pinch) return;
+  if (!gesture.drag && Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 3) { gesture.drag = true; following = null; anchor = null; target.z = camera.z; }
+  if (gesture.drag) { anchor = null; following = null; const q = canvasPoint(e); target.cx = gesture.at.x - (q.u - 0.5) * meta.W / target.z; target.cy = gesture.at.y - (q.v - 0.5) * meta.H / target.z; clampCamera(target); cameraCursor(); }
+});
+function releasePointer(e) {
+  if (!pointers.has(e.pointerId)) return;
+  if (e.type === 'pointerup' && pointers.size === 1 && gesture && !gesture.drag && !gesture.pinch) {
+    const hit = creatureAt(worldPoint(canvasPoint(e)));
+    if (hit && cur?.has(hit.id)) { following = hit.id; anchor = null; target.z = Math.max(3, target.z); target.cx = hit.x; target.cy = hit.y; clampCamera(target); }
+  }
+  pointers.delete(e.pointerId); if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+  if (pointers.size) { const p = [...pointers.values()][0], q = canvasPoint({ clientX: p.x, clientY: p.y }); gesture = { x: p.x, y: p.y, q, at: worldPoint(q), drag: true }; } else gesture = null;
+  cameraCursor();
+}
+for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.addEventListener(name, releasePointer);
+$('zoomin').onclick = () => zoomTo(target.z * 1.5); $('zoomout').onclick = () => zoomTo(target.z / 1.5); $('zoomfit').onclick = fitWorld;
+window.addEventListener('keydown', e => {
+  if (e.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
+  if (e.key === 'Escape') { following = null; anchor = null; }
+  else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomTo(target.z * 1.5); }
+  else if (e.key === '-') { e.preventDefault(); zoomTo(target.z / 1.5); }
+  else if (e.key === '0') { e.preventDefault(); fitWorld(); }
+});
 const portraits = new Map();
 // Each species' own look, fixed by its name: a shade (saturation, lightness) and a pale marking, so species of the
 // same diet colour (all the green plant-eaters) still look different. Unique giants keep their plain look.
@@ -167,19 +244,213 @@ function marking(g, pat, s, hue) {
   g.restore();
 }
 const portraitOf = sp => portraits.get(sp.name) ?? portraits.set(sp.name, portrait(sp)).get(sp.name);
+// All world painting stays off the animation thread.
+function worldPainter(){
+'use strict';
+let W,H,CELL,GW,GH,FW,FH,F={},land=null;
+function sample(a,x,y){const u=x/CELL-.5,v=y/CELL-.5,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy;const at=(x,y)=>a[((y%GH+GH)%GH)*GW+(x%GW+GW)%GW]/255;return (at(ix,iy)*(1-fx)+at(ix+1,iy)*fx)*(1-fy)+(at(ix,iy+1)*(1-fx)+at(ix+1,iy+1)*fx)*fy;}
+function smooth(a,x,y){const u=x/2,v=y/2,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy;const at=(x,y)=>a[((y%FH+FH)%FH)*FW+(x%FW+FW)%FW];return(at(ix,iy)*(1-fx)+at(ix+1,iy)*fx)*(1-fy)+(at(ix,iy+1)*(1-fx)+at(ix+1,iy+1)*fx)*fy;}
+const terrace=(x,y)=>Math.min(6,Math.floor(smooth(F.height,x,y)*7));
+const ramp=[[126,150,88],[145,151,87],[176,158,96],[197,180,135],[210,207,182],[223,226,217],[241,241,230]];
+const bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
+const ordered=(x,y)=>(bayer[((Math.floor(y/2)%4+4)%4)*4+(Math.floor(x/2)%4+4)%4]+.5)/16;
+function hash(x,y){let h=Math.imul(x+1,374761393)^Math.imul(y+1,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967295;}
+// Cross each patch boundary in a six-world-unit band. Outside that band,
+// every terrace uses precisely four plant levels and three moisture levels.
+function patchLevel(a,x,y,levels){
+ const v=smooth(a,x,y),gx=(smooth(a,x+1,y)-smooth(a,x-1,y))/2,gy=(smooth(a,x,y+1)-smooth(a,x,y-1))/2;
+ const width=Math.max(.000001,6*Math.hypot(gx,gy));
+ let level=0;
+ for(let i=1;i<levels;i++){
+  const t=i/levels;
+  if(v>=t+width/2)level++;
+  else if(v>t-width/2&&ordered(x,y)<(v-t)/width+.5)level++;
+ }
+ return level;
+}
+const earth=[
+ [[204,186,136],[156,138,85],[102,128,75],[61,99,55]],
+ [[163,128,91],[133,128,76],[81,113,64],[48,89,49]],
+ [[104,78,57],[111,109,66],[68,101,59],[39,79,46]]
+];
+
+function blur(a){const out=new Float32Array(GW*GH);for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){let sum=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)sum+=a[((y+dy+GH)%GH)*GW+(x+dx+GW)%GW];out[y*GW+x]=sum/9;}return out;}
+function field(a){const out=new Float32Array(FW*FH);for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)out[y*FW+x]=sample(a,x*2,y*2);return out;}
+function paintLand(elev){
+ F.height=field(blur(elev));const n=FW*FH;land={k:new Uint8Array(n),tone:new Float32Array(n),shadow:new Float32Array(n),lip:new Uint8Array(n),rim:new Uint8Array(n)};
+ for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){
+  const wx=x*2,wy=y*2,i=y*FW+x,k=terrace(wx,wy),slope=smooth(F.height,wx+4,wy+4)-smooth(F.height,wx-4,wy-4),dither=ordered(wx,wy);
+  land.k[i]=k;land.tone[i]=dither<Math.max(0,Math.min(1,(slope-.008)/.006+.5))?1.08:dither<Math.max(0,Math.min(1,(-slope-.008)/.006+.5))?.90:1;
+  for(let d=.5;d<=6;d+=.5)if(terrace(wx-d/Math.SQRT2,wy-d/Math.SQRT2)>k){land.shadow[i]=.4*(1-(d-.5)/6);break;}
+  land.lip[i]=terrace(wx+1.5/Math.SQRT2,wy+1.5/Math.SQRT2)<k;land.rim[i]=terrace(wx-1.5/Math.SQRT2,wy-1.5/Math.SQRT2)<k;
+ }
+}
+function paintGround({terrain,water,snow,hedge}){
+ const n=GW*GH,plant=new Uint8Array(n),moisture=new Uint8Array(n),depth=new Float32Array(n),ice=new Uint8Array(n);
+ for(let i=0;i<n;i++){plant[i]=terrain[i*3];moisture[i]=terrain[i*3+1];depth[i]=(water[i]&127)/127*255;ice[i]=water[i]>=128?255:0;}
+ F.plant=field(plant);F.moisture=field(moisture);F.depth=field(depth);F.ice=field(ice);F.snow=field(snow);F.hedge=field(blur(hedge));
+ // Open the blurred canopy with a 2×2 square: every surviving patch is at least four world units wide.
+ const at=(a,x,y)=>a[((y+FH)%FH)*FW+(x+FW)%FW],seed=new Uint8Array(FW*FH),bush=new Uint8Array(FW*FH);
+ for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)seed[y*FW+x]=at(F.hedge,x,y)>.25&&at(F.hedge,x+1,y)>.25&&at(F.hedge,x,y+1)>.25&&at(F.hedge,x+1,y+1)>.25;
+ for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)bush[y*FW+x]=at(seed,x,y)||at(seed,x-1,y)||at(seed,x,y-1)||at(seed,x-1,y-1);
+ const c=new OffscreenCanvas(FW,FH),g=c.getContext('2d'),im=g.createImageData(FW,FH);
+ for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){
+  const wx=x*2,wy=y*2,i=y*FW+x,k=land?land.k[i]:0,p=patchLevel(F.plant,wx,wy,4),m=patchLevel(F.moisture,wx,wy,3),pale=[0,.12,.27,.48,.70,.87,.97][k];
+  let col=earth[m][p].map((v,j)=>v*(1-pale)+ramp[k][j]*pale);
+  if(land){col=col.map(v=>v*land.tone[i]*(1-land.shadow[i])*(land.lip[i]?.62:1));if(land.rim[i])col=col.map(v=>v*.56+255*.44);}
+  const d=F.depth[i],ice=F.ice[i],sn=F.snow[i];
+  if(d>.05){const deep=Math.round(d*3)/3;col=ice>.5?[211,231,233]:[91-deep*22,157-deep*27,173-deep*22];if(smooth(F.depth,wx-1,wy)<.05||smooth(F.depth,wx+1,wy)<.05||smooth(F.depth,wx,wy-1)<.05||smooth(F.depth,wx,wy+1)<.05)col=ice>.5?[237,246,240]:[164,205,202];}
+  if(sn>.15)col=[239,242,230];
+  if(!bush[i]&&at(bush,x-1,y-1))col=col.map(v=>v*.68);
+  if(bush[i]){col=[49,78,46];const bx=wx+1,by=wy+1,facing=smooth(F.hedge,bx+2,by+2)-smooth(F.hedge,bx-2,by-2);if(facing>.012&&ordered(bx,by)<.30)col=[99,128,71];}
+  const grain=1+(hash(wx,wy)*2-1)*.03,o=i*4;im.data[o]=col[0]*grain;im.data[o+1]=col[1]*grain;im.data[o+2]=col[2]*grain;im.data[o+3]=255;
+ }
+ g.putImageData(im,0,0);return c.transferToImageBitmap();
+}
+function paintCoral(rock){F.rock=field(rock);
+const headThreshold=(x,y)=>.6+.06*(
+ .6*Math.sin(x/W*Math.PI*2*23+y/H*Math.PI*2*7)+
+ .4*Math.sin(x/W*Math.PI*2*9-y/H*Math.PI*2*19));
+const headAt=(x,y)=>smooth(F.rock,x,y)>headThreshold(x,y);
+function coralCanvas(){return new OffscreenCanvas(W,H);}
+const heads=coralCanvas(),hg=heads.getContext('2d'),headImage=hg.createImageData(W,H);
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+ const o=(y*W+x)*4;
+ headImage.data[o]=headImage.data[o+1]=headImage.data[o+2]=255;
+ headImage.data[o+3]=headAt(x+.5,y+.5)?255:0;
+}
+hg.putImageData(headImage,0,0);
+const reefNodes=Array.from(rock,(density,i)=>{
+ const x=i%GW,y=Math.floor(i/GW);
+ return {density:density/255,x:(x+.5)*CELL+(hash(x+71,y+139)*2-1)*1.5,
+  y:(y+.5)*CELL+(hash(x+313,y+29)*2-1)*1.5,children:0};
+});
+const fingers=[];
+for(let i=0;i<reefNodes.length;i++){
+ const child=reefNodes[i];if(child.density<.15||child.density>=.6)continue;
+ const x=i%GW,y=Math.floor(i/GW);let best=child.density,parent=-1,stepX=0,stepY=0;
+ for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+  if(!dx&&!dy)continue;
+  const j=((y+dy+GH)%GH)*GW+(x+dx+GW)%GW;
+  if(reefNodes[j].density>best){best=reefNodes[j].density;parent=j;stepX=dx;stepY=dy;}
+ }
+ if(parent<0)continue;
+ const p=reefNodes[parent];p.children++;
+ // Place the parent in the child's nearest torus image; never span the canvas.
+ const px=(x+.5+stepX)*CELL+p.x-((parent%GW)+.5)*CELL;
+ const py=(y+.5+stepY)*CELL+p.y-(Math.floor(parent/GW)+.5)*CELL;
+ fingers.push({i,child,px,py,spines:hash(i+191,53)<1/6});
+}
+const mask=coralCanvas(),mg=mask.getContext('2d');mg.drawImage(heads,0,0);
+mg.fillStyle=mg.strokeStyle='#fff';mg.lineCap='round';mg.lineJoin='round';
+function fingerCopies(f,draw){
+ const xs=[0],ys=[0],pad=8;
+ if(Math.min(f.px,f.child.x)<pad)xs.push(W);if(Math.max(f.px,f.child.x)>W-pad)xs.push(-W);
+ if(Math.min(f.py,f.child.y)<pad)ys.push(H);if(Math.max(f.py,f.child.y)>H-pad)ys.push(-H);
+ for(const dx of xs)for(const dy of ys)draw(dx,dy);
+}
+for(const f of fingers)fingerCopies(f,(dx,dy)=>{
+ const px=f.px+dx,py=f.py+dy,cx=f.child.x+dx,cy=f.child.y+dy;
+ const angle=Math.atan2(cy-py,cx-px),nx=-Math.sin(angle),ny=Math.cos(angle);
+ // A tapered solid finger, with circular ends, grows out of its denser parent.
+ mg.beginPath();mg.moveTo(px+nx*2,py+ny*2);mg.lineTo(cx+nx*.9,cy+ny*.9);
+ mg.lineTo(cx-nx*.9,cy-ny*.9);mg.lineTo(px-nx*2,py-ny*2);mg.closePath();mg.fill();
+ for(const [x,y,r]of [[px,py,2],[cx,cy,f.child.children===0?1.6:.9]]){
+  mg.beginPath();mg.arc(x,y,r,0,Math.PI*2);mg.fill();
+ }
+ if(f.spines)for(let q=0;q<2;q++){
+  const t=.4+q*.25,sx=px+(cx-px)*t,sy=py+(cy-py)*t,turn=angle+(q?-1:1)*Math.PI/3;
+  mg.lineWidth=.65;mg.beginPath();mg.moveTo(sx,sy);mg.lineTo(sx+Math.cos(turn)*2,sy+Math.sin(turn)*2);mg.stroke();
+ }
+});
+// Shade the merged silhouette once, so intersections share one material and shadow.
+const material=coralCanvas(),mat=material.getContext('2d'),pixels=mg.getImageData(0,0,W,H);
+const maskAlpha=(x,y)=>pixels.data[(((y+H)%(H))*W+(x+W)%(W))*4+3]/255;
+const shaded=mat.createImageData(W,H);
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+ const o=(y*W+x)*4,a=maskAlpha(x,y);if(!a)continue;
+ const rim=1-maskAlpha(x-1,y-1),grain=(hash(x,y)*2-1)*2;
+ // Muted hsl(22 25% 62%) body; only the north-west-facing lip catches light.
+ shaded.data[o]=182+rim*25+grain;shaded.data[o+1]=151+rim*26+grain;
+ shaded.data[o+2]=134+rim*25+grain;shaded.data[o+3]=pixels.data[o+3];
+}
+mat.putImageData(shaded,0,0);
+const texture=coralCanvas(),tg=texture.getContext('2d');
+tg.fillStyle='rgba(87,66,56,.35)';
+for(let y=2;y<H;y+=4)for(let x=2;x<W;x+=4){
+ const px=x+(hash(x+11,y+23)*2-1)*1.2,py=y+(hash(x+53,y+71)*2-1)*1.2;
+ if(!headAt(px,py))continue;
+ tg.beginPath();tg.arc(px,py,.7,0,Math.PI*2);tg.fill();
+}
+tg.strokeStyle='rgba(232,209,183,.45)';tg.lineWidth=.65;tg.lineCap='round';
+for(let y=5;y<H;y+=13)for(let x=5;x<W;x+=13){
+ if(hash(x+31,y+97)>.3)continue;
+ const px=x+(hash(x,y)*2-1)*3,py=y+(hash(x+7,y+9)*2-1)*3;
+ if(!headAt(px,py))continue;
+ tg.beginPath();tg.moveTo(px-2,py+1);tg.quadraticCurveTo(px-1,py-2,px+2,py-1);tg.stroke();
+}
+// Clip pores and ridges to heads, including their outermost pixels.
+tg.save();tg.setTransform(1,0,0,1,0,0);tg.globalCompositeOperation='destination-in';tg.drawImage(heads,0,0);tg.restore();
+mat.drawImage(texture,0,0);
+const highlights=coralCanvas(),fg=highlights.getContext('2d');
+fg.strokeStyle='rgba(230,207,183,.55)';fg.lineWidth=.55;fg.lineCap='round';
+for(const f of fingers)fingerCopies(f,(dx,dy)=>{
+ const vx=f.child.x-f.px,vy=f.child.y-f.py,len=Math.hypot(vx,vy);
+ if(!len)return;
+ let nx=-vy/len,ny=vx/len;if(nx+ny>0){nx=-nx;ny=-ny;}
+ fg.beginPath();fg.moveTo(f.px+dx+nx*1.25,f.py+dy+ny*1.25);
+ fg.lineTo(f.child.x+dx+nx*.5,f.child.y+dy+ny*.5);fg.stroke();
+});
+fg.setTransform(1,0,0,1,0,0);fg.globalCompositeOperation='destination-in';fg.drawImage(mask,0,0);
+mat.drawImage(highlights,0,0);
+const shadow=coralCanvas(),sg=shadow.getContext('2d');sg.drawImage(mask,0,0);
+sg.globalCompositeOperation='source-in';sg.fillStyle='hsl(24 18% 16%)';sg.fillRect(0,0,W,H);
+const out=new OffscreenCanvas(W,H),g=out.getContext('2d');g.globalAlpha=.35;for(const dx of [-W,0,W])for(const dy of [-H,0,H])g.drawImage(shadow,dx+2.5,dy+3);g.globalAlpha=1;g.drawImage(material,0,0);return out.transferToImageBitmap();
+}
+onmessage=({data:d})=>{try{
+ ({W,H,CELL,GW,GH}=d.meta);FW=Math.ceil(W/2);FH=Math.ceil(H/2);
+ let bitmap=null;if(d.layer==='land')paintLand(d.elev);else if(d.layer==='ground')bitmap=paintGround(d);else bitmap=paintCoral(d.rock);
+ postMessage({layer:d.layer,bitmap},bitmap?[bitmap]:[]);
+ }catch(error){postMessage({layer:d.layer,error:String(error)});}
+};
+}
+// Keep one active job and just the newest request for each layer.
+let worldWorker=null,worldBusy=false,worldTimer=0,groundBitmap=null,coralBitmap=null;
+const worldInputs={},worldKeys={},worldPending={},worldLast={ground:-Infinity,coral:-Infinity};
+function worldInput(key,value,bytes){if(worldKeys[key]===value)return;worldKeys[key]=value;worldInputs[key]=bytes;if(key==='elev')worldPending.land=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
+function pumpWorld(){
+ clearTimeout(worldTimer);if(worldBusy||!meta||!worldWorker)return;
+ const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000};let wait=Infinity;
+ for(const layer of ['land','ground','coral']){
+  if(!worldPending[layer]||layer==='ground'&&!ready)continue;
+  const left=(worldLast[layer]??-Infinity)+delays[layer]-now;if(left>0){wait=Math.min(wait,left);continue;}
+  const d={layer,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH}},transfer=[],n=meta.GW*meta.GH;
+  const copy=(key)=>{const a=(worldInputs[key]??new Uint8Array(n)).slice();d[key]=a;transfer.push(a.buffer);};
+  if(layer==='land')copy('elev');else if(layer==='coral')copy('rock');else for(const key of ['terrain','water','snow','hedge'])copy(key);
+  delete worldPending[layer];worldBusy=true;worldLast[layer]=now;worldWorker.postMessage(d,transfer);return;
+ }
+ if(wait<Infinity)worldTimer=setTimeout(pumpWorld,wait);
+}
+if(typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined')try{
+ const src='('+worldPainter.toString()+')()',url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));worldWorker=new Worker(url);URL.revokeObjectURL(url);
+ worldWorker.onmessage=({data:d})=>{worldBusy=false;if(d.bitmap){if(d.layer==='ground'){groundBitmap?.close();groundBitmap=d.bitmap;}else{coralBitmap?.close();coralBitmap=d.bitmap;}}if(d.error)console.error('World painter:',d.error);pumpWorld();};
+ worldWorker.onerror=()=>{worldWorker.terminate();worldWorker=null;worldBusy=false;clearTimeout(worldTimer);};
+}catch(error){console.error('World painter:',error);}
+
 const on = (name, fn) => es.addEventListener(name, e => fn(JSON.parse(e.data)));
 
 const es = new EventSource('/stream');
-const FRAME_STRIDE = 13; // must match the server's; an old tab reloads itself to pick up the new viewer
+let FRAME_STRIDE = 13; // the server says how many numbers each creature has; extra fields are read when present
 on('meta', m => {
-  if (m.FRAME_STRIDE !== FRAME_STRIDE) { location.reload(); return; }
+  if ((m.FRAME_STRIDE ?? 13) !== FRAME_STRIDE) prev = cur = null;
+  FRAME_STRIDE = m.FRAME_STRIDE ?? 13;
   meta = m;
   frameMs = 2000 / meta.TICKS_PER_SEC;
-  canvas.width = meta.W * SCALE; canvas.height = meta.H * SCALE;
+  canvas.style.width = `${meta.W * SCALE}px`; Object.assign(camera, { z: 1, cx: meta.W / 2, cy: meta.H / 2 }); Object.assign(target, camera); resizeWorld();
   terrainCanvas.width = meta.GW; terrainCanvas.height = meta.GH;
   reefCanvas.width = meta.GW; reefCanvas.height = meta.GH;
 });
-on('species', list => { species = list; renderSpecies(true); });
+on('species', list => { species = list; refreshCreatureSprites(); renderSpecies(true); });
 on('god', s => {
   $('god').className = s.state;
   const waiting = s.queue?.length ? ` (waiting: ${s.queue.join(', ')})` : '';
@@ -194,19 +465,21 @@ on('water', ({ w, snow, aqua, lichen }) => {
   const A8 = aqua ? Uint8Array.from(atob(aqua), ch => ch.charCodeAt(0)) : null, L8 = lichen ? Uint8Array.from(atob(lichen), ch => ch.charCodeAt(0)) : null;
   if (!meta) return;
   const W8 = Uint8Array.from(atob(w), ch => ch.charCodeAt(0)), S8 = Uint8Array.from(atob(snow), ch => ch.charCodeAt(0));
+  worldInput('water', w, W8);worldInput('snow', snow, S8);
   waterCanvas.width = meta.GW; waterCanvas.height = meta.GH;
-  const img = wtg.createImageData(meta.GW, meta.GH);
+  const img = !groundBitmap ? wtg.createImageData(meta.GW, meta.GH) : null;
   let vol = 0, wet = 0, ice = 0, snowSum = 0;
   for (let i = 0; i < W8.length; i++) {
     const o = i * 4, frozen = W8[i] >= 128, d = (W8[i] & 127) / 127;
     if (W8[i]) { wet++; vol += d; if (frozen) ice++; }
+    if (!img) { if (S8[i] > 8) snowSum += S8[i]; continue; }
     if (frozen) { img.data[o] = 225; img.data[o + 1] = 240; img.data[o + 2] = 250; img.data[o + 3] = 200; }
     else if (W8[i]) { img.data[o] = 40; img.data[o + 1] = 110 + 60 * (1 - d); img.data[o + 2] = 215; img.data[o + 3] = Math.round(Math.min(240, 140 + d * 500)); }
     if (W8[i] && !frozen && A8 && A8[i] > 20) { const a = A8[i] / 255; img.data[o] = 60 + 20 * a; img.data[o + 1] = 130 + 50 * a; img.data[o + 2] = 160 - 60 * a; } // water plants green the water
     if (!W8[i] && L8 && L8[i] > 25 && S8[i] <= 8) { const a = L8[i] / 255; img.data[o] = 170; img.data[o + 1] = 180; img.data[o + 2] = 150; img.data[o + 3] = Math.round(40 + a * 110); } // lichen: a pale grey-green crust on the heights
     else if (S8[i] > 8) { const a = Math.min(200, S8[i]); img.data[o] = 245; img.data[o + 1] = 248; img.data[o + 2] = 255; img.data[o + 3] = a; snowSum += S8[i]; }
   }
-  wtg.putImageData(img, 0, 0);
+  if (img) wtg.putImageData(img, 0, 0);
   waterNow = true;
   const level = wet < 60 ? 'dry (a canyon)' : vol < 8 ? 'low' : vol < 25 ? 'flowing' : 'high';
   riverGauge = `river: ${level}${ice > wet * 0.3 && wet ? ', frozen' : ''}${snowSum > 2000 ? ' · snow on the heights' : ''}`;
@@ -254,7 +527,7 @@ function toast(text) {
   el.addEventListener('mouseleave', () => { el.classList.remove('held'); el.classList.add('leaving'); timer = setTimeout(() => el.remove(), 1200); });
 }
 on('history', ({ h, stats: s, records: r, traits: tr }) => {
-  history.push(h); stats = s; records = r; traits = tr;
+  history.push(h); stats = s; records = r; traits = tr || {}; refreshCreatureSprites();
   if (history.length > 4000) history.shift();
   drawChart();
 });
@@ -264,23 +537,26 @@ es.onerror = () => { $('clock').textContent = 'the glass is dark (server stopped
 
 function unpack(c) {
   const m = new Map();
-  for (let i = 0; i < c.length; i += FRAME_STRIDE) m.set(c[i], { s: c[i + 1], x: c[i + 2], y: c[i + 3], a: c[i + 4], e: c[i + 5], h: c[i + 6], b: c[i + 7], z: c[i + 8], l: c[i + 9], f: c[i + 10], r: c[i + 11], p: c[i + 12] });
+  for (let i = 0; i < c.length; i += FRAME_STRIDE) m.set(c[i], { s: c[i + 1], x: c[i + 2], y: c[i + 3], a: c[i + 4], e: c[i + 5], h: c[i + 6], b: c[i + 7], z: c[i + 8], l: c[i + 9], f: c[i + 10], r: c[i + 11], p: c[i + 12], g: FRAME_STRIDE > 13 ? c[i + 13] : undefined });
   return m;
 }
 
 // Bare soil goes from dusty sand (dry) to dark mud (wet), a little darker where rich; plants go from dry gold to wet green.
-// Reef: pale bone, solid where dense (≥ 0.6 blocks), faint where it is only starting or wearing away.
+// Reef: warm grey stone, solid where dense (≥ 0.6 blocks), faint where it is only starting or wearing away.
 function paintReef({ map, thicket, climate: c }) {
   if (!meta) return;
   climate = c;
   const bytes = Uint8Array.from(atob(map), ch => ch.charCodeAt(0)), img = rg.createImageData(meta.GW, meta.GH);
   const brush = thicket ? Uint8Array.from(atob(thicket), ch => ch.charCodeAt(0)) : null;
+  thicketBytes = brush;
+  worldInput('rock', map, bytes);worldInput('hedge', thicket ?? '', brush ?? new Uint8Array(meta.GW*meta.GH));
+  if (groundBitmap && coralBitmap) return;
   for (let i = 0; i < meta.GW * meta.GH; i++) {
     const r = bytes[i] / 255, solid = r >= 0.6, t = brush ? brush[i] / 255 : 0;
     // Thicket: a dark thorny green along the reef, denser = darker and more opaque.
     if (!solid && t > 0.05) { img.data[i * 4] = 28; img.data[i * 4 + 1] = 78 + (1 - t) * 30; img.data[i * 4 + 2] = 40; img.data[i * 4 + 3] = 70 + t * 170; continue; }
-    img.data[i * 4] = solid ? 226 : 196; img.data[i * 4 + 1] = solid ? 214 : 186; img.data[i * 4 + 2] = solid ? 190 : 166;
-    img.data[i * 4 + 3] = r <= 0 ? 0 : solid ? 235 : 40 + r * 140;
+    img.data[i * 4] = solid ? 150 : 140; img.data[i * 4 + 1] = solid ? 140 : 132; img.data[i * 4 + 2] = solid ? 122 : 116;
+    img.data[i * 4 + 3] = r <= 0 ? 0 : solid ? 215 : 30 + r * 120;
   }
   rg.putImageData(img, 0, 0);
 }
@@ -288,9 +564,13 @@ function paintReef({ map, thicket, climate: c }) {
 // The ground remembers water (in the viewer only): each cell keeps a slowly fading memory of how wet it was, so ground that
 // dried recently shows as darker clay and long-dry ground as golden sand; a fixed grain per cell gives it texture.
 let wetMemory = null, grain = null;
+let plantBytes = null, thicketBytes = null, lightData = null;
 function paintTerrain(b64) {
   if (!meta) return;
   const n = meta.GW * meta.GH, bytes = Uint8Array.from(atob(b64), ch => ch.charCodeAt(0));
+  plantBytes = bytes;
+  worldInput('terrain', b64, bytes);
+  if (groundBitmap) return;
   if (!wetMemory) { wetMemory = new Float32Array(n); grain = new Float32Array(n); for (let i = 0; i < n; i++) { const a = Math.sin(i * 12.9898) * 43758.5453; grain[i] = (a - Math.floor(a)) - 0.5; } }
   const img = tg.createImageData(meta.GW, meta.GH);
   for (let i = 0; i < n; i++) {
@@ -333,12 +613,172 @@ function body(g, shape, s) {
   g.fill('evenodd');
 }
 
+const hash=str=>{let h=2166136261;for(const c of String(str))h=Math.imul(h^c.charCodeAt(0),16777619)>>>0;return h;};
+const rand=(seed,i)=>hash(seed+':'+i)/4294967295;
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const color=(h,s,l,a=1)=>`hsla(${((h%360)+360)%360} ${s}% ${clamp(l,0,100)}% / ${a})`;
+function inherited(lineage){
+ const f={pattern:0,tint:35,tail:0,head:1,elong:1,ears:0,shade:0};
+ const slots=['pattern','tint','tail','head','elong','ears','shade'];
+ const parts=String(lineage||'P').split('.');
+ for(let d=0;d<parts.length;d++){
+  const prefix=parts.slice(0,d+1).join('.'),h=hash(prefix),v=hash(prefix+'|value')/4294967295;
+  const slot=slots[h%slots.length];
+  f[slot]=slot==='pattern'?Math.floor(v*7):slot==='tint'?[-65,35,95,180][Math.floor(v*4)]:slot==='tail'||slot==='ears'?Math.floor(v*4):slot==='shade'?(v*16-8):(.85+v*.3);
+ }return f;
+}
+function role(s){
+ const label=String(s.label||'').toLowerCase();for(const r of ['grazer','browser','hunter','apex','scavenger','decomposer','parasite'])if(label.includes(r))return r;
+ const f=s.food||{},pairs=[['grazer',+f.grass||0],['browser',+f.browse||0],['scavenger',+f.carrion||0],['hunter',+f.flesh||0],['parasite',+f.host||0],['decomposer',+f.dung||0]].sort((a,b)=>b[1]-a[1]);
+ return pairs[0][1]>0?pairs[0][0]:((s.gut||0)>.6?'hunter':'grazer');
+}
+// Colours use the first three numeric path components, never the data hue.
+function lineageColour(lineage){
+ const parts=String(lineage||'P.0.0.0').split('.').filter(p=>/^\d+$/.test(p));
+ const root=parts.slice(0,3).join('.');let hue=hash(root)%360,light=54;
+ for(let i=3;i<parts.length;i++){const prefix=parts.slice(0,i+1).join('.');hue+=(rand(prefix+'h',0)<.5?-1:1)*(6+6*rand(prefix+'h',1));light+=(rand(prefix+'l',0)*2-1)*4;}
+ return {hue,light:clamp(light,34,72)};
+}
+function lifeStage(c){return c.g===undefined?'adult':!(c.b&128)?'juvenile':c.g>.85?'elder':'adult';}
+function paintCreature(s,energy,stage='adult'){
+ const cv=document.createElement('canvas');cv.width=600;cv.height=320;const g=cv.getContext('2d'),U=10;
+ g.translate(300,160);g.scale(U,U);
+ const r=role(s),size=clamp(+s.size||6,1,16),live=s.live||{},fat=clamp(live.fat??.4),coat=clamp((live.coat||0)/.6);
+ const young=stage==='juvenile',elder=stage==='elder',fur=coat*(young?.5:elder?.6:1),gloss=1-coat,family=inherited(s.lineage);
+ const shade=(h,s,l,a=1)=>color(h,s*(young?.75:elder?.6:1),l+(young?12:elder?-6:0),a);
+ const {hue,light}=lineageColour(s.lineage),L=40+energy*28+(light-54)+family.shade*.35;
+ const fill=shade(hue,r==='decomposer'?22:48,L,1-.08*gloss),rim=shade(hue,40,L-24);
+ const leg=clamp(s.legs??1,.2,2),swim=clamp(((live.swim||0)-.05)/.45),gut=clamp(s.gut??live.gut??.55),armor=clamp(s.armor||0);
+ let a=size*1.65*family.elong,b=size*(.76+.3*fat),head=size*.78*family.head,hx=a*.87;
+ if(r==='browser'){a*=1.07;b*=.67;head*=.76;hx=a+head*.92;}
+ if(r==='hunter'||r==='apex'){a*=1.3;b*=.73;hx=a*.93;head*=.83;}
+ if(r==='scavenger'){b*=1.12;hx=a*.92;head*=1.1;}
+ if(r==='parasite'){a*=1.45;b*=.53;head*=.56;hx=a*.95;}
+ if(young)head*=1.35;if(elder)b*=.92;
+ const shapes=[];
+ function ellipse(x,y,rx,ry){const p=new Path2D();p.ellipse(x,y,rx,ry,0,0,Math.PI*2);shapes.push({p,x,y,rx,ry});return p;}
+ function path(fn){const p=new Path2D();fn(p);return p;}
+ function paint(p,col=fill){g.fillStyle=col;g.strokeStyle=rim;g.lineWidth=.25;g.fill(p);g.stroke(p);}
+ function line(x,y,xx,yy,w,col){g.beginPath();g.moveTo(x,y);g.lineTo(xx,yy);g.lineWidth=w;g.lineCap='round';g.strokeStyle=col;g.stroke();}
+ const larva=r==='decomposer'||r==='parasite';
+ if(!larva){
+  const tailLength=size*(r==='scavenger'?.65:1.65)*(1+family.tail*.1)*.55*(young?.7:1);
+  const tail=path(p=>{p.moveTo(-a*.65,-b*.4);p.quadraticCurveTo(-a-tailLength*.45,-b*.3,-a-tailLength,0);p.quadraticCurveTo(-a-tailLength*.45,b*.25,-a*.65,b*.4);p.closePath();});
+  if(swim)paint(path(p=>{p.moveTo(-a*.7,-b*.2);p.quadraticCurveTo(-a-tailLength*.35,-size*(.4+swim*.85),-a-tailLength,0);p.quadraticCurveTo(-a-tailLength*.4,size*(.3+swim*.6),-a*.7,b*.2);p.closePath();}),shade(hue+12,55,L+12,.75));
+  paint(tail);
+ }
+ if(r!=='parasite')for(let i=0;i<(r==='decomposer'?3:2);i++)for(const side of [-1,1]){
+  const x=-a*.5+i*a*(r==='decomposer'?.5:.95),reach=size*(r==='decomposer'?.18:.48)*leg*(r==='browser'?(i?1.55:.75):1)*(young?.7:1);
+  line(x,side*b*.62,x-size*.16*(young?.7:1),side*(b+reach),size*(r==='decomposer'?.13:.28)*(young?.7:1),rim);
+  line(x,side*b*.62,x-size*.16*(young?.7:1),side*(b+reach),size*(r==='decomposer'?.085:.21)*(young?.7:1),fill);
+ }
+ if(r==='decomposer'){
+  const count=5+Math.round(clamp(s.decomp??live.decomp??.5)*2);
+  for(let i=0;i<count;i++){const t=i/(count-1);ellipse(-a*.8+t*a*1.65,0,a*.36,b*(.58+.42*Math.sin(Math.PI*(.12+t*.76))));}hx=a*.98;head*=.64;
+ }else if(r==='parasite'){
+  const count=9;for(let i=0;i<count;i++){const t=i/(count-1);ellipse(-a*.96+t*a*1.85,0,a*.23,b*(.22+.78*t));}
+ }else ellipse(r==='scavenger'?-a*.12:0,0,a,b);
+ if(r==='browser')ellipse(a*.92,0,head*1.15,head*.5);
+ const bodyCount=shapes.length;
+ if(r==='browser'){
+  const p=path(p=>{p.moveTo(hx-head,-head*.63);p.quadraticCurveTo(hx+head*.3,-head*.65,hx+head*1.35,0);p.quadraticCurveTo(hx+head*.3,head*.65,hx-head,head*.63);p.closePath();});shapes.push({p,x:hx,y:0,rx:head*1.2,ry:head*.65});
+ }else if(r==='grazer'||r==='scavenger'){
+  const p=path(p=>{p.moveTo(hx-head*.85,-head*.9);p.quadraticCurveTo(hx+head*.5,-head*1.22,hx+head*.85,-head*.65);p.lineTo(hx+head*.85,head*.65);p.quadraticCurveTo(hx+head*.5,head*1.22,hx-head*.85,head*.9);p.quadraticCurveTo(hx-head*1.2,0,hx-head*.85,-head*.9);p.closePath();});shapes.push({p,x:hx,y:0,rx:head,ry:head});
+ }else ellipse(hx,0,head,head*.82);
+ // Larvae carry two tiny gill nubs per side, even on land.
+ if(young)for(const side of [-1,1])for(let i=0;i<2;i++){
+  const x=hx-head*.65+i*head*.45,y=side*head*.65,xx=x-head*.48*.35,yy=y+side*size*.35*(.7+i*.15);
+  line(x,y,xx,yy,size*.09*.35,shade(hue+15,65,L+8));
+  for(let j=1;j<=4;j++){const t=j/5,px=x+(xx-x)*t,py=y+(yy-y)*t;for(const dir of [-1,1])line(px,py,px+dir*size*.23*.35,py-side*size*.14*.35,size*.035,shade(hue+15,70,L+16));}
+ }
+ // Full gill fronds belong only to swimming animals.
+ if(swim&&!larva)for(const side of [-1,1])for(let i=0;i<3;i++){
+  const x=hx-head*.72+i*head*.37,y=side*head*.65,xx=x-head*.48*swim,yy=y+side*size*swim*(.7+i*.15);
+  line(x,y,xx,yy,size*.09,shade(hue+15,65,L+8));
+  for(let j=1;j<=5;j++){const t=j/6,px=x+(xx-x)*t,py=y+(yy-y)*t;for(const dir of [-1,1])line(px,py,px+dir*size*.23*swim,py-side*size*.14*swim,size*.035,shade(hue+15,70,L+16));}
+ }
+ for(const q of shapes){paint(q.p);if(gloss>0){g.save();g.clip(q.p);const glow=g.createRadialGradient(q.x-q.rx*.3,-q.ry*.4,0,q.x-q.rx*.3,-q.ry*.4,q.rx*.85);glow.addColorStop(0,shade(hue,25,96,.68*gloss));glow.addColorStop(1,shade(hue,30,90,0));g.fillStyle=glow;g.fillRect(q.x-q.rx,-q.ry,q.rx*2,q.ry*2);g.restore();}}
+ const union=new Path2D();for(let i=0;i<bodyCount;i++)union.addPath(shapes[i].p);
+ g.save();g.clip(union);
+ g.save();if(elder)g.globalAlpha*=.7;
+ if(!young&&armor>0&&r!=='parasite'&&r!=='decomposer')for(let i=0;i<5;i++){g.fillStyle=shade(hue,30,L-14,armor*.65);g.strokeStyle=shade(hue,35,L+22,armor*.7);g.lineWidth=.25;g.beginPath();g.ellipse(-a*.65+i*a*.32,0,a*.23,b*.85,0,0,7);g.fill();g.stroke();}
+ if(r==='parasite'){for(let i=0;i<10;i++)line(-a+i*a*.2,-b,-a+i*a*.2,b,.18,shade(hue,30,L-18,.22));}
+ // Quiet family markings sit beneath the fluorescent stripes.
+ g.fillStyle=shade(hue+family.tint,45,L+16,.24);g.strokeStyle=g.fillStyle;g.lineWidth=size*.1;
+ if(family.pattern%3===1)for(let i=0;i<5;i++){g.beginPath();g.ellipse(-a*.65+i*a*.3,(i%2?1:-1)*b*.35,size*.17,size*.12,0,0,7);g.fill();}
+ else if(family.pattern%3===2)line(-a*.75,-b*.18,a*.65,-b*.18,size*.13,g.fillStyle);
+ const toxin=clamp(s.toxin||0);
+ if(toxin>=.1){g.save();if(young)g.globalAlpha*=.3;const n=2+Math.round(toxin*6),pattern=new Path2D();for(let i=0;i<n;i++){const x=-a*.85+i*a*1.7/(n-1);pattern.moveTo(x,-b*1.2);pattern.bezierCurveTo(x+size*.32,-b*.35,x-size*.35,b*.35,x,b*1.2);}
+  g.lineCap='round';g.strokeStyle=shade(hue+150,100,60,(.2+toxin*.15)*.7);g.lineWidth=size*(.16+.28*toxin);g.shadowColor=shade(hue+150,100,60);g.shadowBlur=U*size*.15*toxin*.7;g.stroke(pattern);g.shadowBlur=0;g.strokeStyle=shade(hue+150,100,60);g.lineWidth=size*(.035+.12*toxin);g.stroke(pattern);g.restore();
+ }
+ g.restore();
+ if(elder)for(let i=0,n=3+hash(s.name+'age')%3;i<n;i++){const x=-a*.65+rand(s.name+'ageX',i)*a*1.25,y=(rand(s.name+'ageY',i)-.5)*b*.9;g.fillStyle=shade(hue,30,L-22,.65);g.beginPath();g.ellipse(x,y,size*(.1+rand(s.name+'ageR',i)*.07),size*.09,0,0,7);g.fill();}
+ g.restore();
+ if(fur>0){
+  // Dense curved perimeter hairs and a visibly tufted dorsal mane, no halo.
+  for(let j=0;j<shapes.length;j++){const q=shapes[j],n=Math.ceil((q.rx+q.ry)*7);
+   for(let i=0;i<n;i++){const seed=s.lineage+'hair'+j,t=(i+rand(seed,i)*.6)/n*Math.PI*2,x=q.x+q.rx*Math.cos(t),y=q.y+q.ry*Math.sin(t);
+    if(shapes.some((o,k)=>k!==j&&((x-o.x)/o.rx)**2+((y-o.y)/o.ry)**2<.92))continue;
+    const len=size*(.12+.32*rand(seed,i+300))*fur,dx=Math.cos(t),dy=Math.sin(t);g.beginPath();g.moveTo(x-dx*.3,y-dy*.3);g.quadraticCurveTo(x+dx*len-dy*len*.4,y+dy*len+dx*len*.4,x+dx*len+dy*len*.25,y+dy*len-dx*len*.25);g.strokeStyle=shade(hue,35,L+(i%3===0?16:-12),.9);g.lineWidth=size*.027;g.stroke();
+   }
+  }
+  for(let i=0;i<90;i++){const x=-a*.85+rand(s.lineage+'mane',i)*a*1.6,y=(rand(s.lineage+'mane',i+100)-.5)*b*.65,len=size*(.18+.33*rand(s.lineage,i))*fur;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x-len*.4,y-len*.8,x-len,y-len*.25);g.strokeStyle=shade(hue,35,L+(i%2?17:-15),.9);g.lineWidth=size*.035;g.stroke();}
+ }
+ // Related land animals share small head fins or ears.
+ if(!larva&&family.ears)for(const side of [-1,1])paint(path(p=>{p.moveTo(hx-head*.6,side*head*.6);p.quadraticCurveTo(hx-head*(.8+family.ears*.12),side*head*(1.05+family.ears*.12),hx-head*.1,side*head*.72);p.closePath();}));
+ if(r==='hunter'||r==='apex')for(const side of [-1,1]){
+  const len=size*1.3*gut;const jaw=path(p=>{p.moveTo(hx+head*.5,side*head*.55);p.quadraticCurveTo(hx+head+len,side*head*.85,hx+head+len*.85,side*head*.1);p.quadraticCurveTo(hx+head+len*.55,side*head*.5,hx+head*.5,side*head*.3);p.closePath();});paint(jaw,shade(hue,35,L-12));
+  if(r==='apex')for(let i=0;i<5;i++){const x=hx+head*.65+i*len*.15;paint(path(p=>{p.moveTo(x,side*head*.42);p.lineTo(x+size*.1,side*head*.12);p.lineTo(x+size*.17,side*head*.42);p.closePath();}),'#f1e6c9');}
+ }
+ if(r==='scavenger')paint(path(p=>{p.moveTo(hx+head*.65,-head*.3);p.quadraticCurveTo(hx+head*1.6,-head*.25,hx+head*1.16,head*.43);p.lineTo(hx+head*.9,head*.09);p.lineTo(hx+head*.65,head*.3);p.closePath();}),shade(hue,30,L-15));
+ if(r==='parasite'){
+  if(!young&&armor>.3){g.save();if(elder)g.globalAlpha*=.7;const radius=size*(.8+armor*.45),cx=-a*.1;g.fillStyle=shade(hue,32,L+14);g.strokeStyle=rim;g.lineWidth=.35;g.beginPath();g.arc(cx,0,radius,0,7);g.fill();g.stroke();g.beginPath();for(let i=0;i<160;i++){const t=i/159*Math.PI*5,rad=radius*(.06+.84*i/159),x=cx+Math.cos(t)*rad,y=Math.sin(t)*rad;if(!i)g.moveTo(x,y);else g.lineTo(x,y);}g.lineWidth=size*.075;g.stroke();g.restore();}
+  g.fillStyle=shade(hue,50,L-28);g.beginPath();g.arc(hx+head*.55,0,head*.64,0,7);g.fill();g.strokeStyle=shade(hue,35,L+22);g.lineWidth=head*.2;g.stroke();
+ }else{const eyeR=size*.09*(.6+clamp(live.eyes||0)*1.8);for(const side of [-1,1]){g.fillStyle='#252c27';g.beginPath();g.arc(hx+head*.35,side*head*.49,eyeR,0,7);g.fill();}}
+ return cv;
+}
+// Sprites change only when the rounded species traits change.
+const creatureSprites=new Map();
+const CREATURE_SCALE = 0.5; // sprites drawn at this share of their reference size, so a body covers about the room the world gives it
+let creatureSpriteTimer=null;
+const spriteTraits=['gut','legs','armor','toxin','coat','swim','eyes','fat','decomp','parasitism','browse'];
+function refreshCreatureSprites(){
+ if(creatureSpriteTimer!==null){clearTimeout(creatureSpriteTimer);creatureSpriteTimer=null;}
+ const living=species.filter(sp=>sp.extinct===null&&!sp.waiting&&!sp.unique),listed=new Set(living.map(sp=>sp.name));
+ let built=0;
+ for(const name of creatureSprites.keys())if(!listed.has(name)){creatureSprites.delete(name);portraits.delete(name);}
+ for(const sp of living){
+  const tr=traits[sp.name],old=creatureSprites.get(sp.name);if(!tr&&old)continue;
+  const live=tr||{},rounded=spriteTraits.map(k=>live[k]===undefined?null:Math.round(live[k]*10)/10),food=Object.entries(live.food||{}).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,Math.round(v*10)/10]);
+  const key=JSON.stringify([sp.name,sp.lineage,live.label||'',live.role||'',rounded,food]);if(old?.key===key)continue;
+  if(built>=2){if(creatureSpriteTimer===null)creatureSpriteTimer=setTimeout(refreshCreatureSprites,50);break;}
+  built++;
+  const values=Object.fromEntries(spriteTraits.filter((k,i)=>rounded[i]!==null).map(k=>[k,rounded[spriteTraits.indexOf(k)]]));
+  const s={...values,name:sp.name,lineage:sp.lineage,label:live.label||live.role||'',food:Object.fromEntries(food),size:6,live:values},variants=[];
+  for(const stage of ['adult','juvenile','elder'])for(const e of [.15,.5,.9]){
+   const base=paintCreature(s,e,stage),bg=base.getContext('2d'),pixels=bg.getImageData(0,0,base.width,base.height).data;
+   let x0=base.width,y0=base.height,x1=0,y1=0;
+   for(let y=0;y<base.height;y++)for(let x=0;x<base.width;x++)if(pixels[(y*base.width+x)*4+3]){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}
+   x0=Math.max(0,x0-2);y0=Math.max(0,y0-2);x1=Math.min(base.width-1,x1+2);y1=Math.min(base.height-1,y1+2);
+   for(const wash of stage==='adult'?['rgba(0,0,12,0.25)',null,'rgba(255,248,230,0.18)']:[null]){
+    const cv=document.createElement('canvas');cv.width=x1-x0+1;cv.height=y1-y0+1;const pg=cv.getContext('2d');pg.drawImage(base,-x0,-y0);
+    if(wash){pg.globalCompositeOperation='source-atop';pg.fillStyle=wash;pg.fillRect(0,0,cv.width,cv.height);}
+    variants.push({canvas:cv,x:(x0-300)/10,y:(y0-160)/10,w:cv.width/10,h:cv.height/10});
+   }
+  }
+  creatureSprites.set(sp.name,{key,variants,fat:values.fat??.4});portraits.delete(sp.name);
+  const img=[...$('species').querySelectorAll('details')].find(d=>d.dataset.name===sp.name)?.querySelector('img.portrait');if(img)img.src=portraitOf(sp);
+ }
+}
+function stampCreature(pg,sprite){pg.drawImage(sprite.canvas,sprite.x,sprite.y,sprite.w,sprite.h);}
+
 // A small portrait of a species, for the Life list.
 function portrait(sp) {
   const c = document.createElement('canvas'), k = 2;
   c.width = c.height = 22 * k;
   const pg = c.getContext('2d');
   pg.scale(k, k); pg.translate(11, 11);
+  if(!sp.unique){const sprite=creatureSprites.get(sp.name)?.variants[4];if(sprite){const scale=20/Math.max(sprite.w,sprite.h);pg.scale(scale,scale);pg.translate(-sprite.x-sprite.w/2,-sprite.y-sprite.h/2);stampCreature(pg,sprite);return c.toDataURL();}}
   if (sp.mark === 'glow') { pg.fillStyle = `hsla(${sp.hue} 85% 60% / .25)`; pg.beginPath(); pg.arc(0, 0, 10, 0, Math.PI * 2); pg.fill(); }
   if (sp.mark === 'trail') { pg.strokeStyle = `hsla(${sp.hue} 70% 65% / .6)`; pg.lineWidth = 1.2; pg.beginPath(); pg.moveTo(-3, 0); pg.lineTo(-10, 0); pg.stroke(); }
   const look = lookOf(sp);
@@ -352,27 +792,45 @@ const lerpWrap = (a, b, t, m) => Math.abs(b - a) > m / 2 ? b : a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * t; };
 
 function draw() {
+  // Layers, bottom to top: ground (terraces, patches, water, snow, bushes) → frost → quake crack → coral reef → slope light → corpses and eggs → creatures (shadow → body → the slope's light → markings; half-hidden in tall grass and thicket) → the air (rain wash, falling rain and snow, heat, the quake's dust) → overlays (the kraken's mind).
   requestAnimationFrame(draw);
+  if (hovered !== null && (gesture || !cur?.has(hovered))) hideTip();
   if (!meta || !cur) return;
+  const now = performance.now(), t = Math.min(1, (now - recvAt) / frameMs);
+  if (following !== null) {
+    const c = cur.get(following), p = prev?.get(following);
+    if (!c || !species[c.s]) following = null;
+    else { anchor = null; target.cx = p ? lerpWrap(p.x, c.x, t, meta.W) : c.x; target.cy = p ? lerpWrap(p.y, c.y, t, meta.H) : c.y; }
+  }
+  clampCamera(target); camera.z += (target.z - camera.z) * 0.2;
+  if (Math.abs(target.z - camera.z) < 0.0001) camera.z = target.z;
+  if (anchor && following === null) { camera.cx = anchor.x - (anchor.u - 0.5) * meta.W / camera.z; camera.cy = anchor.y - (anchor.v - 0.5) * meta.H / camera.z; }
+  else { camera.cx += (target.cx - camera.cx) * 0.2; camera.cy += (target.cy - camera.cy) * 0.2; }
+  clampCamera(camera);
+  $('zoomlevel').textContent = `${camera.z.toFixed(1)}×`; $('following').textContent = following === null ? '' : `following a ${species[cur.get(following).s].name} · esc`;
+  const left = camera.cx - meta.W / (2 * camera.z), top = camera.cy - meta.H / (2 * camera.z), right = camera.cx + meta.W / (2 * camera.z), bottom = camera.cy + meta.H / (2 * camera.z);
+  drawn = [];
   // An earthquake shakes the map for a few seconds (stronger for a big one).
   const qAge = quakeSeen ? (performance.now() - quakeAt) / 1000 : 99, shake = qAge < 3 ? (1 - qAge / 3) * (quakeSeen.big ? 7 : 3) : 0;
-  g.setTransform(SCALE, 0, 0, SCALE, shake ? (Math.random() - 0.5) * shake * SCALE : 0, shake ? (Math.random() - 0.5) * shake * SCALE : 0);
+  const factor = canvas.width / (meta.W * SCALE), k = SCALE * camera.z * factor, ky = canvas.height / meta.H * camera.z;
+  viewShakeX = shake ? (Math.random() - 0.5) * shake / camera.z : 0; viewShakeY = shake ? (Math.random() - 0.5) * shake / camera.z : 0;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
+  g.setTransform(k, 0, 0, ky, canvas.width / 2 - camera.cx * k + viewShakeX * k, canvas.height / 2 - camera.cy * ky + viewShakeY * ky);
   g.imageSmoothingEnabled = true;
-  g.drawImage(terrainCanvas, 0, 0, meta.W, meta.H);
-  // Layers, bottom to top (Luis, s1330): soil and grass → relief and frost → water, ice and snow → the quake's crack →
-  // reef and thicket → corpses and eggs → creatures → the air (rain wash, falling rain and snow, heat, the quake's dust)
-  // → overlays (the kraken's mind).
-  drawWeather(g, performance.now()); // (the frame's 'now' is set further down)
-  if (waterNow) { g.imageSmoothingEnabled = true; g.drawImage(waterCanvas, 0, 0, meta.W, meta.H); }
+  if (groundBitmap) { g.imageSmoothingEnabled = false; g.drawImage(groundBitmap, 0, 0, meta.W, meta.H); }
+  else g.drawImage(terrainCanvas, 0, 0, meta.W, meta.H);
+  drawWeather(g, now);
+  if (!groundBitmap && waterNow) { g.imageSmoothingEnabled = true; g.drawImage(waterCanvas, 0, 0, meta.W, meta.H); }
   if (quakeSeen && qAge < 60) { // the fault: a jagged crack along the break, fading over a minute
     const q = quakeSeen, ux = Math.cos(q.ang), uy = Math.sin(q.ang), fade = 1 - qAge / 60;
     g.strokeStyle = `rgba(40,25,15,${0.85 * fade})`; g.lineWidth = q.big ? 3 : 2; g.beginPath();
     for (let k = 0; k <= 24; k++) { const t = (k / 24 - 0.5) * q.len, j = ((k * 7919) % 13 - 6) * (q.big ? 1.2 : 0.7); const x = q.x + ux * t - uy * j, y = q.y + uy * t + ux * j; k ? g.lineTo(x, y) : g.moveTo(x, y); }
     g.stroke();
   }
-  g.imageSmoothingEnabled = false; // reef keeps its hard, branching edges
-  g.drawImage(reefCanvas, 0, 0, meta.W, meta.H);
   g.imageSmoothingEnabled = true;
+  if (coralBitmap) g.drawImage(coralBitmap, 0, 0, meta.W, meta.H);
+  else { g.imageSmoothingEnabled = false; g.drawImage(reefCanvas, 0, 0, meta.W, meta.H); g.imageSmoothingEnabled = true; }
+  if (!groundBitmap && climateNow?.relief && lightCanvas.width) { g.globalCompositeOperation = 'hard-light'; g.drawImage(lightCanvas, 0, 0, meta.W, meta.H); g.globalCompositeOperation = 'source-over'; }
 
   for (let i = 0; i < corpses.length; i += 4) {
     const x = corpses[i], y = corpses[i + 1], age = corpses[i + 2], eaten = corpses[i + 3];
@@ -389,7 +847,6 @@ function draw() {
   }
 
   // Interpolate between the last two frames so 15 updates/s look smooth at 60fps.
-  const now = performance.now(), t = Math.min(1, (now - recvAt) / frameMs);
   for (const [id, c] of cur) {
     const sp = species[c.s];
     if (!sp) continue;
@@ -397,10 +854,10 @@ function draw() {
     const x = p ? lerpWrap(p.x, c.x, t, meta.W) : c.x, y = p ? lerpWrap(p.y, c.y, t, meta.H) : c.y;
     const a = p ? lerpAngle(p.a, c.a, t) : c.a;
     let s = Math.max(4, c.z); // every body is drawn at its own inherited size, but never too small to see
-    if (sp.mark === 'pulse') s *= 1 + 0.22 * Math.sin(now * 0.006 + id);
+    if (sp.unique && sp.mark === 'pulse') s *= 1 + 0.22 * Math.sin(now * 0.006 + id);
     // A heartbeat: every body throbs at its own heart rate (small ones flutter, big ones plod, sprinters race).
     s *= 1 + 0.07 * Math.max(0, Math.sin(now * 0.009 * (c.p ?? 1) + id)) ** 6;
-    if (sp.shape === 'serpent') {
+    if (sp.unique && sp.shape === 'serpent') {
       // The body trails behind the head along the exact path it took (like the snake game), seven of its sizes long.
       const t = trails.get(id) ?? [], want = s * 7;
       let len = 0, px = x, py = y;
@@ -417,9 +874,23 @@ function draw() {
       }
       g.globalAlpha = 1;
     }
+    // Trails above may still cross the view when their head is outside it.
+    const margin = 40 + s * Math.max(4, 2 * (c.l ?? 1), 2 * (1 + 0.35 * (c.f ?? 0)) / Math.sqrt(c.l ?? 1));
+    if (x < left - margin || x > right + margin || y < top - margin || y > bottom + margin) continue;
+    const ci = cellOf(x, y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7);
+    g.globalAlpha = highlight && sp.name !== highlight ? 0.12 : hid ? 0.5 : 1;
+    const spriteDrawn=!sp.unique&&creatureSprites.has(sp.name),bodySize=spriteDrawn?s*CREATURE_SCALE*1.4:s;
+    if (!(c.b & 32)) { g.fillStyle = 'rgba(10,8,5,.28)'; g.beginPath(); g.ellipse(x + bodySize * 0.3, y + bodySize * 0.4, bodySize * 0.95, bodySize * 0.6, a, 0, Math.PI * 2); g.fill(); } // a contact shadow, away from the light
     g.save(); g.translate(x, y); g.rotate(a);
-    g.globalAlpha = highlight && sp.name !== highlight ? 0.12 : 1;
-    if (sp.mark === 'glow') { g.fillStyle = `hsla(${c.h} 85% 60% / .2)`; g.beginPath(); g.arc(0, 0, s * 1.9, 0, Math.PI * 2); g.fill(); }
+    g.globalAlpha = highlight && sp.name !== highlight ? 0.12 : hid ? 0.5 : 1;
+    if(spriteDrawn){
+      if(c.b&4){g.strokeStyle=`hsla(${c.h} 60% 80% / .55)`;g.lineWidth=.8;g.beginPath();for(const o of [-.45,.45]){g.moveTo(-s*.9,o*s);g.lineTo(-s*2.4,o*s);}g.stroke();}
+      const look=creatureSprites.get(sp.name),lv=lightData?(lightData[ci*4]-128)/90:0;
+      if(look){const energy=c.e<.325?0:c.e<.7?1:2,light=lv<-.25?0:lv>.25?2:1,stage=lifeStage(c),index=stage==='adult'?(c.b&1?0:c.b&32?8:energy*3+light):(stage==='juvenile'?9:12)+energy;
+        g.save();g.globalAlpha*=c.b&1?.7:c.b&32?.5:1;g.scale(s/6*CREATURE_SCALE,s/6*CREATURE_SCALE*(1+.35*((c.f??look.fat)-look.fat)));stampCreature(g,look.variants[index]);g.restore();}
+      drawn.push({x,y,s,id,hitRadius:Math.max(6,bodySize)});
+    }else{
+    if (sp.mark === 'glow') { g.fillStyle = `hsla(${c.h} 85% 60% / .1)`; g.beginPath(); g.arc(0, 0, s * 1.25, 0, Math.PI * 2); g.fill(); }
     if (sp.mark === 'trail') { g.strokeStyle = `hsla(${c.h} 70% 65% / .45)`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-s * 0.6, 0); g.lineTo(-s * 2.8, 0); g.stroke(); }
     // A sprint leaves speed lines; legs stretch the body along its heading (long and thin = fast, short and round = slow).
     if (c.b & 4) { g.strokeStyle = `hsla(${c.h} 60% 80% / .55)`; g.lineWidth = 0.8; g.beginPath();
@@ -456,13 +927,20 @@ function draw() {
       }
     }
     const legs = c.l ?? 1; g.scale(legs, (1 + 0.35 * (c.f ?? 0)) / Math.sqrt(legs)); // fat rounds the body out
+    drawn.push({ x, y, s, id });
     body(g, sp.shape, s);
-    g.strokeStyle = 'rgba(235,240,230,.35)'; g.lineWidth = 0.6; g.stroke(); // a faint outline against any soil
+    g.strokeStyle = 'rgba(20,18,12,.45)'; g.lineWidth = 0.5; g.stroke(); // a thin dark edge, like ink
+    if (lightData && !(c.b & 32)) { const lv = (lightData[cellOf(x, y) * 4] - 128) / 90; if (Math.abs(lv) > 0.05) { g.fillStyle = lv > 0 ? `rgba(255,248,230,${0.22 * lv})` : `rgba(0,0,12,${-0.3 * lv})`; body(g, sp.shape, s); } }
     if (!(c.b & 33)) marking(g, look.pat, s, c.h); // not on the broken or the dormant
-    if (c.b & 2) { g.strokeStyle = `hsla(${c.h} 80% 75% / .45)`; g.lineWidth = 0.8; g.beginPath(); g.arc(0, 0, s + 2.5, 0, Math.PI * 2); g.stroke(); }
+    }
+    // Marks a creature ready to mate.
+    if (c.b & 2) { g.strokeStyle = `hsla(${c.h} 80% 75% / ${spriteDrawn ? .25 : .45})`; g.lineWidth = spriteDrawn ? 0.5 : 0.8; g.beginPath(); g.arc(0, 0, spriteDrawn ? s * CREATURE_SCALE * 0.95 + 1 : s + 2.5, 0, Math.PI * 2); g.stroke(); }
     // Infested (flystrike): dark specks crawling on the body.
     if (c.b & 16) { g.fillStyle = 'rgba(20,15,10,.85)'; for (let j = 0; j < 5; j++) { const q = j * 1.3 + now * 0.002 * (j % 2 ? 1 : -1); g.beginPath(); g.arc(Math.cos(q) * s * 0.5, Math.sin(q) * s * 0.4, Math.max(0.7, s * 0.12), 0, Math.PI * 2); g.fill(); } }
     g.restore();
+    if (hid) { const coverSize=spriteDrawn?bodySize:s; g.strokeStyle = 'rgba(40,85,35,.8)'; g.lineWidth = 0.9; g.beginPath(); for (const o of [-0.5, 0, 0.5]) { g.moveTo(x + o * coverSize, y + coverSize * 0.6); g.lineTo(x + o * coverSize * 1.3, y - coverSize * 0.5); } g.stroke(); } // stalks in front of a hidden body
+    g.globalAlpha = 1;
+    if (id === hovered) { g.save(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 0.8; g.beginPath(); g.arc(x, y, spriteDrawn ? s * CREATURE_SCALE * 1.2 + 2 : s + 3, 0, Math.PI * 2); g.stroke(); g.restore(); } // the body under the tip
   }
 
   g.fillStyle = `rgba(70,110,160,${Math.max(0, rain - 0.5) * 0.06})`; // the rain's grey wash, in the air
@@ -480,6 +958,8 @@ function draw() {
   }
 }
 requestAnimationFrame(draw);
+
+const cellOf = (x, y) => Math.floor(((y % meta.H) + meta.H) % meta.H / meta.CELL) * meta.GW + Math.floor(((x % meta.W) + meta.W) % meta.W / meta.CELL);
 
 // The temperature at a height of the map (0 cold … 1 hot), from the last climate frame; 0.5 before the climate is on.
 function tempOf(y, x) {
@@ -499,25 +979,29 @@ const SCATTER = Array.from({ length: 900 }, (_, i) => { const a = Math.sin(i * 1
 // The relief (orography): shaded hills with contour lines, tinted blue where it is cold and amber where it is hot, painted
 // once per climate frame into a small canvas (one pixel per cell) and stretched over the map.
 const reliefCanvas = document.createElement('canvas'), rlg = reliefCanvas.getContext('2d');
+const lightCanvas = document.createElement('canvas'), lig = lightCanvas.getContext('2d');
 let reliefKey = '', reliefElev = null;
 function paintRelief() {
   const R = climateNow.relief, GW = meta.GW, GH = meta.GH;
-  if (reliefKey !== R.elev) { reliefKey = R.elev; reliefElev = Uint8Array.from(atob(R.elev), ch => ch.charCodeAt(0)); }
+  if (reliefKey !== R.elev) { reliefKey = R.elev; reliefElev = Uint8Array.from(atob(R.elev), ch => ch.charCodeAt(0));worldInput('elev', R.elev, reliefElev); }
   reliefCanvas.width = GW; reliefCanvas.height = GH;
-  const img = rlg.createImageData(GW, GH), E = (x, y) => reliefElev[((y + GH) % GH) * GW + ((x + GW) % GW)] / 255 * R.rise;
+  lightCanvas.width = GW; lightCanvas.height = GH;
+  const img = rlg.createImageData(GW, GH), light = lig.createImageData(GW, GH), E = (x, y) => reliefElev[((y + GH) % GH) * GW + ((x + GW) % GW)] / 255 * R.rise;
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     const e = E(x, y), o = (y * GW + x) * 4;
     const ns = R.ns[0] + (R.ns[1] - R.ns[0]) * (y + 0.5) / GH + climateNow.era, T = ns * (1 - R.rise) + (R.low + climateNow.era - R.lapse * e) * R.rise;
-    const shade = Math.max(-1, Math.min(1, (E(x - 1, y) - E(x + 1, y) + E(x, y - 1) - E(x, y + 1)) * 9)); // light from the north-west
+    const shade = Math.max(-1, Math.min(1, (E(x + 1, y) - E(x - 1, y) + E(x, y + 1) - E(x, y - 1)) * 12)); // light from the north-west
     const contour = Math.floor(e * 6) !== Math.floor(E(x + 1, y) * 6) || Math.floor(e * 6) !== Math.floor(E(x, y + 1) * 6);
     const d = T - 0.5, cold = d < 0;
     let r = cold ? 110 : 240, gC = cold ? 165 : 150, b = cold ? 240 : 50, a = Math.min(0.22, Math.abs(d) * 0.6) + e * 0.12; // higher ground shows more
-    if (shade > 0) { r += (255 - r) * shade * 0.7; gC += (255 - gC) * shade * 0.7; b += (255 - b) * shade * 0.7; a += shade * 0.3; }
-    else { r *= 1 + shade * 0.8; gC *= 1 + shade * 0.8; b *= 1 + shade * 0.8; a += -shade * 0.4; }
+    const v = Math.round(128 + 90 * shade);
+    light.data[o] = v; light.data[o + 1] = v; light.data[o + 2] = v; light.data[o + 3] = 255;
     if (contour && e > 0.04) { r = 70; gC = 50; b = 30; a = Math.max(a, 0.6); }
     img.data[o] = r; img.data[o + 1] = gC; img.data[o + 2] = b; img.data[o + 3] = Math.round(Math.min(0.75, a) * 255);
   }
   rlg.putImageData(img, 0, 0);
+  lig.putImageData(light, 0, 0);
+  lightData = light.data;
 }
 // The ground's weather (drawn under the creatures): the relief and its temperature tint, and frost glints.
 function drawWeather(g, now) {
@@ -525,8 +1009,8 @@ function drawWeather(g, now) {
   const rows = climateNow.rows, bh = meta.H / rows.length, frost = climateNow.frost ?? 0.18;
   if (climateNow.relief) {
     if (climateNow._painted !== climateNow) { paintRelief(); climateNow._painted = climateNow; }
-    g.imageSmoothingEnabled = true; g.drawImage(reliefCanvas, 0, 0, meta.W, meta.H);
-  } else rows.forEach((T, j) => {
+    if (!groundBitmap) { g.imageSmoothingEnabled = true; g.drawImage(reliefCanvas, 0, 0, meta.W, meta.H); }
+  } else if (!groundBitmap) rows.forEach((T, j) => {
     const d = T - 0.5, a = Math.min(0.16, Math.abs(d) * 0.55);
     if (a < 0.01) return;
     g.fillStyle = d < 0 ? `rgba(110,165,240,${a})` : `rgba(240,150,50,${a})`;
