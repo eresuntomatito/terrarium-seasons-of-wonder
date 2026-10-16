@@ -1,3 +1,4 @@
+// † extinct in season 1058.
 // saomor (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4): drifted apart from the ushradros (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1) in season 1004; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
