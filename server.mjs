@@ -10,7 +10,7 @@ import { World, W, H, CELL, GW, GH, TICKS_PER_DAY, SEASON_TICKS, GENERATIONS_PER
 
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
 // Numbers per creature in a frame. The viewer reloads itself when this changes, so an open tab never misreads frames.
-const FRAME_STRIDE = 13;
+const FRAME_STRIDE = 14;
 const PORT = 8000, TICKS_PER_SEC = 30, SAVE_EVERY_MS = 30_000;
 const SAVE = path.join(ROOT, 'data', 'world.json');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css' };
