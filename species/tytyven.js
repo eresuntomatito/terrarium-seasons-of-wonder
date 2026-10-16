@@ -1,3 +1,4 @@
+// † extinct in season 1067.
 // tytyven (P.2.8.15.5.3.31.3.4.8.1.3.1.3): drifted apart from the quitybels (P.2.8.15.5.3.31.3.4.8.1.3.1) in season 1010; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
