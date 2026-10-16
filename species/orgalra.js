@@ -1,3 +1,4 @@
+// † extinct in season 1310.
 // orgalra (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.4.9): drifted apart from the quilitys (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.4) in season 1289; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
