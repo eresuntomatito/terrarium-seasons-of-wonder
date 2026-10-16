@@ -2,9 +2,9 @@
 
 *A world for its own sake.*
 
-![Terrarium at season 1328: creatures spread across the lowlands and mountain range](reports/status/img/2026-10-16_s1328-world.png)
+![The redesigned terrarium at season 1393: green lowlands, rain, snowy ridges, reef, and creatures across the landscape](docs/assets/terrarium-redesign-s1393.png)
 
-*A recorded moment in eresuntomatito's world, season 1328. This is a historical image, not a hosted live simulation.*
+*The continuing world after the viewer redesign, season 1393, during a natural rain spell. Selected from the greenest frames observed; [photograph details](docs/assets/README.md).*
 
 This project exists for the pleasure of building something and watching what happens. [eresuntomatito](https://github.com/eresuntomatito) shapes the rules and conditions of a terrarium; the creatures and landscape develop within them. Curiosity is its reason for being.
 

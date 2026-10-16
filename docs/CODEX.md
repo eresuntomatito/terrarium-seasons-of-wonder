@@ -41,6 +41,7 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P13 | Next | Explain selection, variation, and the model's limits | Needs evidence | The wiki connects relevant biological concepts to actual implemented mechanisms and separates model assumptions, selection measurements, correlations, and causal evidence. External scientific claims use appropriate sources. |
 | P14 | Before publication | Prepare community workflow | Done for launch | `COMMUNITY.md` establishes attributed replies, investigation, handoffs, and decision boundaries. Repository settings or templates can be proposed once the repository exists. |
 | P15 | After publication | Engage with issues and suggestions | Ongoing | First public queue check at 2026-10-16 21:28 UTC found no open issues or pull requests. Continue during active passes under `COMMUNITY.md`. |
+| P16 | Now | Refresh the README photograph after the viewer redesign | Captured; publishing | Selected the season-1393 rain-spell frame after observing greener conditions and their decline. New asset and provenance are in `docs/assets/`; publish and verify this documentation-only update. |
 
 ## Open questions
 
@@ -64,7 +65,7 @@ Uncertainty is work to track, not a reason to stop the entire agenda.
 
 **Completed:** first public GitHub release under MIT, credited to eresuntomatito; publication review at `39359c9`; filtered species history; checked startup guide; README with an inspected image; first connected wiki section; community workflow; public metadata and unauthenticated content verification. See `PUBLICATION.md`, `PUBLICATION-REVIEW.md`, and `VERIFICATION.md` for scope and limitations.
 
-**Next action:** P11 — inventory inherited, acquired, and derived traits to guide the next wiki pages; P07's earlier Codex attribution investigation remains open. Review the GitHub issue queue once per active community pass. Future source publication needs a reviewed delta and synchronization strategy, because the living checkout continues on its original history.
+**Next action:** finish pushing and checking P16's README photograph refresh. Then P11's inherited/acquired/derived trait inventory and P07's earlier Codex attribution investigation remain open. Review the GitHub issue queue once per active community pass. Future source publication needs a reviewed delta and synchronization strategy, because the living checkout continues on its original history.
 
 **Publication checkout:** `/private/tmp/terrarium-publication-7kcsrlxg/repository/` has the public `main` branch and its `origin`. The sibling `prepared/` directory contains review artifacts. These are temporary local paths; clone the public repository into a fresh working location if they disappear. The original development checkout has no publication remote added. Do not try to push its unfiltered history directly to the public repository.
 

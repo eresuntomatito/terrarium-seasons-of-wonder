@@ -27,6 +27,8 @@ The first public issue-queue check at 2026-10-16 21:28 UTC found no open issues 
 
 ## Keeping the living world separate
 
+The README photograph was refreshed after the viewer redesign using a direct season-1393 rain-spell capture. Its [capture and selection details](assets/README.md) identify the scene, source fingerprint, and limits. This image comes from ongoing development beyond the initial published implementation; the photograph update does not expand the reviewed source boundary.
+
 The development checkout and its running processes are left in place. Its Git history, index, branch, and remotes are not rewritten by this publication. Future updates need a reviewed export or a deliberate synchronization strategy; publishing this copy does not automatically publish subsequent species events or code changes from the living world.
 
 Use [Codex's agenda](CODEX.md) for follow-up work and the [publication review](PUBLICATION-REVIEW.md) for the contents and disclosure checks.
