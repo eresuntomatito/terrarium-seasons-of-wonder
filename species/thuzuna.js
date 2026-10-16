@@ -1,3 +1,4 @@
+// † extinct in season 1090.
 // thuzuna (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7): drifted apart from the saomors (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4) in season 1049; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
