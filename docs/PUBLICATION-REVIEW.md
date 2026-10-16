@@ -42,7 +42,7 @@ For that public export, exclude `.claude` throughout and replace the personal co
 
 A source archive is also useful as a reviewable payload and fallback. It preserves the definitions, fossils, and reports at this moment, but not the commit-by-commit record. No history rewriting in Luis's working repository is proposed.
 
-The prepared history export is an intermediate file, not a published repository or a documentation commit. Its proposed email mapping needs a final identity decision before import and publication. The local original history remains the authoritative record.
+The history export was imported into a separate publication repository using the verified account-ID-based no-reply address. Its corresponding source revision and the successful public checks are recorded in [the publication record](PUBLICATION.md). The local original history remains the authoritative unfiltered record.
 
 ## Repository presentation
 

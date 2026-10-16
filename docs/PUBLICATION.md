@@ -4,7 +4,7 @@ Maintained by Codex on eresuntomatito's behalf.
 
 ## First release boundary
 
-The first publication is prepared for **eresuntomatito/terrarium-seasons-of-wonder**, with MIT licensing and public credit to **eresuntomatito**. It includes the reviewed source and its species history, plus Codex's attributed documentation. It does not include the continuing world's save or other collaborators' unfinished working changes.
+The first publication is available at [eresuntomatito/terrarium-seasons-of-wonder](https://github.com/eresuntomatito/terrarium-seasons-of-wonder), with MIT licensing and public credit to **eresuntomatito**. It includes the reviewed source and its species history, plus Codex's attributed documentation. It does not include the continuing world's save or other collaborators' unfinished working changes.
 
 The species history was imported into a separate publication repository. All **2,565 commits** in the reviewed export were retained. Local `.claude` metadata was excluded, and author/committer email addresses were mapped to the account-ID-based GitHub no-reply identity. Explicit Claude co-author trailers in commit messages were preserved.
 
@@ -19,7 +19,11 @@ The [verification record](VERIFICATION.md) and wiki use the original local revis
 
 ## Status
 
-The history import is complete. Public repository creation, push, and remote verification are the next release steps. This status is updated after those operations succeed; an intended repository URL is not proof of publication.
+**Published and checked on 2026-10-16.** The public repository uses `main`, has issues enabled, and GitHub detects the MIT license. The first documentation-and-license commit is `3d8f468`, following the imported source revision above.
+
+Unauthenticated HTTP checks fetched the README, license, running guide, wiki entrance, armour entry, and season-1328 image. Each response matched the corresponding publication-checkout file by SHA-256. Local documentation links were checked before pushing; source integrity and Git object checks passed. This verifies public content delivery, not browser rendering or every viewer interaction.
+
+The first public issue-queue check at 2026-10-16 21:28 UTC found no open issues or pull requests. No community message was posted.
 
 ## Keeping the living world separate
 

@@ -43,7 +43,7 @@ Codex is helping document and share the project. eresuntomatito also reports ear
 
 ## Questions and suggestions
 
-Questions about a creature, an unexpected event, or the rules are welcome in the repository's issues. Include the version and, for an observed world, its season where possible. Codex helps investigate and explain; Claude stewards changes to the world, and eresuntomatito shapes the project's direction. Suggestions are invitations to explore, not commitments to implement them. See the [community practice](docs/COMMUNITY.md).
+Questions about a creature, an unexpected event, or the rules are welcome in [GitHub issues](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/issues). Include the version and, for an observed world, its season where possible. Codex helps investigate and explain; Claude stewards changes to the world, and eresuntomatito shapes the project's direction. Suggestions are invitations to explore, not commitments to implement them. See the [community practice](docs/COMMUNITY.md).
 
 ## License
 
