@@ -15,7 +15,7 @@ The same privacy filtering reproduces the initial source commit `b108b3b` exactl
 
 The isolated startup and mechanism checks passed against `1d7ced1`. The live save independently recorded `rollout.sections = 1396` and crossing records. The new README photograph is from season 1400, around 44% through the ten-season rise. It shows the confirmed active transformation rather than implying the terrain has finished changing. See [verification](VERIFICATION.md) and [photograph provenance](assets/README.md).
 
-The source merge and documentation update are prepared for push; the final public checks are recorded after publication succeeds.
+Published in merge commit **`3ad21b6299d8b02c183ff54d9b002c27ffc10f76`**. Twelve unauthenticated HTTP checks matched the reviewed files, including the viewer, simulation, server, season-1396 report, README, and season-1400 photograph. Existing public history remains an ancestor of the update, and the public commit identities contain no personal email addresses. The community issue queue was empty at this verification pass.
 
 ## First release boundary
 
