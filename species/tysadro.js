@@ -1,3 +1,4 @@
+// † extinct in season 1150.
 // tysadro (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.6.2.1): drifted apart from the saornas (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.6.2) in season 1062; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
