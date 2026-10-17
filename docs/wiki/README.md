@@ -6,19 +6,25 @@ The world is more than a collection of rules. A trait depends on the body carryi
 
 Start with [the whole-world guide](world-guide.md), or read [a short history of questions and turning points](history.md).
 
-## Begin with a shell
+For quick orientation and reporting help, see [questions a visitor might ask](questions.md).
 
-- [Trait inventory](traits/README.md): inherited settings, acquired state, and the properties calculated from both.
-- [Armour](traits/armour.md): the difference between an inherited capacity and the protection a body actually carries.
-- [Minerals and reef](environments/minerals-and-reef.md): how feeding and place can support that protection.
-- [The four lands](environments/four-lands.md): terrain barriers, probabilistic crossings, and what a crossing count actually records.
-- [The navennas](species/navenna.md): a dated account of a shelled lineage, with a small ancestry diagram and an atlas entry.
-- [Species atlas](species/atlas.md): a dated mosali density map, with aggregate counts and geographic limitations.
-- [The mosali](species/mosali.md): ancestry, reported decomposer history, and a later body sample connected to that atlas.
-- [Reading the evidence](evidence.md): how to distinguish an implemented mechanism, an observed pattern, and a selection claim.
-- [Selection and variation](selection-and-variation.md): sources of novelty, what reproductive evidence means, and the limits of the selection ledger.
+## Choose a way in
 
-These pages form the first connected section. Behavior, the full trait reference, climate, other species, variation, and selection theory will grow into the wider [wiki plan](../WIKI-PLAN.md). They are not all documented yet.
+| Your question | Reading path |
+| --- | --- |
+| What is this world as a whole? | [World guide](world-guide.md) → [history](history.md) → [visitor questions](questions.md) |
+| What belongs to a body, and what changes during life? | [Trait inventory](traits/README.md) → [digestion](traits/digestion.md) → [reproduction](traits/reproduction.md) |
+| How does a place change a body's advantages? | [Armour](traits/armour.md) → [mineral supply](environments/minerals-and-reef.md) → [navenna](species/navenna.md) |
+| What are the other meals and defences? | [Decomposer ability](traits/decomposition.md) → [toxin and resistance](traits/toxin.md) |
+| Why can one body cross where another cannot? | [Movement and sight](traits/movement-and-sight.md) → [four lands](environments/four-lands.md) → [climate and water](environments/climate-and-water.md) |
+| Who lived here, and where? | [Navenna](species/navenna.md) → [mosali](species/mosali.md) → [dated species atlas](species/atlas.md) |
+| What can these observations establish? | [Evidence standards](evidence.md) → [selection and variation](selection-and-variation.md) |
+
+## Coverage and gaps
+
+The trait inventory is broader than the completed reference. Detailed parasitism, fat/energy accounting, grass/root dynamics, behaviour-code variation, crowding, and species-splitting accounts remain to be written. Unique giants also need their own treatment. Two species accounts and one species-only map are a beginning, not a complete encyclopedia.
+
+New pages should connect a mechanism to its conditions, observable quantities, exceptions, and missing evidence—not merely add definitions. The wider [wiki plan](../WIKI-PLAN.md) sets the coverage; [Codex's backlog](../CODEX.md) tracks actionable work.
 
 ## Two clocks to keep in mind
 

@@ -12,12 +12,12 @@ A creature is not just its species description. Its inherited settings, the body
 | `legs`, `wind` | [Movement setting and sprint endurance](movement-and-sight.md), distinct from actual speed and remaining stamina. |
 | `plastic` | Propensity for the implemented hunger-related digestive conversion. |
 | `thrift` | Fat-storage strategy; distinct from the fat currently carried. |
-| `armor`, `toxin` | Defence capacities; ordinary bodies also need dietary supplies to express them. See [armour](armour.md). |
+| `armor`, `toxin` | Defence capacities; ordinary bodies also need dietary supplies to express them. See [armour](armour.md) and [toxin](toxin.md). |
 | `resist` | Toxin resistance; the unique giant's feeding rules can also increase it during life. |
 | `litter`, `mature` | [Reproductive allocation and maturation](reproduction.md). Actual litter size also depends on the energy gift. |
 | `browse`, `decomp`, `parasitism` | Settings for using shoots, [dung/carrion](decomposition.md), and parasitic feeding. Eligibility and benefits depend on the relevant feeding implementation. |
 | `eyes` | [Sight setting](movement-and-sight.md), combined with species perception, body size, age, and vegetation. |
-| `coat`, `water` | Climate-related settings; `water` here is a creature's thrift setting, not a water-depth measurement. |
+| `coat`, `water` | [Climate-related settings](../environments/climate-and-water.md); `water` here is a creature's thrift setting, not a water-depth measurement. |
 | `swim`, `climb` | Movement skills whose effects depend on active terrain and water rules. |
 | `hueShift` | Inherited colour variation, not by itself a measure of food eaten. |
 

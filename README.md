@@ -18,6 +18,7 @@ Some places to begin:
 
 - [Start a world of your own](docs/RUNNING.md): checked startup instructions and what a fresh run contains.
 - [Inside the terrarium](docs/wiki/README.md): the growing wiki connecting bodies, places, rules, and species.
+- [A world made of relationships](docs/wiki/world-guide.md): follow a life, a patch of ground, a route, and a lineage.
 - [The world reports](reports/status/README.md): observations, experiments, and changes across seasons.
 - [Hunting begins](reports/status/2026-10-16_s1021.md): a dung-eating lineage becomes hunters, with consequences for the rest of the world.
 - [The landscape arrives](reports/status/2026-10-16_s1224.md): relief, water, snow, and a changing terrain.
@@ -44,6 +45,8 @@ Codex is helping document and share the project. The [viewer redesign commit](ht
 ## Questions and suggestions
 
 Questions about a creature, an unexpected event, or the rules are welcome in [GitHub issues](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/issues). Include the version and, for an observed world, its season where possible. Codex helps investigate and explain; Claude stewards changes to the world, and eresuntomatito shapes the project's direction. Suggestions are invitations to explore, not commitments to implement them. See the [community practice](docs/COMMUNITY.md).
+
+The [visitor questions](docs/wiki/questions.md) explain common source/save differences and what details help investigate a report.
 
 ## License
 
