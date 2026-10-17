@@ -208,7 +208,7 @@ export const PHYSICS = {
   mineralGain: 0.0005,   // shell store gained per grazing tick, × mineral to hand (reef share of the 8 neighbours + soil mineral)
   storeFade: 0.0001,     // share of each store lost per tick
   storeBirth: 0.6,       // a newborn starts with this share of its parents' stores
-  divideShare: 0.6, divideRest: TICKS_PER_DAY, divideMin: 30, divideGeo: 5, divideMaxK: 2, divideSeam: 0.15, // (s1329, Luis: bigger pieces ≥ 30 (was 15), at most 2 (was 4), place weighs 5 (was 2) — regional halves that live) // the great divide: whenever a species holds over divideShare of all life it is divided (checked every 30 ticks), then rests divideRest ticks; groups under divideMin join their neighbours
+  divideShare: 0.6, divideRest: TICKS_PER_DAY, divideMin: 40, divideGeo: 5, divideMaxK: 2, divideSeam: 0.15, // (s1329, Luis: bigger pieces ≥ 30 (was 15), at most 2 (was 4), place weighs 5 (was 2) — regional halves that live; s1527, Luis: pieces ≥ 40, and no median cut — with no clear seam the faintest is promoted) // the great divide: whenever a species holds over divideShare of all life it is divided (checked every 30 ticks), then rests divideRest ticks; groups under divideMin join their neighbours
   // Sight (Luis, 01:30 Oct 15): how far a body sees = species perception × size factor × age curve × (0.5 + eyes), shortened
   // inside thicket; every body also sees the reef, as rays: the distance to solid reef in 8 directions (0…1 of its sight).
   eyesStart: 0.5, eyesDrift: 0.04, // the inherited eyes trait (0…1) a body starts with when nothing is inherited, and its drift
@@ -375,7 +375,7 @@ export const PHYSICS = {
   sectionsSeasons: 10, wallH: 1, wallCore: 10, wallFace: 22, seamX: 952, spineH: 0.9, spineCore: 8, spineFace: 18,
   mesetaNorth: 32, tiltBase: 0.12, tiltWest: 0.24, valleyHalf: 80, valleyDepth: 0.08, chanHalf: 10, chanDepth: 0.14,
   cragAt: 0.78, cragNeed: 0.7, cliffAt: 0.014, cliffSpan: 0.02, cliffNeed: 0.6, swimSpan: 1.5, skillMargin: 0.1,
-  climbDrift: 0.02, climbUpkeep: 0.04, screeWidth: 16,
+  climbDrift: 0.02, climbUpkeep: 0.04, screeWidth: 16, wallMemory: 90, needFloor: 0.15, fallCost: 0.05,
   // WATER, EROSION AND SWIMMING (Luis, 10:20 Oct 16; step 2 of the orography; rollout.water, then rollout.wading).
   // Water per cell (world.water) is routed every waterEvery ticks to the lowest of the 8 neighbours by surface (relief -
   // carving + water), with a tilt toward the bottom of the map (the river flows top to bottom and, the map wrapping,
@@ -387,7 +387,23 @@ export const PHYSICS = {
   // bodies most) and sweeps the small downstream; a SWIMMING skill (c.swim, dormant at 0, inherited) eases all of it.
   // tilt per row (Luis, s1225): tiltTop at the top edge, easing to tiltHalf by halfway down, tiltHalf below
   waterEvery: 8, waterTilt: 0.006, tiltTop: 0.15, tiltHalf: 0.01, valleyTilt: 0, seep: 0.01, flowMax: 0.08, precip: 0.00003, snowAt: 0.3, meltRate: 0.004, freezeAt: 0.2, evap: 0.0004,
-  carveRate: 0.004, carveMax: 0.3, reefWash: 0.02, bankWet: 0.75, drownAt: 0.04, grooveDepth: 0.04,
+  carveRate: 0.004, carveMax: 0.3,
+  // DEPOSITION (Luis, s1536): water carries what it cuts (world.sed, a load per cell, in elevation units). A stream holds
+  // up to sedCap × flow × min(1, drop / sedDropRef) — fast water carries more; it carves only into spare capacity, and
+  // drops depRate of any excess where it slows, and its whole load where it ponds or dries, raising the ground
+  // (carve goes negative: fill above the old ground, down to −fillMax). Material is conserved.
+  sedCap: 0.05, sedDropRef: 0.02, depRate: 0.2, pondDrop: 0.05, fillMax: 0.3,
+  // GEOLOGY (Luis, s1544; reports/status/2026-10-17_s1542-geology-proposal.md, pieces 1 + 2; rollout.geology): three
+  // rocks lie in layers geoLayer thick by height, tilted west → east (geoTilt over the width) and folded under the range
+  // (geoFold, a wave geoFoldLen px long fading geoFoldWidth px from the ridge line), over a hard BASEMENT below geoBase:
+  // the exposed rock is the layer at the land's surface; where deposition has filled above the old ground, loose
+  // SEDIMENT. Each erodes at rockErode × (0 hard, 1 soft, 2 soluble, 3 sediment, 4 basement), so the carving cap is
+  // lifted (carveMax) and the basement is the natural base level. Soils follow the rock: grass grows × rockGrow and the
+  // ground holds rockWet more moisture; fresh deposits build ALLUVIUM (world.alluv, 0…1: + alluvGain × deposit, fading
+  // alluvFade per water update), rich (+ alluvGrow growth) and moist (+ alluvWet). Shells find rockMineral to hand.
+  geoLayer: 0.15, geoTilt: 0.12, geoFold: 0.1, geoFoldLen: 260, geoFoldWidth: 140, geoBase: -0.7, geoCarveMax: 2,
+  rockErode: [0.3, 1.6, 1, 2, 0.05], rockGrow: [0.85, 1.05, 1, 1.1, 0.85], rockWet: [-0.06, 0.08, -0.03, 0.05, -0.06], rockMineral: [0.05, 0.1, 0.5, 0.1, 0.05],
+  alluvGain: 200, alluvFade: 0.9995, alluvGrow: 0.5, alluvWet: 0.12, reefWash: 0.02, bankWet: 0.75, drownAt: 0.04, grooveDepth: 0.04,
   frostCrack: 0.0015, grainDownhill: 0.6,
   // EARTHQUAKES (Luis, s1216; step 3 of the orography; rollout.quakes): small ones every quakeEvery seasons (a random
   // 15–30), and at least one big one in every quakeBigWithin seasons. A quake breaks the ground along a fault (length by
@@ -527,7 +543,7 @@ export class World {
     if (!this.rootHealth) this.rootHealth = new Float32Array(GW * GH).fill(1);
     if (!this.grassHardy) this.grassHardy = new Float32Array(GW * GH).fill(P.grassStart);
     if (!this.grassSweet) this.grassSweet = new Float32Array(GW * GH).fill(P.grassStart);
-    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH); this.aqua ??= new Float32Array(GW * GH); this.lichen ??= new Float32Array(GW * GH);
+    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.sed ??= new Float32Array(GW * GH); this.alluv ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH); this.aqua ??= new Float32Array(GW * GH); this.lichen ??= new Float32Array(GW * GH);
     this.flow = new Float32Array(GW * GH); this.flowDir = new Int8Array(GW * GH * 2); this.bank = new Float32Array(GW * GH);
     this.traffic = new Float32Array(GW * GH);
     this.foul = new Float32Array(GW * GH); // ground soiled by infested hosts; fades, never saved
@@ -719,6 +735,25 @@ export class World {
       E[gy * GW + gx] = e;
     }
     return E;
+  }
+  // GEOLOGY: the rock exposed at cell i — 0 hard, 1 soft, 2 soluble, 3 sediment (filled above the old ground), 4 basement.
+  rockOf(i) {
+    if (!this.rolled('geology')) return 1;
+    if (this._rock && this._rockT > this.tick - P.waterEvery) return this._rock[i]; // cached: the rock only changes as water carves and lays down
+    if (this._rockBuilding) return this.rockAt(i);
+    this._rockBuilding = true; const R = (this._rock ??= new Uint8Array(GW * GH)); for (let k = 0; k < GW * GH; k++) R[k] = this.rockAt(k); this._rockT = this.tick; this._rockBuilding = false;
+    return R[i];
+  }
+  rockAt(i) {
+    if ((this.carve?.[i] ?? 0) < -0.005) return 3;
+    const z = this.reliefMap()[i] * this.reliefRise() + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0);
+    if (z < P.geoBase) return 4;
+    if (!this._fold) { // the folds and the tilt, fixed per cell
+      this._fold = new Float32Array(GW * GH);
+      for (let k = 0; k < GW * GH; k++) { const x = (k % GW + 0.5) * CELL, y = ((k / GW | 0) + 0.5) * CELL, dy = Math.abs(((y - P.ridgeY * H) % H + H * 1.5) % H - H / 2);
+        this._fold[k] = P.geoTilt * (x / W - 0.5) + P.geoFold * Math.exp(-((dy / P.geoFoldWidth) ** 2)) * Math.sin(2 * Math.PI * x / P.geoFoldLen) + 0.02 * (noise3(x * 0.01, y * 0.01, 5.5) - 0.5); }
+    }
+    return [1, 2, 0][((Math.floor((z - P.geoBase + this._fold[i]) / P.geoLayer) % 3) + 3) % 3]; // soft, soluble, hard, from the basement up
   }
   elevAt(x, y) { const r = this.reliefRise(), i = cellAt(x, y); return (r ? this.reliefMap()[i] * r : 0) + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0); } // the land, moved by quakes, less what water has carved
   // Steepness of a cell (elevation change per pixel), for slowing bodies on slopes.
@@ -1481,14 +1516,14 @@ export class World {
       for (const k of this.corpses) if (k.energy > P.smother) this.smothered[cellAt(k.x, k.y)] = 1;
     }
     prev.set(this.plants);
-    const climate = this.rolled('climate'), era = this.tempEra(), gv = this.rolled('grassvar'), Hd = this.grassHardy, Sw = this.grassSweet;
+    const geo = this.rolled('geology'), climate = this.rolled('climate'), era = this.tempEra(), gv = this.rolled('grassvar'), Hd = this.grassHardy, Sw = this.grassSweet;
     for (let gy = 0; gy < GH; gy++) {
       const Trow = this.tempAt((gy + 0.5) * CELL, era), relief = this.reliefRise() > 0; // the temperature of this row …
       for (let gx = 0; gx < GW; gx++) {
         const i = gy * GW + gx, T = relief ? this.tempAt((gy + 0.5) * CELL, era, (gx + 0.5) * CELL) : Trow; // … or of this cell, on relief
         if (relief && this.rolled('highfood')) { const e = this.elevAt((gx + 0.5) * CELL, (gy + 0.5) * CELL); if (e > P.lichenAbove) this.lichen[i] += P.lichenGrow * (1 - this.lichen[i]) * (T < 0.45 ? 1 : 0.3); else if (this.lichen[i] > 0) this.lichen[i] *= 0.99; } // lichen on the heights, best in the cold
         // Moisture drifts slowly, so its noise is only redrawn about once a second.
-        const m = fresh ? (this.moisture[i] = Math.max(clamp01(rain + (noise3(gx * 0.05, gy * 0.05, t * 0.0003) - 0.5) * 0.9), this.bank?.[i] ?? 0)) : this.moisture[i]; // river banks stay wet
+        const rk = geo ? this.rockOf(i) : -1, m = fresh ? (this.moisture[i] = Math.max(clamp01(rain + (noise3(gx * 0.05, gy * 0.05, t * 0.0003) - 0.5) * 0.9 + (geo ? P.rockWet[rk] + P.alluvWet * this.alluv[i] : 0)), this.bank?.[i] ?? 0)) : this.moisture[i]; // river banks stay wet; soils hold water by their rock, alluvium most
         let lush = 0;
         const up = (gy === 0 ? GH - 1 : gy - 1) * GW, mid = gy * GW, down = (gy === GH - 1 ? 0 : gy + 1) * GW;
         const left = gx === 0 ? GW - 1 : gx - 1, right = gx === GW - 1 ? 0 : gx + 1;
@@ -1499,7 +1534,7 @@ export class World {
           const f = this.fertility[i], before = b;
           if (!(P.smother && this.smothered[i])) {
             const warm = climate ? (T < P.frostAt ? 0 : (1 - P.coldGrowth * Math.max(0, 0.5 - T)) * (1 + 0.5 * Math.max(0, T - 0.5))) : 1; // cold slows grass, frost stops it
-            const grow = 0.05 * b * (1 - b) * (m + f) * (P.soilNeed ? f / (f + P.soilNeed) : 1) * (1 - P.thicketShade * this.thicket[i]) * this.rootHealth[i] * warm * (gv ? 1 - P.hardyGrow * Hd[i] : 1);
+            const grow = 0.05 * b * (1 - b) * (m + f) * (P.soilNeed ? f / (f + P.soilNeed) : 1) * (1 - P.thicketShade * this.thicket[i]) * this.rootHealth[i] * warm * (gv ? 1 - P.hardyGrow * Hd[i] : 1) * (geo ? P.rockGrow[rk] * (1 + P.alluvGrow * this.alluv[i]) : 1); // soils by rock; river plains richest
             b += grow;
             if (P.soilNeed) this.fertility[i] = Math.max(0, f - grow * P.uptake);
           }
@@ -1823,6 +1858,7 @@ export class World {
           const hx = delta(c.x, c.home.x, W), hy = delta(c.y, c.home.y, H), away = Math.hypot(hx, hy);
           if (away > P.homeRange) { const pull = P.homePull * Math.min(1.5, (away - P.homeRange) / P.homeRange); c.fx += hx / away * pull; c.fy += hy / away * pull; }
         }
+        if (c.wall && this.tick < c.wall.until) { const d = c.fx * c.wall.x + c.fy * c.wall.y; if (d > 0) { c.fx -= d * c.wall.x; c.fy -= d * c.wall.y; } } // a wall it was kept back by: no pressing into it
         this.steer(c, c.fx, c.fy);
         c.thought = t;
       });
@@ -2108,7 +2144,7 @@ export class World {
         // Defences from food: hedge plants carry toxin, ground by the reef carries minerals for a shell.
         // Toxin: a body in the hedge nibbles its leaves whether or not there is grass to bite.
         c.toxStock = Math.min(1, (c.toxStock ?? 1) + P.toxinGain * this.thicket[i]);
-        if (bite > 0) c.minStock = Math.min(1, (c.minStock ?? 1) + P.mineralGain * Math.min(1, this.reefNear(i) + this.mineral[i] * 4));
+        if (bite > 0) c.minStock = Math.min(1, (c.minStock ?? 1) + P.mineralGain * Math.min(1, this.reefNear(i) + this.mineral[i] * 4 + (this.rolled('geology') ? P.rockMineral[this.rockOf(i)] : 0))); // limestone country feeds shells
         // Browse: a big enough body with a browsing gut eats thicket shoots, down to a floor (the hedge survives as a refuge).
         if (this.browses(c) && this.thicket[i] > P.browseFloor) {
           const shoots = Math.min(this.thicket[i] - P.browseFloor, P.browseBite * Math.sqrt(k) * c.browse);
@@ -2628,27 +2664,24 @@ export class World {
 
   // Vicariance (Luis): a species is divided along its own seams. K-means on where its members live (on the wrapped
   // land: each axis as a circle) and what they are (body traits, standardised), place weighted divideGeo : 1 over
-  // kind; 2 to 4 groups, as many as separate best (silhouette). Groups under divideMin join their nearest neighbour.
-  // With no real structure (silhouette below divideSeam), it falls back to four equal parts cut at the medians.
+  // kind; 2 to divideMaxK groups, as many as separate best (silhouette). Groups under divideMin join their nearest neighbour.
+  // With no real structure (silhouette below divideSeam), the faintest seam is promoted: the same search forced to two
+  // groups (s1527; it used to cut four equal parts at the medians). Every piece needs divideMin founders, or no divide.
   // The largest group keeps the name.
   vicariance(parent) {
     const group = this.creatures.filter(c => !c.dead && c.species === parent && c.k?.length);
     if (group.length < 2 * P.divideMin) return;
+    // Luis (s1527): the divide speeds up seams that are emerging; with none clear, it promotes the faintest (the same
+    // search forced to two groups) instead of cutting by geometry; no founding group under divideMin (40), or no divide.
     let parts = this.divideByKind(group);
     const seams = !!parts;
-    if (!parts) { // the median cut
-      const byX = group.slice().sort((a, b) => a.x - b.x), half = Math.ceil(byX.length / 2);
-      parts = [];
-      for (const side of [byX.slice(0, half), byX.slice(half)]) {
-        const byY = side.sort((a, b) => a.y - b.y), mid = Math.ceil(byY.length / 2);
-        parts.push(byY.slice(0, mid), byY.slice(mid));
-      }
-    }
+    if (!parts) parts = this.divideByKind(group, true);
+    if (!parts) return;
     const order = parts.filter(q => q.length >= P.divideMin).sort((a, b) => b.length - a.length);
     if (order.length < 2) return;
     this.log(seams
       ? `The ${plural(parent)} divide along their own seams: ${order.length} groups${this.divideNote ? ` (${this.divideNote})` : ''}. None can breed with the others any more.`
-      : `The land is cut in four. The ${plural(parent)} of each part can no longer breed with the others.`);
+      : `The ${plural(parent)} part along their faintest seam: ${order.length} groups${this.divideNote ? ` (${this.divideNote})` : ''}. None can breed with the others any more.`);
     for (const q of order.slice(1)) {
       const own = q.filter(c => !c.morph).length ? q.filter(c => !c.morph) : q; // the species' own mind sets the new code's numbers
       const n = Math.min(...own.map(c => c.k.length)), values = [];
@@ -2674,6 +2707,13 @@ export class World {
       let t = 0; for (let gx = 0; gx < GW; gx += 4) t += this.tempAt((gy + 2) * CELL, era, (gx + 2) * CELL); rows.push(Math.round(t / (GW / 4) * 100) / 100);
     }
     const relief = r ? { rise: Math.round(r * 1000) / 1000, low: P.tempLow, lapse: P.lapse, ns: [P.tempNorth, P.tempSouth], elev: Buffer.from(Uint8Array.from(this.reliefMap(), (v, i) => Math.round(Math.min(1, Math.max(0, v + ((this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0)) / Math.max(r, 0.05))) * 255))).toString('base64') } : null;
+    if (relief && this.rolled('geology')) { // GEOLOGY for the viewer (s1544): rock per cell (0 hard, 1 soft, 2 soluble, 3 sediment, 4 basement), alluvium 0–255, and the full height −1 … 1.5 as 0–255 (elev above stays 0 … 1 for old viewers)
+      const R = this.reliefMap(), n = GW * GH, rock = new Uint8Array(n), al = new Uint8Array(n), e2 = new Uint8Array(n);
+      for (let i = 0; i < n; i++) { rock[i] = this.rockOf(i); al[i] = Math.round(Math.min(1, this.alluv?.[i] ?? 0) * 255); e2[i] = Math.round(Math.min(1, Math.max(0, (R[i] * r + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0) + 1) / 2.5)) * 255); }
+      const N = this.climbNeed(), need = Uint8Array.from(N, v => Math.round(Math.min(1, v) * 255)), carve = Uint8Array.from(this.carve ?? [], v => Math.round(Math.min(1, Math.max(0, v)) * 255));
+      Object.assign(relief, { rock: Buffer.from(rock).toString('base64'), alluv: Buffer.from(al).toString('base64'), elev2: Buffer.from(e2).toString('base64'), elev2Range: [-1, 1.5],
+        need: Buffer.from(need).toString('base64'), carve: Buffer.from(carve).toString('base64'), quakes: (this.quakeLog ?? []).slice(-20) }); // for the viewer's X-ray (s1560): climbing need 0…1, carved depth 0…1, quake faults {season, x, y, ang, len, mag, big}
+    }
     // For the viewer's climate dial: where the world sits now on both axes (wetness of the slow climate, mean warmth),
     // and the path it took over the last 30 seasons, every half season (both are clocks, so the past is recomputed).
     const r2 = v => Math.round(v * 100) / 100, wetAt = t => 0.5 + 0.5 * Math.sin(t / (SEASON_TICKS * P.climateSeasons) * Math.PI * 2), trail = [];
@@ -2713,7 +2753,7 @@ export class World {
   }
 
   // K-means over place and kind; returns the groups, or null when the members show no real structure.
-  divideByKind(group) {
+  divideByKind(group, force) {
     const TRAITS = [c => this.bodySize(c), c => c.gut, c => this.armorOf(c), c => this.toxinOf(c), c => c.legs ?? 1, c => c.wind ?? 0.5,
       c => c.mature ?? 1, c => c.browse ?? 0, c => c.gape ?? 0.5, c => c.resist ?? P.resistStart, c => c.litter ?? 1];
     const minds = [...new Set(group.map(c => c.morph).filter(Boolean))].slice(0, 3); // hidden minds count as kind too
@@ -2766,7 +2806,20 @@ export class World {
     };
     let best = null;
     for (let k = 2; k <= P.divideMaxK; k++) { const label = kmeans(k), sc = silhouette(label); if (!best || sc > best.sc) best = { label, sc, k }; }
-    if (best.sc < P.divideSeam) { this.divideNote = null; return null; }
+    if (best.sc < P.divideSeam || new Set(best.label).size < 2) {
+      if (!force) { this.divideNote = null; return null; }
+      // Forced (no clear seam, s1527): the faintest seam — along the direction the group varies most (place and kind),
+      // cut at the widest gap that leaves divideMin or more on each side.
+      const n = pts.length, d = pts[0].length; if (n < 2 * P.divideMin) { this.divideNote = null; return null; }
+      const mu = pts[0].map((_, j) => pts.reduce((a, p) => a + p[j], 0) / n), cen = pts.map(p => p.map((v, j) => v - mu[j]));
+      let v = mu.map(() => Math.random() - 0.5);
+      for (let it = 0; it < 30; it++) { const nv = new Array(d).fill(0); for (const p of cen) { const s = p.reduce((a, x, j) => a + x * v[j], 0); for (let j = 0; j < d; j++) nv[j] += s * p[j]; } const l = Math.hypot(...nv) || 1; v = nv.map(x => x / l); }
+      const proj = cen.map(p => p.reduce((a, x, j) => a + x * v[j], 0)), idx = proj.map((_, i) => i).sort((a, b) => proj[a] - proj[b]);
+      let cut = P.divideMin, gap = -1;
+      for (let i = P.divideMin; i <= n - P.divideMin; i++) { const g = proj[idx[i]] - proj[idx[i - 1]]; if (g > gap) { gap = g; cut = i; } }
+      const label = new Array(n).fill(0); for (let i = cut; i < n; i++) label[idx[i]] = 1;
+      best = { label, sc: silhouette(label), k: 2 };
+    }
     const parts = [...new Set(best.label)].map(l => group.filter((_, n) => best.label[n] === l));
     // What sets each group apart: its most distinctive trait against the whole.
     const NAMES = [['larger', 'smaller'], ['meat-leaning', 'plant-leaning'], ['more shelled', 'softer'], ['more toxic', 'less toxic'], ['longer-legged', 'shorter-legged'],
@@ -2831,7 +2884,10 @@ export class World {
       F[i] *= 0.9;
     }
     const W2 = Float32Array.from(Wt);
+    const dep = this.rolled('deposition'), Sd = (this.sed ??= new Float32Array(n)), Sd2 = new Float32Array(n), geo = this.rolled('geology'), Al = (this.alluv ??= new Float32Array(n));
+    if (geo) for (let i = 0; i < n; i++) Al[i] *= P.alluvFade; // alluvium fades where nothing new is laid down
     for (let i = 0; i < n; i++) {
+      if (dep && !(Wt[i] > 1e-4) && Sd[i] > 0) { if (geo) Al[i] = Math.min(1, Al[i] + P.alluvGain * Sd[i]); D[i] = Math.max(-P.fillMax, D[i] - Sd[i]); Sd[i] = 0; } // dried out: the load is left behind
       if (!(Wt[i] > 1e-4) || temp[i] < P.freezeAt) continue; // frozen water stays put
       const gx = i % GW, gy = (i / GW) | 0, tilt = gy < GH / 2 ? P.tiltTop + (P.tiltHalf - P.tiltTop) * Math.max(gy / (GH / 2), sTilt) : P.tiltHalf; // the sections ease the steep top pull: the wall's gorges carry the water round now // steep at the top, gentle from halfway down
       let best = -1, low = surf[i], bdx = 0, bdy = 0, steepest = 0;
@@ -2840,16 +2896,23 @@ export class World {
         const j = at(gx + dx, gy + dy), s2 = surf[j] - tilt * dy, slope = (surf[i] - s2) / (dx && dy ? Math.SQRT2 : 1); // a tilt toward the bottom of the map
         if (slope > steepest) { steepest = slope; low = s2; best = j; bdx = dx; bdy = dy; } // water takes the steepest way down (a diagonal step is longer)
       }
-      if (best < 0) continue;
-      const f = Math.min(Wt[i], (surf[i] - low) / 2, P.flowMax);
-      if (f <= 0) continue;
+      const f = best < 0 ? 0 : Math.min(Wt[i], (surf[i] - low) / 2, P.flowMax);
+      if (f <= 0) { if (dep && Sd[i] > 0) { const d = Sd[i] * P.pondDrop; Sd[i] -= d; D[i] = Math.max(-P.fillMax, D[i] - d); if (geo) Al[i] = Math.min(1, Al[i] + P.alluvGain * d); } continue; } // still water lets its load settle
       W2[i] -= f; W2[best] += f; F[i] += f; FD[i * 2] = bdx; FD[i * 2 + 1] = bdy;
       // Flowing water carves its bed and wears the reef in it; what it takes enriches the ground downstream.
-      const carve = P.carveRate * f * (1 - Math.min(1, this.reef[i]));
-      if (D[i] < P.carveMax) D[i] = Math.min(P.carveMax, D[i] + carve);
+      let carve = P.carveRate * f * (1 - Math.min(1, this.reef[i])) * (geo ? P.rockErode[this.rockOf(i)] : 1); // the rock decides how fast
+      if (dep) {
+        const cap = P.sedCap * f * Math.min(1, steepest / P.sedDropRef); // fast water carries more
+        carve = Math.max(0, Math.min(carve, cap - Sd[i])); // it carves only into spare capacity
+        if (Sd[i] > cap) { const d = (Sd[i] - cap) * P.depRate; Sd[i] -= d; D[i] = Math.max(-P.fillMax, D[i] - d); if (geo) Al[i] = Math.min(1, Al[i] + P.alluvGain * d); } // where it slows, it drops the excess
+      }
+      const cmax = geo ? P.geoCarveMax : P.carveMax; // geology: the basement is the base level, not a cap
+      if (D[i] < cmax) { const c = Math.min(carve, cmax - D[i]); D[i] += c; if (dep) Sd[i] += c; }
+      if (dep && Sd[i] > 0) { const m = Sd[i] * f / Wt[i]; Sd[i] -= m; Sd2[best] += m; } // the load travels with the water
       if (this.reef[i] > 0) { const wash = Math.min(this.reef[i], P.reefWash * f); this.reef[i] -= wash; this.fertility[best] = Math.min(2, this.fertility[best] + wash); }
     }
     this.water = W2;
+    if (dep) for (let i = 0; i < n; i++) Sd[i] += Sd2[i]; // what arrived this update
     if (this.rolled('waterfood')) for (let i = 0; i < n; i++) { // water plants: grow where water stands and is not frozen, wither where it dries
       if (W2[i] > 0.01 && temp[i] >= P.freezeAt) this.aqua[i] += P.aquaGrow * (1 - this.aqua[i]) * (0.5 + temp[i]);
       else if (this.aqua[i] > 0) this.aqua[i] *= W2[i] > 0.01 ? 0.995 : 0.97;
@@ -2865,24 +2928,29 @@ export class World {
   // past its swimming — is refused (it turns back), with a soft margin either side of the need. Bodies already on hard
   // ground may always move toward easier. Counts lowland section changes (crossings) for the readout.
   crossGate(c) {
-    const i0 = cellAt(c.x, c.y), i1 = cellAt(c.x + c.vx, c.y + c.vy);
-    if (i0 !== i1) {
-      const N = this.climbNeed(), m = P.skillMargin, pass = (skill, need) => Math.random() < clamp01((skill - need + m) / (2 * m));
-      let ok = !(N[i1] > N[i0]) || pass(c.climb ?? 0, N[i1]);
-      if (ok) {
-        const s = this.sectionsRise(), legs = Math.max(1, (c.legs ?? 1) * this.bodySize(c));
-        const need = i => { const w = this.waterAt(((i % GW) + 0.5) * CELL, (((i / GW) | 0) + 0.5) * CELL); return s * clamp01((w.d * P.depthPx / legs - 1) / P.swimSpan); };
-        const n0 = need(i0), n1 = need(i1);
-        if (n1 > n0) ok = pass(c.swim ?? 0, n1);
-        else if (n0 > (c.swim ?? 0) + m && c.sec) { // caught in deep water past its swimming: it can only scramble out on its own side
-          const x1 = c.x + c.vx, side = wrap(x1 - P.seamX, W) < wrap(P.riverX * W + 22 * Math.sin((c.y + c.vy) / 70) - P.seamX, W) ? 'W' : 'E';
-          if (side !== c.sec[1]) ok = false;
-        }
+    const i0 = cellAt(c.x, c.y), i1 = cellAt(c.x + c.vx, c.y + c.vy), n0 = this.climbNeed()[i0], climb = c.climb ?? 0;
+    if (n0 > P.needFloor && n0 > climb + P.skillMargin) { // on crags or a cliff beyond its climbing (the land rose under it): it falls, a cell a tick, down the steepest way
+      const gx = i0 % GW, gy = (i0 / GW) | 0, x = (gx + 0.5) * CELL, y = (gy + 0.5) * CELL; let bx = 0, by = 0, low = this.elevAt(x, y);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const e = this.elevAt(x + dx * CELL, y + dy * CELL); if ((dx || dy) && e < low) { low = e; bx = dx; by = dy; } }
+      if (bx || by) {
+        c.x = wrap(c.x + bx * CELL, W); c.y = wrap(c.y + by * CELL, H); c.vx = 0; c.vy = 0;
+        c.energy -= P.fallCost * (n0 - climb) * (mass(this.bodySize(c)) / mass(7)); // heavier bodies are hurt more
+        this.fell = (this.fell ?? 0) + 1; return;
       }
-      if (!ok) {
-        c.vx *= -0.5; c.vy *= -0.5; this.turnedBack = (this.turnedBack ?? 0) + 1;
-        if ((c.gateHits = (c.gateHits ?? 0) + 1) > 30) { c.home = { x: c.x, y: c.y }; c.gateHits = 0; } // kept back long enough, it makes this side its home
-      }
+    }
+    if (i0 !== i1 && !this.canStep(c, i0, i1, true)) {
+      // Like water round a rock (the reef rule): the smallest turn either way that finds passable ground; it remembers
+      // the wall for a while, so its steering stops pressing into it and it walks along or away.
+      const speed = Math.hypot(c.vx, c.vy), h = Math.atan2(c.vy, c.vx), side = Math.random() < 0.5 ? 1 : -1;
+      const open = a => this.canStep(c, i0, cellAt(c.x + Math.cos(a) * speed, c.y + Math.sin(a) * speed), false);
+      let a = null;
+      for (const turn of [Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4]) { if (open(h + side * turn)) { a = h + side * turn; break; } if (open(h - side * turn)) { a = h - side * turn; break; } }
+      if (a === null) { c.vx *= -0.5; c.vy *= -0.5; } else { c.vx = Math.cos(a) * speed * 0.9; c.vy = Math.sin(a) * speed * 0.9; }
+      let nx = 0, ny = 0; // the wall's direction: toward the neighbouring cells it may not enter
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && !this.canStep(c, i0, cellAt(c.x + dx * CELL, c.y + dy * CELL), false)) { const l = Math.hypot(dx, dy); nx += dx / l; ny += dy / l; }
+      const nl = Math.hypot(nx, ny); c.wall = nl > 0.01 ? { x: nx / nl, y: ny / nl, until: this.tick + P.wallMemory } : { x: Math.cos(h), y: Math.sin(h), until: this.tick + P.wallMemory };
+      this.turnedBack = (this.turnedBack ?? 0) + 1;
+      if ((c.gateHits = (c.gateHits ?? 0) + 1) > 30) { c.home = { x: c.x, y: c.y }; c.gateHits = 0; } // kept back long enough, it makes this side its home
     }
     if (this.tick % 30 === 0) { // which lowland section it is in: north/south of the ridge line, west/east of the river (seam river to river)
       const xs = wrap(c.x - P.seamX, W), rx = wrap(P.riverX * W + 22 * Math.sin(c.y / 70) - P.seamX, W);
@@ -2893,6 +2961,22 @@ export class World {
         c.sec = sec;
       }
     }
+  }
+  // Whether a body may step from cell i0 to i1 (chance: the soft margin is a coin; false: only a sure pass counts).
+  canStep(c, i0, i1, chance) {
+    if (i0 === i1) return true;
+    const N = this.climbNeed(), m = P.skillMargin, pass = (skill, need) => chance ? Math.random() < clamp01((skill - need + m) / (2 * m)) : skill >= need;
+    if (N[i1] > P.needFloor && N[i1] > N[i0] && !pass(c.climb ?? 0, N[i1])) return false; // gentle ground (a need under needFloor) asks nothing
+    const s = this.sectionsRise(), legs = Math.max(1, (c.legs ?? 1) * this.bodySize(c));
+    const need = i => { const d = this.water?.[i] ?? 0; if (d < 0.005) return 0; const w = this.waterAt(((i % GW) + 0.5) * CELL, (((i / GW) | 0) + 0.5) * CELL); return s * clamp01((w.d * P.depthPx / legs - 1) / P.swimSpan); };
+    const n0 = need(i0), n1 = need(i1);
+    if (n1 > P.needFloor && n1 > n0) return pass(c.swim ?? 0, n1);
+    if (n0 > (c.swim ?? 0) + m && c.sec) { // caught in deep water past its swimming: it can only scramble out on its own side
+      const gx = i1 % GW, gy = (i1 / GW) | 0, x1 = (gx + 0.5) * CELL, y1 = (gy + 0.5) * CELL;
+      const side = wrap(x1 - P.seamX, W) < wrap(P.riverX * W + 22 * Math.sin(y1 / 70) - P.seamX, W) ? 'W' : 'E';
+      if (side !== c.sec[1]) return false;
+    }
+    return true;
   }
   // How well a body reaches water plants where it stands: waders at the edge (water no deeper than its legs), swimmers anywhere.
   aquaAccess(c, i) { const d = this.water?.[i] ?? 0; if (d < 0.005) return 0; const deep = d * P.depthPx / Math.max(1, (c.legs ?? 1) * this.bodySize(c)), swim = c.swim ?? 0; return deep <= 1 ? 0.4 + 0.6 * swim : Math.min(1, 2 * swim); }
@@ -2952,7 +3036,7 @@ export class World {
     this.quakeNow = { x: Math.round(x0), y: Math.round(y0), ang: +ang.toFixed(3), len: Math.round(len), mag: +mag.toFixed(3), big, until: this.tick + 300 };
     (this.quakeLog ??= []).push({ season: this.season, x: this.quakeNow.x, y: this.quakeNow.y, ang: this.quakeNow.ang, len: this.quakeNow.len, mag: this.quakeNow.mag, big }); // for the reports' orography view
     if (this.quakeLog.length > 50) this.quakeLog.shift();
-    this._reliefKey = null; this._needKey = null;
+    this._reliefKey = null; this._needKey = null; this._rock = null;
     return this.quakeNow;
   }
 
@@ -2974,8 +3058,8 @@ export class World {
     this.quakeSeason();
     if (this.rollout?.sections !== undefined) { // the four sections: the season's crossings, and the chronicle of the change
       const s0 = this.rollout.sections, done = s0 + P.sectionsSeasons;
-      if (this.season >= s0) { (this.records.sections ??= []).push({ season: this.season, rise: +this.sectionsRise().toFixed(2), crossings: this.crossings ?? {}, turnedBack: this.turnedBack ?? 0 }); if (this.records.sections.length > 120) this.records.sections.shift(); }
-      this.crossings = {}; this.turnedBack = 0;
+      if (this.season >= s0) { (this.records.sections ??= []).push({ season: this.season, rise: +this.sectionsRise().toFixed(2), crossings: this.crossings ?? {}, turnedBack: this.turnedBack ?? 0, fell: this.fell ?? 0 }); if (this.records.sections.length > 120) this.records.sections.shift(); }
+      this.crossings = {}; this.turnedBack = 0; this.fell = 0;
       if (this.season === s0 - 1) this.log('The edges of the world begin to stir: a wall will rise along the top and bottom, a river cut along the left and right, a spine of crags along the range; the lowlands tilt toward the east.');
       if (this.season === done - 1) this.log('The land has settled into four lands, parted by crags and deep water: only climbers and swimmers pass, and the ice, the droughts and the quakes open the ways now and then.');
     }
@@ -3095,7 +3179,7 @@ export class World {
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
       creatures: this.creatures.map(c => ({ ...c, memory: safeMemory(c.memory) })),
-      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
+      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -3114,6 +3198,8 @@ export class World {
     if (s.grassSweet?.length) this.grassSweet = Float32Array.from(s.grassSweet);
     if (s.water?.length) this.water = Float32Array.from(s.water);
     if (s.carve?.length) this.carve = Float32Array.from(s.carve);
+    if (s.sed?.length) this.sed = Float32Array.from(s.sed);
+    if (s.alluv?.length) this.alluv = Float32Array.from(s.alluv);
     if (s.snow?.length) this.snow = Float32Array.from(s.snow);
     if (s.tectonic?.length) this.tectonic = Float32Array.from(s.tectonic);
     if (s.aqua?.length) this.aqua = Float32Array.from(s.aqua);
