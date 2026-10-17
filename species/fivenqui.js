@@ -1,3 +1,4 @@
+// † extinct in season 1716.
 // fivenqui (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.5.5.5.1.3.1.6): drifted apart from the ushbelbels (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.5.5.5.1.3.1) in season 1695; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
