@@ -169,6 +169,16 @@ export const PHYSICS = {
   waves: 3, waveShare: 0.4, // returns come in this many waves, each this share of the species' seed base
   dungRange: 20,         // a beetle this close to a grazer finds its droppings …
   dungFeed: 0.018,       // energy a beetle near a grazer gets from its dung each pass (10 ticks), and soil it buries
+  // HONEST DUNG (rollout.honestdung; Luis asked, s1571): dung was a free gift, paid every pass wherever a grazer stood near, and nothing
+  // was used up (65% of all body income). Now the plant a grazer eats but does not digest is carried in its gut (c.dungE, energy) and
+  // dropped on the ground (world.dungMap); a decomposer or beetle eats from the cells around it, and it is gone. What nobody eats
+  // breaks down into fertility, faster in the warmth. The old free gift fades linearly to nothing over honestFade seasons from the
+  // rollout season, so the world can adapt. (The fertility dung of dungShare/dungDrop is unchanged.)
+  dungEff: 0.8,          // share of the dung's energy a decomposer gets (the rest is lost as heat)
+  dungTake: 0.2,         // most dung energy a body of full decomp ability can lift per pass (10 ticks), from the 3×3 cells around it
+  dungBury: 0.3,         // share of the dung it eats that goes back to the soil at once
+  dungDecay: 0.0004,     // share of the dung on a cell that breaks down to fertility each tick (× 0.6 + 0.8 × warmth)
+  honestFade: 10,        // seasons over which the old free dung gift fades to zero (10, s1619: 5 crashed the test world to 100 bodies; 10 held it at 240)
   beetleSoil: 1,         // beetles return this much extra fertility per unit of carrion they break down
   infestWeak: 0.3,       // a grazer below this share of its energy capacity can be infested …
   crowdRange: 40, crowdCount: 6, // … if at least this many of its kind are this close …
@@ -401,6 +411,16 @@ export const PHYSICS = {
   // lifted (carveMax) and the basement is the natural base level. Soils follow the rock: grass grows × rockGrow and the
   // ground holds rockWet more moisture; fresh deposits build ALLUVIUM (world.alluv, 0…1: + alluvGain × deposit, fading
   // alluvFade per water update), rich (+ alluvGrow growth) and moist (+ alluvWet). Shells find rockMineral to hand.
+  // THE UPHEAVAL (Luis, s1640: "as if a colossal mass came from below the ground, a dormant volcano we may see one day but
+  // not today"; rollout.upheaval): over upheavalSeasons a dome rises under the peak (centre upheavalAt, +upheavalAmp there so
+  // the summit reaches ~1.8, an irregular radius upheavalR, and a faint tail upheavalTail reaching the whole map). Half of
+  // it creeps up a little every 135 ticks; the other half comes in earthquakes every 0.6–2 seasons (upheavalBigChance of
+  // them great), each lifting an irregular patch by part of what is still missing there — imperfectly (± upheavalNoise) —
+  // and opening a narrow CRACK (the stretched surface) 0.03–0.12 deep, radial or along the rings. A last settling at the
+  // end lays down whatever is left. Everything rides on the land (tectonic); water, erosion, climate, lichen and the
+  // barriers then answer by their own rules.
+  upheavalSeasons: 48, upheavalAt: [134, 360], upheavalAmp: 0.9, upheavalR: 260, upheavalTail: 0.12, upheavalTailR: 450,
+  upheavalCreep: 0.5, upheavalEvery: [0.6, 2], upheavalBigChance: 0.35, upheavalNoise: 0.3, crackDepth: [0.03, 0.12], crackWidth: 6,
   geoLayer: 0.15, geoTilt: 0.12, geoFold: 0.1, geoFoldLen: 260, geoFoldWidth: 140, geoBase: -0.7, geoCarveMax: 2,
   rockErode: [0.3, 1.6, 1, 2, 0.05], rockGrow: [0.85, 1.05, 1, 1.1, 0.85], rockWet: [-0.06, 0.08, -0.03, 0.05, -0.06], rockMineral: [0.05, 0.1, 0.5, 0.1, 0.05],
   alluvGain: 200, alluvFade: 0.9995, alluvGrow: 0.5, alluvWet: 0.12, reefWash: 0.02, bankWet: 0.75, drownAt: 0.04, grooveDepth: 0.04,
@@ -543,7 +563,7 @@ export class World {
     if (!this.rootHealth) this.rootHealth = new Float32Array(GW * GH).fill(1);
     if (!this.grassHardy) this.grassHardy = new Float32Array(GW * GH).fill(P.grassStart);
     if (!this.grassSweet) this.grassSweet = new Float32Array(GW * GH).fill(P.grassStart);
-    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.sed ??= new Float32Array(GW * GH); this.alluv ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH); this.aqua ??= new Float32Array(GW * GH); this.lichen ??= new Float32Array(GW * GH);
+    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.sed ??= new Float32Array(GW * GH); this.alluv ??= new Float32Array(GW * GH); this.dungMap ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH); this.aqua ??= new Float32Array(GW * GH); this.lichen ??= new Float32Array(GW * GH);
     this.flow = new Float32Array(GW * GH); this.flowDir = new Int8Array(GW * GH * 2); this.bank = new Float32Array(GW * GH);
     this.traffic = new Float32Array(GW * GH);
     this.foul = new Float32Array(GW * GH); // ground soiled by infested hosts; fades, never saved
@@ -557,7 +577,14 @@ export class World {
   }
 
   get speciesNames() { return Object.keys(this.registry); }
-  living() { return this.speciesNames.filter(n => this.registry[n].extinct === null && !this.registry[n].waiting); }
+  // The living species, cached per tick and per registry version (the registry holds every species ever, ~2,200; s1562).
+  // touchRegistry() marks a birth, death, revival or release of a species, so a change within a tick is seen at once.
+  living() {
+    if (this._livT === this.tick && this._livV === (this._regVer ?? 0)) return this._liv;
+    this._livT = this.tick; this._livV = this._regVer ?? 0;
+    return (this._liv = this.speciesNames.filter(n => this.registry[n].extinct === null && !this.registry[n].waiting));
+  }
+  touchRegistry() { this._regVer = (this._regVer ?? 0) + 1; }
 
   seed() {
     this.tick = 0;
@@ -566,7 +593,7 @@ export class World {
     this.registry = {};
     this.code = {};
     for (const [name, sp] of Object.entries(loadSeed())) {
-      this.registry[name] = { ...sp, mark: 'none', parent: null, born: 0, extinct: null, lastBranchGen: 0,
+      this.touchRegistry(); this.registry[name] = { ...sp, mark: 'none', parent: null, born: 0, extinct: null, lastBranchGen: 0,
         lineage: name[0].toUpperCase(), branches: 0, role: roleOf(sp.tl) };
       this.code[name] = readCode(name);
     }
@@ -687,7 +714,7 @@ export class World {
     for (let i = 0; i < E.length; i++) E[i] = R[i] * r + (this.tectonic?.[i] ?? 0); // the land's shape and its quakes (erosion gullies are not cliffs)
     const at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW);
     for (let i = 0; i < E.length; i++) {
-      const gx = i % GW, gy = (i / GW) | 0, steep = Math.hypot(E[at(gx + 1, gy)] - E[at(gx - 1, gy)], E[at(gx, gy + 1)] - E[at(gx, gy - 1)]) / (2 * CELL);
+      const gx = i % GW, gy = (i / GW) | 0, steep = Math.max(0, E[i] - Math.min(E[at(gx + 1, gy)], E[at(gx - 1, gy)], E[at(gx, gy + 1)], E[at(gx, gy - 1)])) / CELL; // a cliff is ground that DROPS away (s1637): a gorge floor between walls is not one (bodies fell there endlessly)
       N[i] = s * Math.max(P.cragNeed * clamp01((E[i] - P.cragAt) / (1 - P.cragAt)), P.cliffNeed * clamp01((steep - P.cliffAt) / P.cliffSpan));
     }
     this._needKey = nk;
@@ -755,7 +782,74 @@ export class World {
     }
     return [1, 2, 0][((Math.floor((z - P.geoBase + this._fold[i]) / P.geoLayer) % 3) + 3) % 3]; // soft, soluble, hard, from the basement up
   }
-  elevAt(x, y) { const r = this.reliefRise(), i = cellAt(x, y); return (r ? this.reliefMap()[i] * r : 0) + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0); } // the land, moved by quakes, less what water has carved
+  // THE UPHEAVAL: the dome's full uplift per cell (fixed once: irregular radius by angle, a faint tail everywhere).
+  upheavalTarget() {
+    if (this._upT) return this._upT;
+    const T = new Float32Array(GW * GH), [cx, cy] = P.upheavalAt, d = (a, b, m) => { let v = Math.abs(a - b) % m; return Math.min(v, m - v); };
+    for (let i = 0; i < T.length; i++) {
+      const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, dx = d(x, cx, W), dy = d(y, cy, H), r = Math.hypot(dx, dy), ang = Math.atan2(y - cy, x - cx);
+      const R = P.upheavalR * (1 + 0.3 * (noise3(Math.cos(ang) * 1.5 + 3, Math.sin(ang) * 1.5 + 3, 4.2) - 0.5) * 2) * (1 + 0.08 * (noise3(x * 0.02, y * 0.02, 9.1) - 0.5));
+      T[i] = P.upheavalAmp * Math.exp(-((r / R) ** 2)) + P.upheavalTail * Math.exp(-r / P.upheavalTailR);
+    }
+    return (this._upT = T);
+  }
+  upheavalStep() {
+    const s0 = this.rollout.upheaval, t0 = (s0 - 1) * SEASON_TICKS, n = GW * GH;
+    if (this.tick < t0) return;
+    const T = this.upheavalTarget(), U = (this.upheaval ??= { applied: new Float32Array(n), byQuake: new Float32Array(n), next: s0 + 0.3 });
+    if (!U.applied?.length) U.applied = new Float32Array(n); if (!U.byQuake?.length) U.byQuake = new Float32Array(n);
+    const steps = P.upheavalSeasons * SEASON_TICKS / 135, now = this.season - 1 + (this.tick % SEASON_TICKS) / SEASON_TICKS, end = s0 - 1 + P.upheavalSeasons;
+    if (now >= end) { // the last settling: whatever is still missing is laid down
+      for (let i = 0; i < n; i++) { const left = T[i] - U.applied[i]; if (left > 0) { this.tectonic[i] += left; U.applied[i] += left; } }
+      U.done = true; this.landChanged(); this._needKey = null; this._rock = null;
+      this.log('The ground settles at last. The mass below has stopped rising; the peak stands far above the plateau, cold and white, and the land around it lies folded and cracked.');
+      return;
+    }
+    for (let i = 0; i < n; i++) { const c = T[i] * P.upheavalCreep / steps; this.tectonic[i] += c; U.applied[i] += c; } // the slow rise
+    if (now >= U.next) { this.upheavalQuake(); U.next = now + P.upheavalEvery[0] + Math.random() * (P.upheavalEvery[1] - P.upheavalEvery[0]); }
+    this.landChanged(); this._needKey = null;
+  }
+  upheavalQuake() {
+    const T = this.upheavalTarget(), U = this.upheaval, n = GW * GH, big = Math.random() < P.upheavalBigChance, [cx, cy] = P.upheavalAt;
+    const owed = i => Math.max(0, T[i] * (1 - P.upheavalCreep) - U.byQuake[i]); // what the quakes still owe this cell
+    let tot = 0; for (let i = 0; i < n; i++) tot += owed(i);
+    if (tot <= 1e-6) return;
+    let r = Math.random() * tot, e = 0; for (; e < n - 1; e++) { r -= owed(e); if (r <= 0) break; } // the epicentre: where most is owed
+    const x0 = (e % GW + 0.5) * CELL, y0 = ((e / GW | 0) + 0.5) * CELL, R = big ? 200 + Math.random() * 140 : 90 + Math.random() * 70, share = big ? 0.4 + Math.random() * 0.25 : 0.12 + Math.random() * 0.15;
+    const d = (a, b, m) => { let v = (a - b) % m; if (v > m / 2) v -= m; if (v < -m / 2) v += m; return v; };
+    let lifted = 0;
+    for (let i = 0; i < n; i++) {
+      const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, rr = Math.hypot(d(x, x0, W), d(y, y0, H)) / (R * (0.8 + 0.4 * noise3(x * 0.015, y * 0.015, this.tick * 0.001)));
+      if (rr >= 1) continue;
+      const w = (1 - rr * rr) ** 2, add = owed(i) * share * w * (1 + P.upheavalNoise * (Math.random() * 2 - 1)); // imperfect: a little more here, a little less there
+      this.tectonic[i] += add; U.byQuake[i] += add; U.applied[i] += add; lifted += add;
+    }
+    // The stretched surface cracks: a narrow trough through the epicentre, radial to the dome or along its rings.
+    const radial = Math.random() < 0.5, toC = Math.atan2(d(cy, y0, H), d(cx, x0, W)), ang = (radial ? toC : toC + Math.PI / 2) + (Math.random() - 0.5) * 0.6;
+    const len = big ? 220 + Math.random() * 200 : 100 + Math.random() * 100, depth = P.crackDepth[0] + Math.random() * (P.crackDepth[1] - P.crackDepth[0]) * (big ? 1 : 0.6), ux = Math.cos(ang), uy = Math.sin(ang);
+    for (let i = 0; i < n; i++) {
+      const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, dx = d(x, x0, W), dy = d(y, y0, H), along = dx * ux + dy * uy, across = -dx * uy + dy * ux;
+      if (Math.abs(along) > len / 2) continue;
+      this.tectonic[i] -= depth * Math.exp(-((across / P.crackWidth) ** 2)) * Math.min(1, (len / 2 - Math.abs(along)) / 30); // tapering at its ends
+    }
+    this.near(x0, y0, big ? 200 : 100, c => { if (!c.dead && !this.registry[c.species].unique) c.energy -= P.quakeFright * (big ? 1 : 0.4); });
+    this.quakeNow = { x: Math.round(x0), y: Math.round(y0), ang: +ang.toFixed(3), len: Math.round(len), mag: +(lifted / 50).toFixed(3), big, until: this.tick + 300 };
+    (this.quakeLog ??= []).push({ season: this.season, x: this.quakeNow.x, y: this.quakeNow.y, ang: this.quakeNow.ang, len: this.quakeNow.len, mag: this.quakeNow.mag, big, upheaval: true }); if (this.quakeLog.length > 50) this.quakeLog.shift();
+    this._reliefKey = null; this._needKey = null; this._rock = null; this.landChanged();
+    const where = Math.hypot(d(x0, cx, W), d(y0, cy, H)) < P.upheavalR ? 'under the peak' : 'on the rising land';
+    this.log(`${big ? 'The ground heaves' : 'The ground lurches'} ${where}: the mass below pushes up, and the stretched surface cracks ${radial ? 'outward from the peak' : 'along the rising slopes'}.`);
+  }
+  // The land per cell, cached (s1562): rebuilt when water has carved or laid down (each water update), after a quake, and
+  // whenever the relief or its rise steps — keyed on all three, so it is never stale.
+  elevMap() {
+    const r = this.reliefRise(), lv = this._landVer ?? 0;
+    if (this._elev && this._eR === r && this._eL === lv && this._eS === this._reliefStep) return this._elev; // plain comparisons: this runs thousands of times a tick
+    const R = r ? this.reliefMap() : null, E = (this._elev ??= new Float32Array(GW * GH)), T = this.tectonic, D = this.carve;
+    for (let i = 0; i < E.length; i++) E[i] = (R ? R[i] * r : 0) + (T?.[i] ?? 0) - (D?.[i] ?? 0);
+    this._eR = r; this._eL = lv; this._eS = this._reliefStep; return E;
+  }
+  landChanged() { this._landVer = (this._landVer ?? 0) + 1; }
+  elevAt(x, y) { return this.elevMap()[cellAt(x, y)]; } // the land, moved by quakes, less what water has carved
   // Steepness of a cell (elevation change per pixel), for slowing bodies on slopes.
   steepAt(x, y) {
     if (!this.reliefRise()) return 0;
@@ -882,7 +976,7 @@ export class World {
   addSpecies(name, parent, code, variant = false) {
     const p = this.registry[parent];
     p.branches = (p.branches ?? 0) + 1;
-    this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, lastBranchGen: 0,
+    this.touchRegistry(); this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, lastBranchGen: 0,
       lineage: `${p.lineage}.${p.branches}`, branches: 0, meanK: undefined, drift: 0, variant, slip: undefined, graduated: undefined };
     this.code[name] = code;
     this.compile(name);
@@ -921,7 +1015,7 @@ export class World {
   holdSpecies(name, parent, code, message) {
     const p = this.registry[parent];
     p.branches = (p.branches ?? 0) + 1;
-    this.registry[name] = { ...p, ...this.distinctLook((p.avgGut ?? p.gut) >= 0.5), parent, born: this.season, extinct: null, waiting: true,
+    this.touchRegistry(); this.registry[name] = { ...p, ...this.distinctLook((p.avgGut ?? p.gut) >= 0.5), parent, born: this.season, extinct: null, waiting: true,
       lastBranchGen: 0, lineage: `${p.lineage}.${p.branches}`, branches: 0, size: p.avgSize ?? p.size, gut: p.avgGut ?? p.gut, meanK: undefined, drift: 0 };
     this.code[name] = code;
     this.ensureBooks();
@@ -943,7 +1037,7 @@ export class World {
 
   markExtinct(name) {
     const sp = this.registry[name];
-    sp.extinct = this.season;
+    sp.extinct = this.season; this.touchRegistry();
     delete this.behaviors[name];
     delete this.lastCounts[name];
     const how = { starved: 'starving', old: 'of old age', eaten: 'in someone\'s jaws' }[this.lastDeath?.cause] ?? '';
@@ -993,7 +1087,7 @@ export class World {
     const name = names.find(n => !this.registry[n].parent && this.registry[n].extinct !== null) ?? names.filter(n => this.registry[n].extinct !== null)[0];
     if (!name) return;
     const sp = this.registry[name];
-    Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } });
+    Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } }); this.touchRegistry();
     this.compile(name);
     // They are sent to eat the dead: if their line has lost its jaws, they come with the gut they were first given.
     const gut = (sp.avgGut ?? sp.gut) > P.jaws + 0.1 ? sp.avgGut ?? sp.gut : sp.gut;
@@ -1037,7 +1131,7 @@ export class World {
     const sp = this.registry[name];
     const returning = sp.extinct !== null, held = !!sp.waiting, reinforcing = !returning && !held;
     if (!reinforcing) {
-      Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } });
+      Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } }); this.touchRegistry();
       this.records[name].peak = 0;
       this.records[name].generation = 0;
       this.compile(name);
@@ -1397,8 +1491,28 @@ export class World {
   browses(c) { return (c.browse ?? 0) > P.browseMin && this.bodySize(c) >= P.browseSize && !this.registry[c.species].unique; }
   isParasite(c) { return (!!this.registry[c.species].parasite && this.dietOf(c) !== 'plant') || (c.parasitism ?? 0) > P.parasiteMin; } // what it lives on, not its jaws (or, since 13:20, an evolved parasite)
   weakHost(c) { return c.energy < P.infestWeak * this.capOf(c) && !this.registry[c.species].unique && !this.isParasite(c); }
+  // Honest dung: take up to `want` from the 3×3 cells around a body, bury part of it, return how much was eaten.
+  eatDung(b, want) {
+    const D = this.dungMap; if (!D || !(want > 0)) return 0;
+    const gx = Math.floor(b.x / CELL), gy = Math.floor(b.y / CELL); let got = 0;
+    for (let y = Math.max(0, gy - 1); y <= Math.min(GH - 1, gy + 1) && got < want; y++) for (let x = Math.max(0, gx - 1); x <= Math.min(GW - 1, gx + 1) && got < want; x++) {
+      const i = y * GW + x, t = Math.min(D[i], want - got); if (t > 0) { D[i] -= t; got += t; }
+    }
+    if (got > 0) { const i = cellAt(b.x, b.y); this.fertility[i] = Math.min(2, this.fertility[i] + got * P.dungBury); }
+    return got;
+  }
+  // Honest dung: uneaten dung breaks down into fertility, faster in the warmth (called every 10 ticks).
+  rotDung() {
+    const D = this.dungMap, climate = this.rolled('climate'); if (!D) return;
+    for (let i = 0; i < D.length; i++) if (D[i] > 1e-5) {
+      const T = climate ? this.tempAt((Math.floor(i / GW) + 0.5) * CELL, undefined, ((i % GW) + 0.5) * CELL) : 0.5, r = 1 - (1 - P.dungDecay * (0.6 + 0.8 * T)) ** 10, d = D[i] * r;
+      D[i] -= d; this.fertility[i] = Math.min(2, this.fertility[i] + d);
+    }
+  }
+  dungGift() { if (!this.rolled('honestdung')) return 1; return Math.max(0, 1 - (this.season + (this.tick % SEASON_TICKS) / SEASON_TICKS - this.rollout.honestdung) / P.honestFade); } // the old free gift: 1 → 0
   infestations() {
-    const dt = 10;
+    const dt = 10, honest = this.rolled('honestdung'), gift = this.dungGift();
+    if (honest) { this.dungMap ??= new Float32Array(GW * GH); this.rotDung(); }
     for (const b of this.creatures) {
       if (b.dead || !this.isParasite(b)) continue;
       const evolved = !this.registry[b.species].parasite, power = evolved ? b.parasitism : 1; // an evolved parasite works as hard as its ability
@@ -1418,16 +1532,24 @@ export class World {
       // An infested host nearby feeds the brood living on it (twice what dung gives): beetles boom with the infestation.
       const bd = this.diet[b.species];
       if (host) { b.energy += P.dungFeed * 2; bd.host = (bd.host ?? 0) + P.dungFeed * 2; bd.energy += P.dungFeed * 2; }
-      else if (dung) { bd.dung = (bd.dung ?? 0) + P.dungFeed; bd.energy += P.dungFeed; b.energy += P.dungFeed; const i = cellAt(b.x, b.y); this.fertility[i] = Math.min(2, this.fertility[i] + P.dungFeed); }
+      else {
+        if (honest) { const got = this.eatDung(b, P.dungTake); if (got > 0) { const e = got * P.dungEff; bd.dung = (bd.dung ?? 0) + e; bd.energy += e; b.energy += e; } }
+        if (dung && gift > 0) { const e = P.dungFeed * gift; bd.dung = (bd.dung ?? 0) + e; bd.energy += e; b.energy += e; const i = cellAt(b.x, b.y); this.fertility[i] = Math.min(2, this.fertility[i] + e); } // the old free gift (fading, if honest)
+      }
     }
     // Evolved decomposers: droppings lie around other grazers; past decompMin a body feeds on them and buries part.
     for (const d of this.creatures) {
       const floor = this.rolled('smooth') ? 0.005 : P.decompMin; // smooth: any ability above a trace feeds a little
       if (d.dead || !((d.decomp ?? 0) > floor) || this.registry[d.species].unique || this.registry[d.species].parasite) continue;
+      if (honest) { // eats what lies on the ground around it, and it is gone
+        const got = this.eatDung(d, P.dungTake * d.decomp * (this.rolled('climate') ? 0.6 + 0.8 * this.tempAt(d.y, undefined, d.x) : 1));
+        if (got > 0) { this.feed(d, got * P.dungEff, 1, 'dung'); this.dungEaten = (this.dungEaten ?? 0) + got; }
+        if (!(gift > 0)) continue;
+      }
       let dung = false;
       this.near(d.x, d.y, P.dungRange, o => { if (!o.dead && o !== d && o.species !== d.species && o.gut < 0.5 && !this.registry[o.species].unique) dung = true; });
       // (dung breaks down faster in the warmth)
-      if (dung) { const e = P.dungFeed * 2 * d.decomp * (this.rolled('climate') ? 0.6 + 0.8 * this.tempAt(d.y, undefined, d.x) : 1); this.feed(d, e, 1, 'dung'); const i = cellAt(d.x, d.y); this.fertility[i] = Math.min(2, this.fertility[i] + e); }
+      if (dung) { const e = gift * P.dungFeed * 2 * d.decomp * (this.rolled('climate') ? 0.6 + 0.8 * this.tempAt(d.y, undefined, d.x) : 1); this.feed(d, e, 1, 'dung'); this.giftEnergy = (this.giftEnergy ?? 0) + e; const i = cellAt(d.x, d.y); this.fertility[i] = Math.min(2, this.fertility[i] + e); }
     }
     // Smooth parasitism: below the threshold a body still feeds a little on infested bodies of other kinds it touches.
     if (this.rolled('smooth')) for (const b of this.creatures) {
@@ -1482,7 +1604,7 @@ export class World {
       if (this.tick < e.hatch) return true;
       const sp = this.registry[e.species];
       if (!sp) return false;
-      if (sp.extinct !== null) { sp.extinct = null; this.compile(e.species); this.onRevive?.(e.species); }
+      if (sp.extinct !== null) { sp.extinct = null; this.compile(e.species); this.onRevive?.(e.species); } this.touchRegistry();
       const [hx, hy] = this.openGround(e.x, e.y); // the young crawl out of the bones to open water
       const c = this.spawn(e.species, hx, hy, e.gen, e.genes, sp.size, e.gut);
       if (e.k?.length) c.k = e.k;
@@ -1810,6 +1932,7 @@ export class World {
     const t = ++this.tick;
     if (t % P.reefEvery === 0) { this.updateThicket(); this.updateReef(); }
     if (t % P.waterEvery === 0 && this.rolled('water')) this.updateWater();
+    if (t % 135 === 0 && this.rollout?.upheaval !== undefined && !this.upheaval?.done) this.upheavalStep();
     if (t % PLANT_EVERY === 0) { this.updatePlants(); this.spreadScent(this.scentPrey); this.spreadScent(this.scentHunt); }
     this.noiseFn = (x, y) => noise3(x * 0.01, y * 0.01, t * 0.005) * 2 - 1;
     this.buildBuckets();
@@ -2112,9 +2235,10 @@ export class World {
     let full = false;
     if (P.stomach && !sp.unique) { const bite = sp.biteSize * Math.sqrt(k); c.bulk = Math.max(0, (c.bulk ?? 0) - P.stomachEmpty * bite); full = c.bulk >= P.stomachHold * bite; }
     // What a grazer carries: dung dropped as it goes (fertility moves to where it rests), seeds that sprout on bare ground.
-    if (c.dung > 0.001 || c.seeds > 0.05) {
+    if (c.dung > 0.001 || c.seeds > 0.05 || c.dungE > 0.0001) {
       const j = cellAt(c.x, c.y);
       if (c.dung > 0.001) { const d = c.dung * P.dungDrop; c.dung -= d; this.fertility[j] = Math.min(2, this.fertility[j] + d); }
+      if (c.dungE > 0.0001) { const d = c.dungE * P.dungDrop; c.dungE -= d; this.dungMap ??= new Float32Array(GW * GH); this.dungMap[j] += d; this.dungDropped = (this.dungDropped ?? 0) + d; } // (honest dung)
       if (c.seeds > 0.05) {
         if (this.plants[j] === 0 && this.reef[j] < P.reefSolid && Math.random() < P.seedDrop * c.seeds * this.moisture[j]) { this.plants[j] = 0.05; this.rootHealth[j] = Math.max(this.rootHealth[j], 0.5);
           if (this.rolled('grassvar') && c.seedH !== undefined) { this.grassHardy[j] = c.seedH; this.grassSweet[j] = c.seedS; this.mutateGrass(j); } } // the seed carries the strain it came from
@@ -2130,7 +2254,9 @@ export class World {
         const quality = Math.min(P.grassQuality[1], Math.max(P.grassQuality[0], 0.5 + this.moisture[i])); // dry grass is poor food
         const otherWays = Math.max(0.2, 1 - P.decompGrass * (c.decomp ?? 0) - P.parasiteGrass * (c.parasitism ?? 0)); // a gut built for dung or hosts grazes worse
         const strain = this.rolled('grassvar') ? (1 - P.hardyEnergy * this.grassHardy[i]) * (1 + P.sweetEnergy * this.grassSweet[i]) : 1; // tough grass is poorer, sweet grass richer
-        this.feed(c, bite * quality * otherWays * strain * (this.grassFood ?? 1) * P.plantEnergy * this.grassGut(c.gut) * (1 - P.browseCost * (c.browse ?? 0)), 1, 'plant'); // a browsing gut grazes worse
+        const raw = bite * quality * otherWays * strain * (this.grassFood ?? 1) * P.plantEnergy, dig = raw * this.grassGut(c.gut) * (1 - P.browseCost * (c.browse ?? 0));
+        this.feed(c, dig, 1, 'plant'); // a browsing gut grazes worse
+        if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig; // honest dung: what it ate and did not digest goes on as dung
         if (bite > 0) {
           if (this.plants[i] < P.roots + 0.05) this.rootHealth[i] = Math.max(0, this.rootHealth[i] - P.rootWear * (this.rolled('grassvar') ? 1 + P.sweetRoots * this.grassSweet[i] : 1)); // bitten to the roots (sweet grass's roots are weaker)
           c.dung = (c.dung ?? 0) + bite * P.dungShare; c.seeds = 1; c.seedH = this.grassHardy[i]; c.seedS = this.grassSweet[i]; // it carries the meal on as dung, and seeds
@@ -2711,8 +2837,14 @@ export class World {
       const R = this.reliefMap(), n = GW * GH, rock = new Uint8Array(n), al = new Uint8Array(n), e2 = new Uint8Array(n);
       for (let i = 0; i < n; i++) { rock[i] = this.rockOf(i); al[i] = Math.round(Math.min(1, this.alluv?.[i] ?? 0) * 255); e2[i] = Math.round(Math.min(1, Math.max(0, (R[i] * r + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0) + 1) / 2.5)) * 255); }
       const N = this.climbNeed(), need = Uint8Array.from(N, v => Math.round(Math.min(1, v) * 255)), carve = Uint8Array.from(this.carve ?? [], v => Math.round(Math.min(1, Math.max(0, v)) * 255));
-      Object.assign(relief, { rock: Buffer.from(rock).toString('base64'), alluv: Buffer.from(al).toString('base64'), elev2: Buffer.from(e2).toString('base64'), elev2Range: [-1, 1.5],
-        need: Buffer.from(need).toString('base64'), carve: Buffer.from(carve).toString('base64'), quakes: (this.quakeLog ?? []).slice(-20) }); // for the viewer's X-ray (s1560): climbing need 0…1, carved depth 0…1, quake faults {season, x, y, ang, len, mag, big}
+      Object.assign(relief, { rock: Buffer.from(rock).toString('base64'), alluv: Buffer.from(al).toString('base64'), elev2: Buffer.from(e2).toString('base64'), elev2Range: [-1, 1.5], elev3: Buffer.from(Uint8Array.from(R, (v, i) => Math.round(Math.min(1, Math.max(0, (v * r + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0) + 1) / 3.5)) * 255))).toString('base64'), elev3Range: [-1, 2.5], // (s1642: the upheaval lifts the peak past 1.5)
+        need: Buffer.from(need).toString('base64'), carve: Buffer.from(carve).toString('base64'), quakes: (this.quakeLog ?? []).slice(-20) });
+      if (this.rolled('sections')) { // the four sections per cell, as the crossing counter reads them (viewer request, s1611): 0 NW, 1 NE, 2 SW, 3 SE, 4 the heights (range, meseta, wall), 5 a river channel
+        const S = new Uint8Array(GW * GH), R2 = this.reliefMap(), rr = this.reliefRise();
+        for (let i = 0; i < GW * GH; i++) { const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, xs = wrap(x - P.seamX, W), rx = wrap(P.riverX * W + 22 * Math.sin(y / 70) - P.seamX, W);
+          S[i] = Math.min(xs, W - xs, Math.abs(xs - rx)) < P.chanHalf + 8 ? 5 : R2[i] * rr + (this.tectonic?.[i] ?? 0) >= 0.5 ? 4 : (wrap(y, H) < P.ridgeY * H ? 0 : 2) + (xs < rx ? 0 : 1); }
+        relief.section = Buffer.from(S).toString('base64'); relief.sectionNames = ['north-west', 'north-east', 'south-west', 'south-east', 'heights', 'river'];
+      } // for the viewer's X-ray (s1560): climbing need 0…1, carved depth 0…1, quake faults {season, x, y, ang, len, mag, big}
     }
     // For the viewer's climate dial: where the world sits now on both axes (wetness of the slow climate, mean warmth),
     // and the path it took over the last 30 seasons, every half season (both are clocks, so the past is recomputed).
@@ -2837,7 +2969,7 @@ export class World {
     let name;
     do { name = inventName(); } while (this.speciesNames.includes(name) || this.isTaken?.(name));
     p.branches = (p.branches ?? 0) + 1;
-    this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, waiting: false, lastBranchGen: 0,
+    this.touchRegistry(); this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, waiting: false, lastBranchGen: 0,
       lineage: `${p.lineage}.${p.branches}`, branches: 0, meanK: undefined, drift: 0, releasedAt: this.tick,
       // A split keeps its parent's reference body: physiology scales from it, and a new reference at the members' own size
       // would make a split pay more upkeep per meal than its parents, beside them, and starve.
@@ -2911,7 +3043,7 @@ export class World {
       if (dep && Sd[i] > 0) { const m = Sd[i] * f / Wt[i]; Sd[i] -= m; Sd2[best] += m; } // the load travels with the water
       if (this.reef[i] > 0) { const wash = Math.min(this.reef[i], P.reefWash * f); this.reef[i] -= wash; this.fertility[best] = Math.min(2, this.fertility[best] + wash); }
     }
-    this.water = W2;
+    this.water = W2; this.landChanged(); // carving and deposits moved the land
     if (dep) for (let i = 0; i < n; i++) Sd[i] += Sd2[i]; // what arrived this update
     if (this.rolled('waterfood')) for (let i = 0; i < n; i++) { // water plants: grow where water stands and is not frozen, wither where it dries
       if (W2[i] > 0.01 && temp[i] >= P.freezeAt) this.aqua[i] += P.aquaGrow * (1 - this.aqua[i]) * (0.5 + temp[i]);
@@ -3036,7 +3168,7 @@ export class World {
     this.quakeNow = { x: Math.round(x0), y: Math.round(y0), ang: +ang.toFixed(3), len: Math.round(len), mag: +mag.toFixed(3), big, until: this.tick + 300 };
     (this.quakeLog ??= []).push({ season: this.season, x: this.quakeNow.x, y: this.quakeNow.y, ang: this.quakeNow.ang, len: this.quakeNow.len, mag: this.quakeNow.mag, big }); // for the reports' orography view
     if (this.quakeLog.length > 50) this.quakeLog.shift();
-    this._reliefKey = null; this._needKey = null; this._rock = null;
+    this._reliefKey = null; this._needKey = null; this._rock = null; this.landChanged();
     return this.quakeNow;
   }
 
@@ -3134,7 +3266,8 @@ export class World {
 
   // Compact snapshot: [id, species, x, y, angle, energy, hue, flags (1 broken, 2 willing, 4 sprinting), size, legs, fatness, armour, heart rate] per creature.
   frame() {
-    const index = Object.fromEntries(this.speciesNames.map((n, i) => [n, i]));
+    if (this._idxV !== (this._regVer ?? 0) || !this._idx) { this._idx = Object.fromEntries(this.speciesNames.map((n, i) => [n, i])); this._idxV = this._regVer ?? 0; } // cached per registry version
+    const index = this._idx;
     const c = [];
     for (const k of this.creatures)
       c.push(k.id, index[k.species], r2(k.x), r2(k.y), r2(Math.atan2(k.vy, k.vx)), r2(k.energy / this.capOf(k)),
@@ -3179,7 +3312,7 @@ export class World {
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
       creatures: this.creatures.map(c => ({ ...c, memory: safeMemory(c.memory) })),
-      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
+      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -3199,7 +3332,9 @@ export class World {
     if (s.water?.length) this.water = Float32Array.from(s.water);
     if (s.carve?.length) this.carve = Float32Array.from(s.carve);
     if (s.sed?.length) this.sed = Float32Array.from(s.sed);
+    if (s.upheaval) this.upheaval = { ...s.upheaval, applied: Float32Array.from(s.upheaval.applied ?? []), byQuake: Float32Array.from(s.upheaval.byQuake ?? []) };
     if (s.alluv?.length) this.alluv = Float32Array.from(s.alluv);
+    if (s.dungMap?.length) this.dungMap = Float32Array.from(s.dungMap);
     if (s.snow?.length) this.snow = Float32Array.from(s.snow);
     if (s.tectonic?.length) this.tectonic = Float32Array.from(s.tectonic);
     if (s.aqua?.length) this.aqua = Float32Array.from(s.aqua);
@@ -3223,7 +3358,7 @@ export class World {
     for (const [name, seed] of Object.entries(loadSeed())) {
       if (!this.registry[name]) {
         // A seed species new to this world: it joins the registry, extinct until the god sets it down.
-        this.registry[name] = { ...seed, mark: 'none', parent: null, born: this.season, extinct: this.season, lastBranchGen: 0,
+        this.touchRegistry(); this.registry[name] = { ...seed, mark: 'none', parent: null, born: this.season, extinct: this.season, lastBranchGen: 0,
           lineage: this.rootLineage(name), branches: 0, role: roleOf(seed.tl), established: true };
         this.code[name] = readCode(name);
         this.ensureBooks();

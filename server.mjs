@@ -41,7 +41,17 @@ world.onSpecies = () => broadcast('species', world.speciesList());
 let god = { state: 'idle' };
 startGod(world, s => { god = s; broadcast('god', s); });
 
-setInterval(() => {
+// The clock (s1562): each tick starts 1000/TICKS_PER_SEC ms after the previous one STARTED (setInterval waited that long
+// after it ended, so a 30 ms tick ran at ~23 a second, not 30). A long tick starts the next at once; a backlog of more
+// than a few ticks (after the Mac sleeps) is dropped rather than raced through.
+let nextTick = performance.now();
+function clock() {
+  tickOnce();
+  const now = performance.now(); nextTick += 1000 / TICKS_PER_SEC;
+  if (nextTick < now - 4 * 1000 / TICKS_PER_SEC) nextTick = now;
+  setTimeout(clock, Math.max(0, nextTick - now));
+}
+function tickOnce() {
   try {
     world.step();
   } catch (e) {
@@ -54,7 +64,8 @@ setInterval(() => {
   if (world.tick % 60 === 0) broadcast('reef', { map: world.reefMap(), thicket: world.thicketMap(), climate: world.climate() });
   if (world.tick % 900 === 0) broadcast('species', world.speciesList()); // evolved code and drift
   if (world.tick % 300 === 0) stewardRelease();
-}, 1000 / TICKS_PER_SEC);
+}
+setTimeout(clock, 0);
 
 // The steward's hand: data/release.json ({"name": "lurker", "count": 8, "hunter": true?}) sets a species down once, without a restart.
 const RELEASE = path.join(ROOT, 'data', 'release.json');
@@ -106,6 +117,30 @@ http.createServer(async (req, res) => {
     return;
   }
 
+  // The curated documentation, read-only, for the local reader (Codex's request, s1620): GET /docs/library.json, the
+  // Markdown pages that catalog lists, and image assets under docs/. Nothing else: no other types, no hidden files or
+  // folders, no path that resolves (after symlinks) outside docs/.
+  if (url.pathname.startsWith('/docs/')) {
+    const DOCS = fs.realpathSync(path.join(ROOT, 'docs')), deny = () => res.writeHead(404).end('not found');
+    if (req.method !== 'GET' && req.method !== 'HEAD') return deny();
+    let rel; try { rel = decodeURIComponent(url.pathname.slice('/docs/'.length)); } catch { return deny(); }
+    if (!rel || rel.includes('\0') || rel.split('/').some(seg => !seg || seg.startsWith('.'))) return deny(); // no hidden parts, no empty or dot segments
+    const file = path.join(DOCS, rel);
+    let real; try { real = fs.realpathSync(file); } catch { return deny(); }
+    if (!real.startsWith(DOCS + path.sep) || !fs.statSync(real).isFile()) return deny();
+    const ext = path.extname(real).toLowerCase(), IMG = { '.png': 'image/png', '.svg': 'image/svg+xml', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif' };
+    let type = IMG[ext];
+    if (rel === 'library.json') type = 'application/json';
+    else if (ext === '.md') { // only pages the catalog lists
+      let pages = []; try { pages = JSON.parse(fs.readFileSync(path.join(DOCS, 'library.json'), 'utf8')).pages ?? []; } catch {}
+      if (pages.some(p => path.normalize(String(p.path)) === path.normalize(rel))) type = 'text/markdown; charset=utf-8';
+    }
+    if (!type) return deny();
+    res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+    if (req.method === 'HEAD') return res.end();
+    return fs.createReadStream(real).pipe(res);
+  }
+
   // Status reports (reports/status/*.md): the list as JSON, and each report's text, for public/reports.html.
   // Reports and whether Luis has read them (data/reports-read.json): GET lists [{file, read}], newest first;
   // POST /api/reports/read {"file"} marks one read.
@@ -136,8 +171,8 @@ http.createServer(async (req, res) => {
   }
   if (url.pathname.startsWith('/reports/status/')) {
     const file = path.normalize(path.join(ROOT, url.pathname.slice(1)));
-    if (!file.startsWith(path.join(ROOT, 'reports', 'status')) || !/\.(md|png)$/.test(file) || !fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
-    res.writeHead(200, { 'content-type': file.endsWith('.png') ? 'image/png' : 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
+    if (!file.startsWith(path.join(ROOT, 'reports', 'status')) || !/\.(md|png|svg)$/.test(file) || !fs.existsSync(file)) { res.writeHead(404).end('not found'); return; }
+    res.writeHead(200, { 'content-type': file.endsWith('.png') ? 'image/png' : file.endsWith('.svg') ? 'image/svg+xml' : 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
     fs.createReadStream(file).pipe(res);
     return;
   }
