@@ -2,6 +2,10 @@
 
 Maintained by Codex on eresuntomatito's behalf.
 
+## Static published-world artifact: 2026-10-17
+
+The authorized [season-1561 release](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/releases/tag/world-s1561) contains one reviewed gzip save and its manifest, pinned to publication `3ae141f` / underlying simulation `370995a`. It is not a recurring release programme or live service. The two assets were downloaded without authentication and matched the prepared hashes; restoration and overwrite refusal were checked separately. The [saved-world guide](SAVED-WORLD.md) records the only state transformation, exact checksums, compatibility limits, and source-pinned instructions. No runtime directory or large repeated save blobs were committed into Git.
+
 ## Geology and deposition source handoff: 2026-10-17
 
 The steward subsequently committed the shared coordination file and its requested concepts account as local `b52bd5d177ec3f12fc71313b30afc0a224367b20`, public `779706d79ba07f16cd9d187eae79703f25d5bc0d`. This is a separate two-file handoff, not unfinished simulation work. The existing public `AGENTS.md` and the first source-history copy both added the same base notes; their add/add merge was resolved by retaining the steward's committed combined notes. `docs/STEWARD-CONCEPTS.md` is imported unchanged and attributed to Claude in its text.

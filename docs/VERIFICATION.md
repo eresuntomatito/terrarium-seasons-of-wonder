@@ -42,6 +42,12 @@ A separate unassisted predation-threshold check used a full-grown size-7 hunter 
 
 ## Documentation checks
 
+### Published saved-state artifact
+
+The season-1561 artifact uses public source `370995a` in pinned publication `3ae141f`. In an isolated archive it loaded at tick 8,427,282 with 236 living bodies, produced five 9,600-cell geology frame fields, advanced 20 steps, serialized/reloaded, and advanced once more with finite body values. No model or Git callbacks were installed. The process had a 256 MB JavaScript heap limit and ended after the short check. This is a compatibility smoke check, not a long-term outcome or performance claim.
+
+Only 94 queued study requests were cleared before compression. Bounded patterns inspected 17,889 strings and found no credential/home-path matches; other saved-world summaries and behaviour are intentionally retained. Both released assets were fetched without authentication and matched the prepared SHA-256 hashes; decompression matched the reviewed JSON hash. The restore example succeeded in a separate fixture and refused an existing save on its second invocation. See `SAVED-WORLD.md` and the manifest for exact artifacts and limits.
+
 The README's season-1328 image and the tracked `latest-page.png` viewer capture were visually inspected. The README uses the existing dated report as caption evidence. All 72 local links in the archived reports resolve. The initial pass checked 54 local links across 14 new documentation files without missing targets; the final expanded documentation is rechecked before packaging. The README's image has a valid PNG signature. Existing report inconsistencies are recorded as limits in the wiki, not silently corrected in files owned by the steward.
 
 ## Redesign update: 2026-10-17

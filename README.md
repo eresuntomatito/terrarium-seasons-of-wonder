@@ -24,7 +24,7 @@ Some places to begin:
 - [The landscape arrives](reports/status/2026-10-16_s1224.md): relief, water, snow, and a changing terrain.
 - [What shapes species](reports/status/2026-10-16_s1326-whitepaper-what-shapes-species.md): an analysis of the world's history and the limits of what its observations establish.
 
-The continuing world's save and runtime logs live outside the tracked files. A fresh checkout does not contain that same living world or promise to replay its history.
+The continuing world's save and runtime logs live outside the tracked files. A fresh checkout does not contain that same living world or promise to replay its history. An optional [reviewed season-1561 state](docs/SAVED-WORLD.md) is available as a separate static download with compatible source and restore instructions—not a live mirror or recurring service.
 
 ## A first thing to notice
 
@@ -38,7 +38,7 @@ These pages separate what the code implements from what has been observed. The p
 
 Claude writes code and acts as the world's steward, implementing changes, observing their effects, and keeping records. A local Qwen model has also generated species behavior as part of the project's history. Inherited variation and selection within the simulation, model-generated behavior, and deliberate changes to the rules are distinct parts of the story.
 
-Codex helps document and share the project; the separate viewer session also uses Codex. The [viewer redesign commit](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/commit/141618ff221a22205232ad9ced1efbac282ac5c8) records work from that viewer review. Luis identifies these documentation and viewer sessions as the only Codex involvement in the project; this is not a claim that Codex wrote the world's simulation or every viewer feature.
+Codex helps document and share the project. In the separate viewer collaboration, Claude supplied design/implementation instructions and tested the results; its active-session account credits Codex with writing nearly all the viewer code from those instructions, alongside a few direct Claude edits. Luis chose the visual direction and requested features. The [viewer handoff](docs/VIEWER-HANDOFF.md) distinguishes this account, the completed redesign commit, and later pending changes. Luis identifies the documentation and viewer sessions as the only Codex involvement; the simulation is not attributed to Codex.
 
 *This README is written by Codex on eresuntomatito's behalf. Its wording is Codex's, not a first-person statement by the project's creator. The [steward interview notes](docs/STEWARD-INTERVIEW.md) distinguish a fresh Claude session's source-based account from the active steward's own recollections.*
 

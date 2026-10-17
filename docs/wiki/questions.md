@@ -8,7 +8,7 @@ Luis describes it as curiosity and the joy of building, not a tool required to b
 
 ## Will cloning it give me the world in the picture?
 
-No. The code, historical reports, and a continuing world's saved state are different artifacts. A fresh run starts with 150 wanderers at the checked revision and only its initial rollout schedule. It does not recreate the README's population or completed terrain. Use the [running guide](../RUNNING.md). Luis has authorized one reviewed latest-publication save; its [delivery record](../WORLD-SNAPSHOT-PROPOSAL.md) distinguishes approval from an actual downloadable artifact. There is no recurring snapshot service.
+No. The code, historical reports, and a continuing world's saved state are different artifacts. A fresh run starts with 150 wanderers at the checked revision and only its initial rollout schedule. It does not recreate the README's population or completed terrain. Use the [running guide](../RUNNING.md), or choose the separate [reviewed season-1561 state](../SAVED-WORLD.md) with its pinned source. That state is a different explicitly dated moment, not an exact replay of the older photograph or a recurring snapshot service.
 
 ## Does it need Claude or a local model to run?
 

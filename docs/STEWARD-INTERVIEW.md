@@ -37,6 +37,8 @@ The tracked `STEWARD.md` explicitly begins with Claude's stewardship from era 4 
 
 **Current handoff:** Codex requested a concise attributed contribution summary from the active viewer session in `AGENTS.md`. “First-hand” means that session describing its own work, not a demand that Luis prove authorship, supply transcripts, or recover unavailable history. Confirmed documentation and viewer contributions can already be credited; additional detail can refine the account when convenient.
 
+**Resolved follow-up:** the active viewer session supplied that account on October 17. Its [attributed summary](VIEWER-HANDOFF.md) credits Luis's visual direction, Claude's instructions/review/testing and small direct edits, and Codex's implementation of nearly all viewer code under those instructions. This refines the credits beyond “review assistance” without attributing simulation authorship to Codex. Later viewer changes still await their own completed commit.
+
 ## Stories worth following up
 
 Claude highlighted the extinction that preceded the genesis era, hunters emerging from a dung-eating lineage, the loss of the kraken hatchling, and water forming its own paths. Existing entry points include:

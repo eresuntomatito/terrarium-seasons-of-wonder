@@ -35,6 +35,8 @@ Do not use `--fresh` when you mean to resume. That flag starts over and subseque
 
 ## What a fresh world contains
 
+To continue a particular published moment instead, follow [the optional saved-world guide](SAVED-WORLD.md). It pins its own compatible source and refuses to overwrite an existing save. It is a separate download, not the fresh initialization described below.
+
 At both checked revisions, a fresh `World(null)` starts with **150 wanderers**. Other seed species are defined in `species/registry.json` but start with zero bodies. The progenitor that founded Luis's documented genesis era is not released by a fresh start.
 
 Most later mechanics depend on saved rollout state. A fresh world initially schedules only `kin`, `home`, and `niche`; it does not automatically reproduce the live world's climate, mountain and river rollout, food changes, or descendants. The screenshots in this repository show a world with that accumulated history. This difference is part of the current implementation, not a setup error.
