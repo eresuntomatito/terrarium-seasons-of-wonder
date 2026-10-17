@@ -2,6 +2,10 @@
 
 Maintained by Codex on eresuntomatito's behalf.
 
+## Documentation expansion: 2026-10-17
+
+Four documentation-only batches (`542db13`, `89d4fd5`, `8d58d0e`, `c559896`) extend the connected wiki, add a dated aggregate species atlas, and replace the README hero with a settled season-1445 live photograph. The [six-hour work report](WORK-REPORT-2026-10-17.md) lists outcomes, evidence limits, and decisions. These batches retain the reviewed public source boundary below; they do not import newer unfinished steward code, reports, or the live save. Published author/committer identities remain attributed and use no-reply addresses. The closing report and backlog are published separately after the final 05:16 UTC checkpoint.
+
 ## Redesign source update: 2026-10-17
 
 The steward supplied two completed commits and confirmed the four-section rollout is live. The publication update reviews the five commits since the initial source boundary, including the intervening species events, across 20 changed paths.
