@@ -42,6 +42,29 @@ The first public issue-queue check at 2026-10-16 21:28 UTC found no open issues 
 
 ## Keeping the living world separate
 
+### Repeatable update procedure
+
+Codex maintains this procedure on eresuntomatito's behalf. A living-world event does not automatically require a publication release.
+
+1. **Choose the boundary.** Obtain a completed steward commit and its scope. Read `AGENTS.md`, `STEWARD.md`, and working-tree status. Do not include unfinished code, local locks, runtime data, or scratch captures. Record both the local and public source revisions.
+2. **Review the delta.** Compare with the last reviewed source boundary, including added species, reports, images, commit messages, and identity metadata. Reapply the established privacy exclusions and no-reply identity mapping in a separate export. Stop if an unexpected disclosure or source change needs a decision.
+3. **Preserve public history.** Work in a separate publication clone. Verify the export reproduces the previously imported source ancestor; then merge the reviewed source branch into public `main`. If it does not reproduce that ancestor, investigate rather than force-pushing or importing a second unrelated history.
+4. **Match explanations to evidence.** Stable mechanism pages name their checked source boundary. Dated species accounts name their world and season. Review pages touched by the change; do not rewrite every species account after every season. Keep uncertainty visible when historical and current rules differ.
+5. **Check the stranger's path.** For simulation/server changes, verify startup and save/resume in an isolated copy, never the continuing world's data directory. Run focused checks for changed mechanisms. Check documentation links, source-tree integrity, image provenance, and the publication diff. Record what was not tested.
+6. **Check the photograph separately.** Committed source, the deployed renderer, active saved-world rollouts, and the depicted season are independent facts. Confirm each before claiming that a photograph shows a completed update. Select a natural moment without modifying weather or populations. Label a transitional or unpublished renderer honestly rather than silently treating it as the released version.
+7. **Publish and verify.** Push the reviewed public branch without rewriting existing history. Fetch representative files without authentication at the published revision and compare hashes. Confirm public settings where relevant, then update this record and the backlog with the actual result.
+
+A documentation-only pass can skip source import and simulation execution if it does not change running instructions or make new behavioural claims. It still needs source evidence, working links, review of staged files, and accurate attribution. Publish only the intended documentation, not the original development checkout's unrelated changes.
+
+### When to update
+
+- A completed rule or viewer change materially alters an explanation or the README's depiction.
+- A report establishes a useful turning point or corrects an existing account.
+- A reader encounters a general documentation gap or a reproducible setup problem.
+- A coherent new wiki section is ready, even if the world source has not changed.
+
+Frequent births, extinctions, and individual seasons remain in the steward's reports unless they add explanatory value. Community review follows [the community practice](COMMUNITY.md); publication does not create an unattended monitoring promise.
+
 The first photograph refresh used a direct season-1393 rain-spell capture, published in commit `2917cbb`. It showed the new artwork before the four-section rollout was active, while the public source still reflected the initial boundary. Luis clarified that the intended world transformation needed confirming too. The subsequent redesign update above includes the completed code and a new, readiness-checked season-1400 photograph; the [provenance](assets/README.md) retains that distinction.
 
 The development checkout and its running processes are left in place. Its Git history, index, branch, and remotes are not rewritten by this publication. Future updates need a reviewed export or a deliberate synchronization strategy; publishing this copy does not automatically publish subsequent species events or code changes from the living world.

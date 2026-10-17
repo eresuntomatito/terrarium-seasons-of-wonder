@@ -6,8 +6,10 @@ The world is more than a collection of rules. A trait depends on the body carryi
 
 ## Begin with a shell
 
+- [Trait inventory](traits/README.md): inherited settings, acquired state, and the properties calculated from both.
 - [Armour](traits/armour.md): the difference between an inherited capacity and the protection a body actually carries.
 - [Minerals and reef](environments/minerals-and-reef.md): how feeding and place can support that protection.
+- [The four lands](environments/four-lands.md): terrain barriers, probabilistic crossings, and what a crossing count actually records.
 - [The navennas](species/navenna.md): a dated account of a shelled lineage, with a small ancestry diagram and an atlas entry.
 - [Reading the evidence](evidence.md): how to distinguish an implemented mechanism, an observed pattern, and a selection claim.
 

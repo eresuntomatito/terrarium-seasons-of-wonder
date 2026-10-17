@@ -20,6 +20,19 @@ My role is documentarian, wiki editor, publishing collaborator, and community co
 - Keep substantive updates concise. Do not create extra documents merely to record activity; prefer improving the existing artifact.
 - This is a session-based pace. No background schedule or automatic check-in has been created, and work does not continue between active sessions. A future session resumes from the next action below.
 
+## Six-hour work window: 2026-10-16/17
+
+Luis requested a backlog review every 15 minutes for six hours. Codex began at **2026-10-16 23:16 UTC**; the window ends at **2026-10-17 05:16 UTC** (07:16 Berlin time). This is an active-session cycle, not a permanent background service. Each review selects one concrete unblocked task; if none is available, develop an explicit proposal. Do not interfere with the steward's unfinished changes. Record outcomes here and produce an end-of-window report with remaining blockers and decisions.
+
+| Cycle | UTC review | Concrete outcome |
+| --- | --- | --- |
+| 01 | Oct 16 23:16 | P11: added the source-bounded trait inventory, distinguishing inherited settings, acquired supplies/state, and derived properties; linked it from the wiki entrance. |
+| 02 | Oct 16 23:31 | P10: documented a repeatable publication procedure, including source/privacy boundaries, ancestor checks, isolated validation, photograph readiness, and documentation-only updates. |
+| 03 | Oct 16 23:46 | P11: added digestion, overlapping feeding eligibility, rollout qualifications, non-inherited birth variation, and the explicit partial inheritance of acquired digestive shift. |
+| 04 | Oct 17 00:01 | Prepared `WORLD-SNAPSHOT-PROPOSAL.md`: source-only versus one reviewed milestone versus recurring snapshots, disclosure/compatibility gates, and the one decision needed before publishing a save. No runtime data published. |
+| 05 | Oct 17 00:16 | Added the four-lands explanation: wrapping seams, probabilistic skill gates, body-relative water depth, frozen-water access, crossing-count limits, and unproven ecological outcomes. |
+| 06 | Oct 17 00:31 | Community pass: GitHub reports zero open issues and pull requests. Reviewed the first wiki batch and prepared documentation-only publication; no world-source import or live intervention. |
+
 ## Backlog
 
 Statuses: **ready** means independently actionable; **needs evidence** means an investigation is needed; **needs Luis** means a decision is needed before the dependent action; **done** means the stated result exists.
@@ -35,7 +48,7 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P07 | Next | Establish the collaboration credits | Viewer evidence added; earlier eras open | Viewer commit `a19479c` records Codex's work from the viewer review session. README and interview follow-up now reflect it; attribution in earlier eras remains unresolved. Git commit identity alone is not proof of authorship. |
 | P08 | Before publication | Confirm license, credit preferences, and disclosure choices | Done | Luis selected MIT and public credit as eresuntomatito. The publication history uses the account-ID-based GitHub no-reply address. |
 | P09 | Before publication | Prepare and publish the GitHub repository | Done | Public repository created and pushed; GitHub reports PUBLIC, main, issues enabled, and MIT. Six unauthenticated content checks match local publication files. See `PUBLICATION.md`. |
-| P10 | After publication | Establish a sustainable update practice | Ready | Documentation distinguishes stable explanations from dated observations, and the next session knows when publication needs updating without requiring a rewrite after every season. |
+| P10 | After publication | Establish a sustainable update practice | Done for current workflow | `PUBLICATION.md` records release triggers and the source-review, privacy, merge, validation, photograph-readiness, and verification sequence. |
 | P11 | Next | Build the trait and rule reference | First entry complete; continue | Armour and mineral-supply pages exist. Next inventory the remaining inherited, acquired, and derived traits before extending coverage. |
 | P12 | Next | Build species accounts and a dated atlas | First entry complete; needs map data | Navenna page has dated traits, sourced ancestry, and whole-world atlas context. A species-specific geographic distribution has not been produced; dated individual positions are still needed. |
 | P13 | Next | Explain selection, variation, and the model's limits | Needs evidence | The wiki connects relevant biological concepts to actual implemented mechanisms and separates model assumptions, selection measurements, correlations, and causal evidence. External scientific claims use appropriate sources. |
@@ -55,7 +68,7 @@ Uncertainty is work to track, not a reason to stop the entire agenda.
 | Can the active steward offer a first-hand collaboration account? | Leave the interview questions available for an attributed response. The existing interview came from a fresh session and must stay labeled that way. | A richer account of the process. |
 | Should publication include the full existing Git history? | Resolved for first release: all 2,565 reviewed commits retained in a separate filtered history, with local metadata excluded and no-reply author/committer emails. | Future synchronization strategy. |
 | What exactly does a fresh checkout create? | Resolved for `39359c9`: 150 wanderers and three initial rollouts, not the continuing genesis world. Keep `RUNNING.md` aligned with future implementation changes. | Ongoing documentation maintenance. |
-| Should readers receive a saved world as well as source? | First explain what code alone preserves and what an optional snapshot would add. Runtime data is excluded by default. | Optional snapshot delivery; source documentation can proceed. |
+| Should readers receive a saved world as well as source? | `WORLD-SNAPSHOT-PROPOSAL.md` compares options and recommends considering one reviewed milestone. Luis must authorize a specific save before review/release. Runtime data remains excluded. | Optional snapshot delivery; source documentation can proceed. |
 | How does Luis want to be named publicly? | Resolved: eresuntomatito. Historical reports retain their existing references to Luis. | Keep public credits consistent. |
 | What reuse does Luis want to permit? | Resolved: MIT. Its distinction from Creative Commons was explained when applying the choice. | Include the license in publication. |
 | Is the proposed slug available? | Resolved: the public repository now exists at eresuntomatito/terrarium-seasons-of-wonder. | No further naming action needed. |
