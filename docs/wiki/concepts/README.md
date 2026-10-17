@@ -29,4 +29,6 @@ The tested stomach did not help in its tested world and was not applied. Great f
 
 The first dedicated account is [landforms, rock, and moving material](land-and-material.md): real-world references, Luis's questions, the implemented analogue, and built-versus-proposed limits.
 
+The [behaviour and species account](../behaviour-and-species.md) explains the different mechanisms behind numerical drift, code forms, niche splitting, and Luis's revised great divide.
+
 For each supported concept, explain the real-world idea with appropriate sources, how Luis engaged with it, the exact model analogue, its simplifications, and dated evidence. The route above is an evidence-led entrance, not a claim that every topic already has a complete scientific essay. Do not infer an explicit conversation from a source-code field alone, or use the model to assert a general law of nature.

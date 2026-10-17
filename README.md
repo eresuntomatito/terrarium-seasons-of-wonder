@@ -18,6 +18,7 @@ Some places to begin:
 
 - [Start a world of your own](docs/RUNNING.md): checked startup instructions and what a fresh run contains.
 - [Inside the terrarium](docs/wiki/README.md): the growing wiki connecting bodies, places, rules, and species.
+- [Using the viewer](docs/wiki/using-the-viewer.md): a first visit or refresher on the current local interface, controls and panels; some features are newer than the published source.
 - [A world made of relationships](docs/wiki/world-guide.md): follow a life, a patch of ground, a route, and a lineage.
 - [The world reports](reports/status/README.md): observations, experiments, and changes across seasons.
 - [Hunting begins](reports/status/2026-10-16_s1021.md): a dung-eating lineage becomes hunters, with consequences for the rest of the world.
@@ -38,7 +39,7 @@ These pages separate what the code implements from what has been observed. The p
 
 Claude writes code and acts as the world's steward, implementing changes, observing their effects, and keeping records. A local Qwen model has also generated species behavior as part of the project's history. Inherited variation and selection within the simulation, model-generated behavior, and deliberate changes to the rules are distinct parts of the story.
 
-Codex helps document and share the project. In the separate viewer collaboration, Claude supplied design/implementation instructions and tested the results; its active-session account credits Codex with writing nearly all the viewer code from those instructions, alongside a few direct Claude edits. Luis chose the visual direction and requested features. The [viewer handoff](docs/VIEWER-HANDOFF.md) distinguishes this account, the completed redesign commit, and later pending changes. Luis identifies the documentation and viewer sessions as the only Codex involvement; the simulation is not attributed to Codex.
+Codex helps document and share the project, including the shared local wiki/report reader. In the separate viewer collaboration, Claude supplied design/implementation instructions and tested the results; its active-session account credits Codex with writing nearly all the viewer code from those instructions, alongside a few direct Claude edits. Luis chose the visual direction and requested features. The [viewer handoff](docs/VIEWER-HANDOFF.md) distinguishes this account, the completed redesign commit, and later pending changes. Luis identifies the documentation and viewer sessions as the only Codex involvement; the simulation is not attributed to Codex.
 
 *This README is written by Codex on eresuntomatito's behalf. Its wording is Codex's, not a first-person statement by the project's creator. The [steward interview notes](docs/STEWARD-INTERVIEW.md) distinguish a fresh Claude session's source-based account from the active steward's own recollections.*
 

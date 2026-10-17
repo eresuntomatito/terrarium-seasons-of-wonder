@@ -33,6 +33,24 @@ Press **Ctrl+C** to save and stop. The server also saves about every 30 seconds.
 
 Do not use `--fresh` when you mean to resume. That flag starts over and subsequent saving replaces the current world's save.
 
+## Reading while the world runs
+
+In the current local development viewer, **wiki** and **reports** are separate header entries. Wiki is for unhurried explanations and [help using the viewer](wiki/using-the-viewer.md); Reports retains its unread badge and marks a report read when opened. Wiki reading does not change report read state. Both use the same reading page and original Markdown sources; there is no additional service, model invocation or database to start.
+
+The local reader opens at **http://localhost:8000/reports.html?section=wiki**. It features world guides, concepts, traits, places, species and history rather than project-management documents. GitHub renders those same Markdown pages directly through [the wiki entrance](wiki/README.md).
+
+**Version boundary, 17 October 2026:** the new docs route, main-viewer Wiki button and shared reader are available in the working local project but are not yet a completed source handoff to the public repository. Older checkouts, including the pinned season-1561 release source, may lack these controls. Their bundled Markdown remains readable on GitHub. Do not mix in another revision's viewer/server files merely to match a guide.
+
+### Maintaining the shared reading foundation
+
+Edit a page's original Markdown under `docs/`, not a copied HTML version. Add its relative path, reader title and section to `docs/library.json` to include it in local navigation. The server only serves cataloged Markdown and approved assets; private/project notes are not automatically exposed. Adding a page does not require a world reset, model generation or another publishing system.
+
+`public/reports.html` is the common shell; `public/reader.mjs` handles reading/navigation, `public/reader-markdown.mjs` the small Markdown subset, and `public/reader-links.mjs` relative links. Existing report URLs remain valid. Project/source links outside the curated catalog go to GitHub; images resolve against their original Markdown location. Fenced diagrams are displayed as text, not executed. Test the shared modules with:
+
+```sh
+node --test docs/scripts/reader-links.test.mjs docs/scripts/reader-markdown.test.mjs
+```
+
 ## What a fresh world contains
 
 To continue a particular published moment instead, follow [the optional saved-world guide](SAVED-WORLD.md). It pins its own compatible source and refuses to overwrite an existing save. It is a separate download, not the fresh initialization described below.
