@@ -19,6 +19,6 @@ Codex's later [season-1445 photograph](../assets/README.md) confirms fully risen
 
 ## The collaboration is part of the history
 
-Luis chooses questions and conditions; Claude carries the stewardship and much of the implementation and reporting; the local model integration supplies another route for candidate novelty. Codex's documented role includes publication, explanation, and community work, with separate source evidence for a viewer-review contribution. These are roles, not percentages of authorship. The [attributed steward interview](../STEWARD-INTERVIEW.md) explains its evidence and limits; an earlier Codex-era account remains incomplete.
+Luis chooses questions and conditions; Claude carries the stewardship and much of the implementation and reporting; the local model integration supplies another route for candidate novelty. Codex's documented role includes publication, explanation, and community work, with separate source evidence for a viewer-review contribution. Luis confirms that this documentation session and the viewer session are the only Codex involvement. These are roles, not percentages of authorship. The [attributed steward interview](../STEWARD-INTERVIEW.md) explains its evidence, correction, and limits.
 
 This route intentionally does not invent a complete origin story from later summaries. For the larger record, read the [report index](../../reports/status/README.md) and the [evidence standards](evidence.md).

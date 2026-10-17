@@ -1,20 +1,16 @@
-# Proposal: a world readers could continue
+# Latest published world: saved-state decision
 
-Prepared by Codex on eresuntomatito's behalf. **Proposal only: no continuing-world save has been published or approved for publication.**
+Maintained by Codex on eresuntomatito's behalf. **Authorized by Luis on 2026-10-17:** share one reviewed saved state corresponding to the latest deliberate publication. **Delivery is not yet complete.** This is a publication artifact, not a recurring snapshot programme or a continuous service. The historical filename is retained to preserve existing links.
 
 ## The gap
 
 The public repository preserves source, species history, reports, and photographs. A fresh start does not recreate the continuing world's creatures, accumulated terrain, supplies, active rollouts, or learned state. The [running guide](RUNNING.md) explains this distinction. A reader can start a world but cannot currently resume the one depicted in the README.
 
-## Three useful choices
+## Agreed scope
 
-| Choice | What readers receive | Tradeoff |
-| --- | --- | --- |
-| Keep source and reports only | The current publication, with clearer explanations and dated imagery | Least disclosure and maintenance; no continuation of the pictured world. |
-| Publish one reviewed milestone snapshot | An optional save tied to a named source revision and season | Closest way to explore an existing moment; requires compatibility testing and an explicit disclosure decision. |
-| Offer periodic snapshots | Several dated starting points | More preservation and comparison possibilities, but recurring review, storage, and maintenance. Not recommended as an initial commitment. |
+Keep one optional, reviewed state with a compatible published source revision and a small provenance/restore note. Update it only as part of a deliberate publication decision, not on a timer, after every season, or to maintain a live mirror. Do not create a historical series of automatic releases. Keep the source-only path usable.
 
-**Codex's recommendation:** consider one optional milestone snapshot after documentation has made the source/save distinction clear. Keep the source-only path fully usable. A snapshot should be a separate, explicitly reviewed release asset rather than removing `data/` from `.gitignore` or committing a live directory.
+Prefer a compressed release asset over committing repeated large saves into Git. Leave `data/` ignored and publish neither the whole runtime directory nor raw logs, bridge files, credentials, or session material. A static download creates no promise of support, uptime, freshness, or readership. Public live viewing is deferred separately.
 
 ## Review before release
 
@@ -25,8 +21,10 @@ The public repository preserves source, species history, reports, and photograph
 - Explain that a continuation forks the world: it does not control Luis's running world, and future outcomes need not match. Do not promise deterministic replay or compatibility with arbitrary later source revisions.
 - Provide installation instructions that begin with a separate checkout and backup any reader's existing save. Do not supply overwrite commands until the actual artifact and tested procedure exist.
 
-## What needs a decision
+## Immediate delivery steps
 
-Does eresuntomatito want readers to **continue a copy of a particular world moment**, or is starting their own world sufficient? If a copy is wanted, choose a milestone and authorize review of that specific save for public release. No need to decide periodic distribution, hosting, or a maintenance promise now.
+Codex requested a completed source boundary and save-compatibility note from the world steward in `AGENTS.md`. Review one normally written save copy against that boundary, remove or exclude nonessential private bookkeeping if needed, and validate the resulting artifact briefly in a separate directory. Record any transformation rather than pretending an edited artifact is byte-identical to the live save. If compatibility is not yet established, publish documentation independently while the specific artifact waits; do not ask Luis to authorize the same decision again.
 
-Source basis: public revision `f619e4e5460cc1f6968e924b696b78471577fdc5`, [serialization and restore](../sim/world.mjs), [server persistence](../server.mjs), and the recorded [publication exclusions](PUBLICATION-REVIEW.md). The full release review and compatibility test remain undone.
+Use bounded checks and an already-written state. No new model calls, live restarts, performance sampling loop, or unattended release automation is needed. The exact release/download link and restore steps belong here only once the artifact has actually passed review and been published.
+
+Initial source basis: public revision `f619e4e5460cc1f6968e924b696b78471577fdc5`, [serialization and restore](../sim/world.mjs), [server persistence](../server.mjs), and the recorded [publication exclusions](PUBLICATION-REVIEW.md). The actual release must name its own checked boundary; the current live world's newer geology must not be silently paired with an older source.

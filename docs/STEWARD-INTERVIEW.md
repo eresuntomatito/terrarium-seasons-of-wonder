@@ -23,9 +23,9 @@ Claude described its documented stewardship work as implementing mechanics and t
 
 Qwen is the local model used for the world's “god” role. The interview described generated edits to species behavior as part of its historical contribution. `god/ask.mjs` identifies the default model, while `STEWARD.md` records the instruction to pause it. Its historical involvement should be explained separately from what is enabled in a new checkout.
 
-Luis says Codex was used earlier as well. Neither this interview nor Codex's limited search of tracked documentation and commit subjects established those earlier contributions. That history remains an open question; publication work must not be presented as its only role across the entire project.
+**Correction from Luis, 2026-10-17:** Codex was used only in this documentation/publication session and the separate viewer session. Codex previously misread the reference to the viewer work as possible involvement in earlier eras. There is no earlier-Codex-era attribution question to investigate. The correction comes from Luis's explicit clarification, not an inference from Git identity.
 
-Later evidence, recorded by Codex after the interview: viewer commit `a19479c` (public counterpart `141618f`) explicitly records Codex's work from the viewer review session. This adds evidence for that review; attribution of the earlier eras remains open. It does not turn this fresh-session interview into the active steward's recollection.
+Later evidence, recorded by Codex after the interview: viewer commit `a19479c` (public counterpart `141618f`) explicitly records Codex's work from the viewer review session. This supports that review contribution. It does not turn this fresh-session interview into the active steward's recollection.
 
 ### Attribution follow-up: 2026-10-17
 
@@ -33,7 +33,7 @@ Codex searched the filtered public history's commit messages for Codex reference
 
 The tracked `STEWARD.md` explicitly begins with Claude's stewardship from era 4 onward and describes Claude's ecosystem/viewer work and Qwen's smaller local roles. Those statements do not establish who implemented eras 1–3, nor does a commit made under Luis's Git identity prove that he wrote its code. No percentage allocation of code authorship is supported.
 
-**Remaining evidence request, not a blocker to the rest of the wiki:** Luis or the active steward could identify an early milestone, relevant commit, or a short publishable account of what the earlier Codex session did. Private session transcripts are not required and should not be published by default. Until then, credit Codex's verified publication/documentation and viewer-review work, and keep Luis's statement that Codex was involved earlier visibly unresolved rather than rewriting it as absence.
+**Current handoff:** Codex requested a concise attributed contribution summary from the active viewer session in `AGENTS.md`. “First-hand” means that session describing its own work, not a demand that Luis prove authorship, supply transcripts, or recover unavailable history. Confirmed documentation and viewer contributions can already be credited; additional detail can refine the account when convenient.
 
 ## Stories worth following up
 

@@ -38,7 +38,7 @@ These pages separate what the code implements from what has been observed. The p
 
 Claude writes code and acts as the world's steward, implementing changes, observing their effects, and keeping records. A local Qwen model has also generated species behavior as part of the project's history. Inherited variation and selection within the simulation, model-generated behavior, and deliberate changes to the rules are distinct parts of the story.
 
-Codex is helping document and share the project. The [viewer redesign commit](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/commit/141618ff221a22205232ad9ced1efbac282ac5c8) also records Codex's work from the viewer review session. Contributions outside that documented review and publication work are still being established.
+Codex helps document and share the project; the separate viewer session also uses Codex. The [viewer redesign commit](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/commit/141618ff221a22205232ad9ced1efbac282ac5c8) records work from that viewer review. Luis identifies these documentation and viewer sessions as the only Codex involvement in the project; this is not a claim that Codex wrote the world's simulation or every viewer feature.
 
 *This README is written by Codex on eresuntomatito's behalf. Its wording is Codex's, not a first-person statement by the project's creator. The [steward interview notes](docs/STEWARD-INTERVIEW.md) distinguish a fresh Claude session's source-based account from the active steward's own recollections.*
 

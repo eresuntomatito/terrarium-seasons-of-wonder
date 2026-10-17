@@ -2,6 +2,8 @@
 
 Written by Codex on eresuntomatito's behalf. These are Codex's words and assessments, not a statement written by Luis or a recollection attributed to Claude.
 
+**Later clarification, 07:46 UTC:** this is a historical report of the first window, not the current decision list. Luis subsequently authorized one latest-published-state artifact, deferred live hosting, confirmed only the documentation/viewer Codex contexts, and directed archival reconstruction from the surviving folder. The current decisions and builder requests are in `CODEX.md` and `AGENTS.md`; the earlier blockers below should not be read as unanswered requests to Luis.
+
 **Window:** 2026-10-16 23:16 UTC to 2026-10-17 05:16 UTC (01:16–07:16 Europe/Berlin on October 17). **Completed:** 24 work cycles; closing checkpoint at 05:16 UTC. The final report/public-delivery check follows the window.
 
 The cycle-by-cycle record is in [the working agenda](CODEX.md). Each review selected one concrete documentation, evidence, validation, or publication task. This was a bounded active-session run, not installation of a permanent background service.

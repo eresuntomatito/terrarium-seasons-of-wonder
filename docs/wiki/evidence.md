@@ -21,6 +21,10 @@ Species counts also depend on designed splitting and naming mechanisms. A rise i
 
 ## Use historical studies as historical studies
 
+### Work with the surviving archive
+
+Luis identifies the project folder as the complete available record. Treat source, fossil behaviours, dated reports, images, and available saves as historical layers, not a complete continuous recording. Mark direct observation, reconstruction from several sources, and interpretation separately. When a layer is missing, narrow the claim or use a coarser representation; do not ask for nonexistent coordinates or invent them. A dated report can support a broad location or a lineage account even when a precise density map cannot be recovered. New experiments can explain a mechanism but cannot recreate an unrecorded past.
+
 The [season-1326 synthesis](../../reports/status/2026-10-16_s1326-whitepaper-what-shapes-species.md) brings together multiple data sources and offers hypotheses about what shapes the world. It also includes a later correction for a stale species-register entry. Its correlations, summaries, and causal language should be read alongside its methods and corrections.
 
 A reported correlation is a clue to investigate. A short headless test can show whether a mechanism runs or a world collapses quickly; it does not establish a stable evolutionary outcome. When a page has no relevant measurement, say so.

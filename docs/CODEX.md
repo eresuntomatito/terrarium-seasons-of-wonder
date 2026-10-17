@@ -20,7 +20,25 @@ My role is documentarian, wiki editor, publishing collaborator, and community co
 - Keep substantive updates concise. Do not create extra documents merely to record activity; prefer improving the existing artifact.
 - This is a session-based pace. No background schedule or automatic check-in has been created, and work does not continue between active sessions. A future session resumes from the next action below.
 
-## Six-hour work window: 2026-10-16/17
+## Current decisions and six-hour window: 2026-10-17
+
+Updated by Codex at 07:46 UTC after Luis clarified the mission:
+
+- The surviving folder is the complete available archive. Use it like a historian or archaeologist: preserve dated evidence, infer carefully, and label irrecoverable gaps. Missing historic coordinates are not a task for Luis to solve and do not block useful maps or narrative reconstruction.
+- Codex has been used only in this documentation session and the viewer session. Credit these confirmed contexts; ask the active viewer session for a concise contribution summary through `AGENTS.md`. Do not investigate imaginary earlier Codex eras or require transcripts.
+- Request completed steward/viewer commits and scope through `AGENTS.md`; keep writing while they finish. Do not stage their files or change the running world.
+- Share one reviewed saved state matching the latest deliberate publication, not periodic releases or a continuous service. No live capture daemon, new model work, recurring snapshot job, or performance obligation. Review and short isolated validation are authorized; exclude unrelated runtime/log/bridge/session files.
+- Public live viewing is deferred, not a current blocker. Keep the Markdown wiki; public readership is not urgent and creates no service promise.
+
+**Window:** 07:46–13:46 UTC (09:46–15:46 Europe/Berlin), reviews every 30 minutes for six hours. Choose one concrete unblocked task per review; if none is actionable, prepare a mission-aligned proposal. Use bounded work and real waiting rather than continuous polling. Finish with a report. No permanent schedule is installed.
+
+**Immediate next steps:** (1) correct the state/credit/snapshot notes and request the two handoffs; (2) extend the wiki's fat/energy explanation against a committed boundary; (3) inventory surviving fossils/reports for historical reconstruction; (4) review one saved-state copy and release it only against a verified compatible public source. Incorporate a ready builder handoff when it arrives, rather than making the documentation depend on waiting.
+
+| Cycle | UTC review | Concrete outcome |
+| --- | --- | --- |
+| B01 | 07:46 | Requested separate world/viewer handoffs in `AGENTS.md`; recorded archive-only historical method, two confirmed Codex contexts, latest-publication snapshot authorization, deferred live hosting, and the 30-minute cadence. |
+
+## Previous six-hour work window: 2026-10-16/17
 
 Luis requested a backlog review every 15 minutes for six hours. Codex began at **2026-10-16 23:16 UTC**; the window ends at **2026-10-17 05:16 UTC** (07:16 Berlin time). This is an active-session cycle, not a permanent background service. Each review selects one concrete unblocked task; if none is available, develop an explicit proposal. Do not interfere with the steward's unfinished changes. Record outcomes here and produce an end-of-window report with remaining blockers and decisions.
 
@@ -65,7 +83,7 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P04 | First | Verify a stranger's path to running a separate world | Done within recorded limits | `RUNNING.md` and `VERIFICATION.md` record tested startup, HTTP/SSE, signal save/resume, 400 ticks, and source-inspected model/Git behavior. Later live-photo/static-atlas browser observations are separately bounded; model generation is untested. |
 | P05 | Next | Establish the wiki's structure and first connected explanations | Done for first slice | `wiki/README.md` connects armour, mineral supply, a dated navenna account and ancestry/atlas context, and evidence standards. Full encyclopedia coverage remains P11–P13. |
 | P06 | Next | Tell a short, evidenced history | First account ready | `wiki/history.md` connects six reported turning points with interventions, observations, and limits; a full origin/early-era account still needs evidence. |
-| P07 | Next | Establish the collaboration credits | Viewer evidence added; earlier eras open | Viewer commit `a19479c` records Codex's work from the viewer review session. README and interview follow-up now reflect it; attribution in earlier eras remains unresolved. Git commit identity alone is not proof of authorship. |
+| P07 | Next | Establish the collaboration credits | Contexts confirmed; viewer detail requested | Luis confirms only this documentation session and the viewer session used Codex. Credit supported contributions and integrate a brief attributed viewer handoff; no earlier-era Codex investigation remains. |
 | P08 | Before publication | Confirm license, credit preferences, and disclosure choices | Done | Luis selected MIT and public credit as eresuntomatito. The publication history uses the account-ID-based GitHub no-reply address. |
 | P09 | Before publication | Prepare and publish the GitHub repository | Done | Public repository created and pushed; GitHub reports PUBLIC, main, issues enabled, and MIT. Six unauthenticated content checks match local publication files. See `PUBLICATION.md`. |
 | P10 | After publication | Establish a sustainable update practice | Done for current workflow | `PUBLICATION.md` records release triggers and the source-review, privacy, merge, validation, photograph-readiness, and verification sequence. |
@@ -77,6 +95,9 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P16 | Now | Refresh the README photograph after the intended world redesign | Done | Confirmed the live rollout at season 1396, selected the greenest of six frames at season 1400 (approximately 44% through the rise), published in `3ad21b6`, and verified the public image and README by hash. |
 | P17 | Now | Synchronize the completed world redesign into the public source | Done | Published the reviewed five-commit source delta in merge `3ad21b6`, preserving public history and no-reply identities. Isolated checks pass; all 943 source files match the steward's tree, and twelve public HTTP checks pass. |
 | P18 | Now | Photograph the completed four-land layout | Done | Season-1445 settled capture confirms rise 1.0 and natural greenery. README, running-guide caption, and provenance published in `89d4fd5`. |
+| P19 | Now | Publish the latest reviewed saved world state | Authorized; source compatibility review needed | One deliberate-publication state, documented and briefly tested on an isolated copy. No recurring snapshots, runtime directory dump, or service. See `WORLD-SNAPSHOT-PROPOSAL.md` for the updated decision and release gates. |
+| P20 | Now | Integrate completed builder handoffs | Requested in `AGENTS.md` | World and viewer sessions provide their own completed commits/scope; review and privacy-filter the delta before publication. No waiting on unfinished features or staging others' work. |
+| P21 | Next | Reconstruct the surviving archive | Ready | Use fossil files, reports, images, commit history, and available saves as archaeological layers; distinguish observed, reconstructed, inferred, and unrecoverable history. No invented historic coordinates. |
 
 ## Open questions
 
@@ -84,23 +105,24 @@ Uncertainty is work to track, not a reason to stop the entire agenda.
 
 | Question | Next action | What depends on it |
 | --- | --- | --- |
-| What did earlier Codex sessions contribute? | Viewer commit `a19479c` supplies evidence for the viewer review. Earlier-era attribution still needs sources rather than assumptions. | Completing the collaboration history. |
-| Can the active steward offer a first-hand collaboration account? | Leave the interview questions available for an attributed response. The existing interview came from a fresh session and must stay labeled that way. | A richer account of the process. |
+| What did Codex contribute? | Scope resolved by Luis: only this documentation session and the viewer session. Confirmed viewer evidence exists; concise viewer-session detail requested through `AGENTS.md`. | Refine credits without an invented earlier-era mystery. |
+| What does a session handoff mean? | A short attributed description and relevant commit, not proof from Luis or private transcripts. The older fresh-session interview remains labeled as reconstruction. | Specific credit details, not permission to continue writing. |
 | Should publication include the full existing Git history? | Resolved for first release: all 2,565 reviewed commits retained in a separate filtered history, with local metadata excluded and no-reply author/committer emails. | Future synchronization strategy. |
 | What exactly does a fresh checkout create? | Resolved for `39359c9`: 150 wanderers and three initial rollouts, not the continuing genesis world. Keep `RUNNING.md` aligned with future implementation changes. | Ongoing documentation maintenance. |
-| Should readers receive a saved world as well as source? | `WORLD-SNAPSHOT-PROPOSAL.md` compares options and recommends considering one reviewed milestone. Luis must authorize a specific save before review/release. Runtime data remains excluded. | Optional snapshot delivery; source documentation can proceed. |
+| Should readers receive a saved world as well as source? | Resolved: one reviewed latest-published state is authorized. Complete source matching, disclosure review, and a bounded isolated check; no periodic service. | Artifact readiness, not another authorization question. |
 | How does Luis want to be named publicly? | Resolved: eresuntomatito. Historical reports retain their existing references to Luis. | Keep public credits consistent. |
 | What reuse does Luis want to permit? | Resolved: MIT. Its distinction from Creative Commons was explained when applying the choice. | Include the license in publication. |
 | Is the proposed slug available? | Resolved: the public repository now exists at eresuntomatito/terrarium-seasons-of-wonder. | No further naming action needed. |
 | Where should the wiki be presented? | Start with versioned Markdown under `docs/wiki/`; assess GitHub Wiki or a rendered site once navigation and content exist. | Presentation and hosting, not initial writing. |
-| What should species maps show? | Begin with separately labeled spatial distributions and ancestry diagrams; inspect which historical positions and ancestry sources are actually available before promising time-series coverage. | Atlas coverage and historical map claims. |
+| What should species maps show? | Work with surviving evidence. Publish dated distributions when coordinates exist; otherwise use labeled broad regions/report imagery and ancestry. Absent old coordinates are an archive limit, not a user blocker. | Choose an honest representation, not recover nonexistent data. |
+| Should the world be publicly viewable live? | Deferred by Luis; revisit later. Do not host or expose the server now. | Nothing in the current documentation/snapshot pass. |
 | How should community monitoring run between sessions? | Use active-session review initially. Discuss a schedule only if Luis wants unattended monitoring; none is configured. | Background responsiveness, not replies during active work. |
 
 ## Current handoff
 
 **Completed:** first public GitHub release under MIT, credited to eresuntomatito; publication review at `39359c9`; filtered species history; checked startup guide; README with an inspected image; first connected wiki section; community workflow; public metadata and unauthenticated content verification. See `PUBLICATION.md`, `PUBLICATION-REVIEW.md`, and `VERIFICATION.md` for scope and limitations.
 
-**Next action:** the six-hour window is complete. A later session can extend P11 with fat/energy accounting, then behaviour variants and species splitting. The current wiki has question-led navigation, whole-world and history entrances, connected trait/environment pages, two species accounts, an atlas, and evidence/selection foundations. P18's settled season-1445 photograph is published. Earlier attribution and optional save release require evidence/decisions; no need to wait on them before continuing documentation. The live world had reached saved season 1520 at the closing check, so all photographs and species accounts must retain their historical dates rather than imply a current census.
+**Next action:** proceed through the current 30-minute window above: fat/energy reference, surviving-archive reconstruction, and one reviewed latest-publication snapshot, integrating the requested builder handoffs when ready. Public viewing is deferred; credits no longer have an unresolved earlier-Codex question. Keep existing species accounts and photographs historically dated, never a live-census promise.
 
 **Publication checkout:** `/private/tmp/terrarium-publication-7kcsrlxg/repository/` has the public `main` branch and its `origin`. The sibling `prepared/` directory contains review artifacts. These are temporary local paths; clone the public repository into a fresh working location if they disappear. The original development checkout has no publication remote added. Do not try to push its unfiltered history directly to the public repository.
 

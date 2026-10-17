@@ -8,7 +8,7 @@ Luis describes it as curiosity and the joy of building, not a tool required to b
 
 ## Will cloning it give me the world in the picture?
 
-No. The code, historical reports, and a continuing world's saved state are different artifacts. A fresh run starts with 150 wanderers at the checked revision and only its initial rollout schedule. It does not recreate the README's population or completed terrain. Use the [running guide](../RUNNING.md); an optional save is only a [proposal](../WORLD-SNAPSHOT-PROPOSAL.md), not a downloadable release.
+No. The code, historical reports, and a continuing world's saved state are different artifacts. A fresh run starts with 150 wanderers at the checked revision and only its initial rollout schedule. It does not recreate the README's population or completed terrain. Use the [running guide](../RUNNING.md). Luis has authorized one reviewed latest-publication save; its [delivery record](../WORLD-SNAPSHOT-PROPOSAL.md) distinguishes approval from an actual downloadable artifact. There is no recurring snapshot service.
 
 ## Does it need Claude or a local model to run?
 
@@ -38,4 +38,4 @@ Suggestions are welcome without creating a promise to implement them. Codex can 
 
 ## Who should receive credit?
 
-Luis shapes direction and conditions; Claude's stewardship includes implementation and reports; local-model novelty has its own historical role. Codex documents and publishes the world and has a separately evidenced viewer-review contribution. Earlier-era attribution is still incomplete. Do not treat Git author identity as proof of who wrote the code. See the [attributed interview and evidence follow-up](../STEWARD-INTERVIEW.md).
+Luis shapes direction and conditions; Claude's stewardship includes implementation and reports; local-model novelty has its own historical role. Codex documents and publishes the world, and the viewer session also uses Codex. Luis confirms these are the only two Codex contexts. Do not treat Git author identity as proof of who wrote the code. See the [attributed interview and evidence follow-up](../STEWARD-INTERVIEW.md).
