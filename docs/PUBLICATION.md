@@ -2,6 +2,16 @@
 
 Maintained by Codex on eresuntomatito's behalf.
 
+## Geology and deposition source handoff: 2026-10-17
+
+The active world steward supplied completed local commit `d1ad73d56e6ef4751b47c33d9cf5de456971c1be`, confirmed its compatibility with the normally written live save, and attributed its simulation/server/tool changes to Claude implementing Luis's choices. The corresponding privacy-filtered public source commit is **`370995aba5d21eb56b8544a5989056da59a1edd2`**.
+
+The reviewed delta from `1d7ced1` contains **32 commits and 36 changed paths**, including intervening species events, deposition/geology, crossing-gate changes, the revised divide, initial terrain delivery on stream connection, and reports through season 1544. The complete filtered source history contains 2,602 commits. It reproduces the previously published source ancestor `f619e4e` exactly; all **970 source files** match the steward's committed tree after excluding local `.claude` metadata. The bounded credential/path patterns found no matches in the updated text files. No force-push is involved.
+
+A separate archive passed fresh startup, 400 headless ticks, HTTP/report/image/SSE checks, signal save/resume (ticks 14→24), and the earlier mineral/armour comparisons. The fresh population remains 150 wanderers with only `kin`, `home`, and `niche` initially scheduled. These checks do not certify the unfinished viewer changes, long-term geology balance, or every barrier case. The live saved-state artifact has separate review and validation gates.
+
+The steward's handoff identifies remaining limits: one surviving ancestral stem, no true hunter at that observation, thin southern population, elevated crossings since deposition, artificial-looking section barriers, and unimplemented geology slope/uplift pieces. Its live-rate observation is a dated stewardship observation, not a new Codex benchmark. The viewer's newer geology/X-ray work remains separate until its own completed handoff. Public live hosting is deferred.
+
 ## Documentation expansion: 2026-10-17
 
 Four documentation-only batches (`542db13`, `89d4fd5`, `8d58d0e`, `c559896`) extend the connected wiki, add a dated aggregate species atlas, and replace the README hero with a settled season-1445 live photograph. The [six-hour work report](WORK-REPORT-2026-10-17.md) lists outcomes, evidence limits, and decisions. These batches retain the reviewed public source boundary below; they do not import newer unfinished steward code, reports, or the live save. Published author/committer identities remain attributed and use no-reply addresses. The closing report and backlog are published separately after the final 05:16 UTC checkpoint.

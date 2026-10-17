@@ -46,6 +46,10 @@ The README's season-1328 image and the tracked `latest-page.png` viewer capture 
 
 ## Redesign update: 2026-10-17
 
+### Later geology handoff
+
+Local `d1ad73d` / public `370995aba5d21eb56b8544a5989056da59a1edd2` was checked in a separate archive with the same bounded startup/headless/persistence/mineral/armour procedure. All checks passed; fresh save tick 14 resumed to tick 24, 32 report entries were served, and fresh initialization remained 150 wanderers with three initial rollouts. All 970 exported source files match the original committed tree excluding `.claude`; 24 focused documentation formula assertions pass on the publication copy. Neither the live runtime nor unfinished builder changes were used as the executable test source. A continuing-world artifact still needs its own compatibility check.
+
 The steward committed the viewer as `a19479c` and the simulation/report update as `1d7ced1`. A fresh archive of `1d7ced1` was tested separately from the running world. The startup, 400-tick headless run, HTTP/SSE checks, signal save, resume, initial population, initial rollouts, and controlled mineral/armour checks all passed again. The source reports list now contains 28 entries. Saving and resuming advanced the test from tick 13 to tick 23.
 
 An additional frame check confirmed 14 values per creature, a correctly encoded age share of 0.8 for a controlled body, and agreement with the server's stride-14 advertisement and the viewer's extra-field handling. A controlled shell-cracking check used a full-grown size-8.5 hunter, gape 0.7, and size-5 prey with effective armour 1: capture was disallowed before `crush` and allowed after it was activated. This verifies the new modifier, not a long-term ecological result.

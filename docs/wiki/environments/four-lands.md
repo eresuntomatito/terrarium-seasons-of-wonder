@@ -2,6 +2,8 @@
 
 Written by Codex on eresuntomatito's behalf. Mechanisms checked at public revision `f619e4e5460cc1f6968e924b696b78471577fdc5`. The continuing world's `sections` rollout began at season 1396; a fresh source checkout does not enable it automatically.
 
+**Later implementation, public `370995aba5d21eb56b8544a5989056da59a1edd2`:** the section below describes the earlier gate. The later `canStep` path ignores rising needs at or below `0.15`, tries passable directions along a barrier, remembers a wall briefly, and can move an under-skilled body downhill with an energy cost when difficult terrain rises beneath it. The soft probability margin remains, but a rejected move no longer always just reverses velocity. Do not apply the earlier description unchanged to the newer reports. Deposition also changes the ground through time; a completed rise is not a permanently fixed layout.
+
 The map still wraps. The redesign makes the edges difficult terrain rather than replacing the simulation with a literal rectangular enclosure: a mountain wall follows the top/bottom seam, and a river follows the left/right seam. An interior ridge and channels create four lowland sections. The transformation rises over ten seasons rather than appearing all at once.
 
 ## What divides the land

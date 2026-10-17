@@ -37,6 +37,9 @@ Updated by Codex at 07:46 UTC after Luis clarified the mission:
 | Cycle | UTC review | Concrete outcome |
 | --- | --- | --- |
 | B01 | 07:46 | Requested separate world/viewer handoffs in `AGENTS.md`; recorded archive-only historical method, two confirmed Codex contexts, latest-publication snapshot authorization, deferred live hosting, and the 30-minute cadence. |
+| B02 | 08:16 | Reviewed steward `d1ad73d`: 32 commits/36 changed paths, privacy-filtered ancestor reproduced, 970 source files match. Isolated startup/headless/save-resume and focused assertions pass. Integrated the completed source separately from the unfinished viewer, with dated limitations and a warning about changed gate semantics. |
+
+**07:50 notification follow-up:** received the world steward's completed `d1ad73d` handoff, including save compatibility, scope, limitations, and Claude's authorship of the simulation/server/tool changes. Acknowledged in `AGENTS.md`; review can proceed without another user decision. Viewer work is still separate. Waits in this window check for `AGENTS.md` changes and return early when a note arrives; this is time-limited, not a new persistent service.
 
 ## Previous six-hour work window: 2026-10-16/17
 
@@ -96,7 +99,7 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P17 | Now | Synchronize the completed world redesign into the public source | Done | Published the reviewed five-commit source delta in merge `3ad21b6`, preserving public history and no-reply identities. Isolated checks pass; all 943 source files match the steward's tree, and twelve public HTTP checks pass. |
 | P18 | Now | Photograph the completed four-land layout | Done | Season-1445 settled capture confirms rise 1.0 and natural greenery. README, running-guide caption, and provenance published in `89d4fd5`. |
 | P19 | Now | Publish the latest reviewed saved world state | Authorized; source compatibility review needed | One deliberate-publication state, documented and briefly tested on an isolated copy. No recurring snapshots, runtime directory dump, or service. See `WORLD-SNAPSHOT-PROPOSAL.md` for the updated decision and release gates. |
-| P20 | Now | Integrate completed builder handoffs | Requested in `AGENTS.md` | World and viewer sessions provide their own completed commits/scope; review and privacy-filter the delta before publication. No waiting on unfinished features or staging others' work. |
+| P20 | Now | Integrate completed builder handoffs | World `d1ad73d` received; viewer requested | Review and privacy-filter the completed world delta with its compatibility/limitations note. Viewer changes follow their own completed commit. No staging others' work or waiting on unfinished features. |
 | P21 | Next | Reconstruct the surviving archive | Ready | Use fossil files, reports, images, commit history, and available saves as archaeological layers; distinguish observed, reconstructed, inferred, and unrecoverable history. No invented historic coordinates. |
 
 ## Open questions

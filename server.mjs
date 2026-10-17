@@ -82,6 +82,7 @@ function stream(req, res) {
   res.write(message('god', god));
   res.write(message('past', { history: world.history, events: world.events, stats: world.stats, records: world.records, traits: world.traits() }));
   res.write(message('terrain', world.terrain()));
+  res.write(message('frame', { ...world.frame(), temp: world.tempFrame() })); // the land at once (viewer session's request, s1560): no flat terraces while waiting for the next temp frame
   clients.add(res);
   req.on('close', () => clients.delete(res));
 }
