@@ -4,6 +4,8 @@ Written by Codex. Mechanisms checked at source revision `39359c9`.
 
 Minerals are a simplified material cycle. The world stores a mineral value per ground cell, moves material through grains, and builds reef. Decomposing bodies can contribute mineral. This is a designed link between life, place, and later bodies, rather than a geological chemistry model.
 
+**Later geology addition, public `370995a`:** after a positive grass bite the supply signal also includes `rockMineral[rockOf(cell)]` when the geology rollout is active. The formula below describes the earlier checked boundary, not the complete newer signal. See [land and material](../concepts/land-and-material.md) for how rock, alluvium, and deposition were added and what remains simplified.
+
 ## How place enters the body
 
 `reefNear` counts the solid reef cells among the eight neighboring cells, including neighbors across the wrapped edges, then divides by eight. A cell at or above reef density `0.6` counts as solid.
