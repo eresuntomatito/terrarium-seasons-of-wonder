@@ -119,7 +119,7 @@
 </style>
 </head>
 <body>
-<main><canvas id="world"></canvas><div id="zoom"><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
+<main><canvas id="world"></canvas><div id="zoom"><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit" title="recenter: whole world, original framing (0)">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
 <aside>
   <div><div id="head"><h1>The Terrarium</h1><nav id="tools"><a id="wikilink" href="/reports.html?section=wiki" title="the world's wiki: guides, concepts, species and history">wiki</a><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="theme" title="theme: auto, light, dark">auto</button></nav></div><div class="dim" id="clock">connecting…</div><div id="weatherwrap"><div id="weather" tabindex="0" aria-controls="climatebox" aria-expanded="false">Waiting for the weather.</div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div></div><div id="god"></div></div>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart"></canvas></section>
@@ -172,14 +172,19 @@ const headings = new Map(); // id → the heading drawn, turned smoothly toward 
 const SCALE = 2;
 let meta, frameMs, cur = null, prev = null, recvAt = 0, rain = 0, tick = 0, season = 1;
 let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null;
-// The camera eases toward a clamped target; zoom keeps its chosen world point under the pointer.
+// The camera eases toward a wrapped target; zoom keeps its chosen world point under the pointer.
 const camera = { z: 1, cx: 0, cy: 0 }, target = { ...camera }, pointers = new Map();
-let pileBadges = [];
+let pileBadges = [], peakMarks = [], summits = [], peakHistory = [], peakRise = 0, summitKey = null;
 let following = null, drawn = [], anchor = null, gesture = null, viewShakeX = 0, viewShakeY = 0;
 // Hover shares the click's nearest-body test.
 const tip = $('tip'); let hovered = null, hoverPoint = null;
 function hideTip() { hovered = null; hoverPoint = null; tip.hidden = true; }
-function creatureAt(w) { let hit = null, distance = Infinity; for (const c of drawn) { const d = Math.hypot(w.x - c.x, w.y - c.y); if (d <= (c.hitRadius ?? Math.max(8, c.s)) && d < distance) { hit = c; distance = d; } } return hit; }
+function creatureAt(w) {
+  // A body can have several visible copies; keep only its closest copy before choosing a hit.
+  const nearest = new Map();
+  for (const c of drawn) { const d = Math.hypot(w.x-c.x,w.y-c.y); if(d <= (c.hitRadius ?? Math.max(8,c.s)) && d < (nearest.get(c.id)?.d ?? Infinity)) nearest.set(c.id,{c,d}); }
+  let hit=null,distance=Infinity;for(const {c,d} of nearest.values())if(d<distance){hit=c;distance=d;}return hit;
+}
 function placeTip() { if (!hoverPoint || tip.hidden) return; const main = tip.parentElement, r = main.getBoundingClientRect(), x = hoverPoint.x - r.left - main.clientLeft, y = hoverPoint.y - r.top - main.clientTop, w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = `${Math.max(0, Math.min(main.clientWidth - w, x + 14 + w > main.clientWidth ? x - w - 14 : x + 14))}px`; tip.style.top = `${Math.max(0, Math.min(main.clientHeight - h, y + 14 + h > main.clientHeight ? y - h - 14 : y + 14))}px`; }
 function badgeAt(w) { return pileBadges.find(b => Math.abs(w.x-b.x)<=b.w/2 && Math.abs(w.y-b.y)<=b.h/2); }
 function pileTip(b) {
@@ -188,7 +193,7 @@ function pileTip(b) {
   tip.hidden = false; placeTip();
 }
 function refreshTip() {
-  if (hoverPoint && !gesture && meta) { const b=badgeAt(worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y}))); if(b){hovered=null;pileTip(b);return;} }
+  if (hoverPoint && !gesture && meta) { const peak=peakAt(worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y})));if(peak){peakTip(peak);return;} const b=badgeAt(worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y}))); if(b){hovered=null;pileTip(b);return;} }
   if (hovered === null) { if(showXray&&hoverPoint&&!gesture)groundTip();else hideTip();return; }
   const c = cur?.get(hovered), sp = c && species[c.s]; if (gesture || !sp) { hideTip(); return; }
   const ci = cellOf(c.x, c.y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7);
@@ -200,15 +205,32 @@ function refreshTip() {
   tip.hidden = false; placeTip();
 }
 function groundTip(){
- if(!meta||!hoverPoint)return;const w=worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y})),i=cellOf(w.x,w.y),x=i%meta.GW,y=Math.floor(i/meta.GW),E=worldInputs.elev2??worldInputs.elev;if(!E){hideTip();return;}
- const height=j=>E[j]/255*(worldInputs.elev2?2.5:1)-(worldInputs.elev2?1:0),h=height(i),slope=Math.max(...[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>Math.abs(h-height(((y+dy+meta.GH)%meta.GH)*meta.GW+(x+dx+meta.GW)%meta.GW))))/meta.CELL,need=worldInputs.need?worldInputs.need[i]/255:Math.min(1,slope*25),mud=(worldInputs.alluv?.[i]??0)/255;
- tip.innerHTML=`${esc(placeOf(w.x,w.y))}<br>height ${h.toFixed(2)} · ${worldInputs.geo?rockNames[worldInputs.geo[i]]:'rock unknown'}<br>slope ${slope.toFixed(3)} · water ${(((worldInputs.water?.[i]??0)&127)/127).toFixed(2)}${mud>0?`<br>river mud ${mud.toFixed(2)}`:''}<br>climb need ${need.toFixed(2)}${worldInputs.need?'':' (approx.)'}`;
+ if(!meta||!hoverPoint)return;const w=worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y})),i=cellOf(w.x,w.y),x=i%meta.GW,y=Math.floor(i/meta.GW),E=worldInputs.elev3??worldInputs.elev2??worldInputs.elev;if(!E){hideTip();return;}
+ const height=heightAt,h=height(i),slope=Math.max(...[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>Math.abs(h-height(((y+dy+meta.GH)%meta.GH)*meta.GW+(x+dx+meta.GW)%meta.GW))))/meta.CELL,need=worldInputs.need?worldInputs.need[i]/255:Math.min(1,slope*25),mud=(worldInputs.alluv?.[i]??0)/255;
+ tip.innerHTML=`${esc(placeOf(w.x,w.y))}<br>height ${h.toFixed(2)} · ${worldInputs.geo?rockNames[worldInputs.geo[i]]:'rock unknown'}<br>slope ${slope.toFixed(3)} · water ${waterDepth(worldInputs.water,i,worldInputs.wScale).toFixed(2)} (${waterClass(waterDepth(worldInputs.water,i,worldInputs.wScale))})${waterDepth(worldInputs.water,i,worldInputs.wScale)>=swimDepth?` · needs swim ${Math.max(0,(waterDepth(worldInputs.water,i,worldInputs.wScale)/(swimDepth/1.225)-1)/1.5).toFixed(1)} for a typical body`:''}${mud>0?`<br>river mud ${mud.toFixed(2)}`:''}<br>climb need ${need.toFixed(2)}${worldInputs.need?'':' (approx.)'}`;
  tip.hidden=false;placeTip();
 }
 setInterval(refreshTip, 200);
 canvas.addEventListener('pointerleave', hideTip);
-function clampCamera(c) { const hx = meta.W / (2 * c.z), hy = meta.H / (2 * c.z); c.cx = Math.max(hx, Math.min(meta.W - hx, c.cx)); c.cy = Math.max(hy, Math.min(meta.H - hy, c.cy)); }
-function cameraCursor() { canvas.style.cursor = gesture?.drag ? 'grabbing' : target.z > 1 ? 'grab' : 'default'; }
+const wrap = (v, period) => ((v % period) + period) % period;
+const wrappedDelta = (from, to, period) => wrap(to - from + period / 2, period) - period / 2;
+function clampCamera(c) { c.z = Math.max(1, Math.min(6, c.z)); }
+function normalizeCamera() {
+  for (const [axis, point, period] of [['cx','x',meta.W],['cy','y',meta.H]]) {
+    const shift = Math.floor(camera[axis] / period) * period;
+    if (!shift) continue;
+    camera[axis] -= shift; target[axis] -= shift;
+    if (anchor) anchor[point] -= shift;
+    if (gesture?.at) gesture.at[point] -= shift;
+  }
+}
+function visibleTiles(left, top, right, bottom, margin = 0) {
+  const tiles=[];
+  for(const ox of [-meta.W,0,meta.W])for(const oy of [-meta.H,0,meta.H])
+    if(ox < right+margin && ox+meta.W > left-margin && oy < bottom+margin && oy+meta.H > top-margin)tiles.push({ox,oy});
+  return tiles;
+}
+function cameraCursor() { canvas.style.cursor = gesture?.drag ? 'grabbing' : 'grab'; }
 function resizeWorld() { const r = canvas.getBoundingClientRect(), d = devicePixelRatio || 1, w = Math.max(1, Math.round((r.width - 2 * canvas.clientLeft) * d)), h = Math.max(1, Math.round((r.height - 2 * canvas.clientTop) * d)); if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; } }
 new ResizeObserver(resizeWorld).observe(canvas);
 window.addEventListener('resize', resizeWorld);
@@ -216,6 +238,7 @@ function canvasPoint(e) { const r = canvas.getBoundingClientRect(); return { u: 
 function worldPoint(q) { return { x: camera.cx + (q.u - 0.5) * meta.W / camera.z - viewShakeX, y: camera.cy + (q.v - 0.5) * meta.H / camera.z - viewShakeY }; }
 function zoomTo(z, q = { u: 0.5, v: 0.5 }, at = null) {
   if (!meta) return;
+  following = null;
   const w = at || worldPoint(q); anchor = { ...w, ...q }; target.z = Math.max(1, Math.min(6, z));
   target.cx = w.x - (q.u - 0.5) * meta.W / target.z; target.cy = w.y - (q.v - 0.5) * meta.H / target.z; clampCamera(target); cameraCursor();
 }
@@ -233,7 +256,7 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (gesture) hideTip();
-  else if (e.pointerType === 'mouse' && meta) { const w=worldPoint(canvasPoint(e)), badge=badgeAt(w), hit = creatureAt(w); if(badge){hovered=null;hoverPoint={x:e.clientX,y:e.clientY};pileTip(badge);} else if (hit && cur?.has(hit.id)) { const changed = hovered !== hit.id; hovered = hit.id; hoverPoint = { x: e.clientX, y: e.clientY }; if (changed) refreshTip(); else placeTip(); } else if(showXray){hovered=null;hoverPoint={x:e.clientX,y:e.clientY};groundTip();}else hideTip(); }
+  else if (e.pointerType === 'mouse' && meta) { const w=worldPoint(canvasPoint(e)), peak=peakAt(w), badge=badgeAt(w), hit = creatureAt(w); if(peak){hovered=null;hoverPoint={x:e.clientX,y:e.clientY};peakTip(peak);} else if(badge){hovered=null;hoverPoint={x:e.clientX,y:e.clientY};pileTip(badge);} else if (hit && cur?.has(hit.id)) { const changed = hovered !== hit.id; hovered = hit.id; hoverPoint = { x: e.clientX, y: e.clientY }; if (changed) refreshTip(); else placeTip(); } else if(showXray){hovered=null;hoverPoint={x:e.clientX,y:e.clientY};groundTip();}else hideTip(); }
   if (!pointers.has(e.pointerId)) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 2) { const p = pinchInfo(); zoomTo(gesture.z * p.distance / gesture.distance, p.q, gesture.at); return; }
@@ -285,18 +308,40 @@ function marking(g, pat, s, hue) {
   g.restore();
 }
 const portraitOf = sp => portraits.get(sp.name) ?? portraits.set(sp.name, portrait(sp)).get(sp.name);
+// w2 uses square-root depth; legacy w keeps its original 1/600 units.
+function waterDepth(w,i,scale=1/600){const b=(w?.[i]??0)&127;return scale==='sqrt1.5'?(b/127)**2*1.5:b*scale;}
+let swimDepth=.073,swimDepthEMA=null,swimSampleAt=-Infinity;
+function waterClass(d){return d<.012?'dry':d<.03?'wet ground':d<.6*swimDepth?'shallow':d<swimDepth?'wadeable':'swim';}
+function swimBarrier(d,threshold=.073){return d>=threshold;}
+function updateSwimDepth(bodies,now=performance.now()){
+ if(now-swimSampleAt<3000)return;
+ swimSampleAt=now;
+ const sizes=[];
+ for(const c of bodies.values())if(species[c.s]&&!species[c.s].unique&&Number.isFinite(c.l*c.z)&&c.l*c.z>0)sizes.push(c.l*c.z);
+ if(!sizes.length)return;
+ sizes.sort((a,b)=>a-b);const mid=sizes.length>>1,median=sizes.length%2?sizes[mid]:(sizes[mid-1]+sizes[mid])/2,target=median/60*1.225;
+ swimDepthEMA=swimDepthEMA===null?target:swimDepthEMA*.75+target*.25;
+ if(Math.abs(swimDepthEMA/swimDepth-1)<=.05)return;
+ swimDepth=swimDepthEMA;
+ // Publish one stable threshold to every consumer; small EMA steps don't repaint.
+ worldInput('swimDepth',swimDepth,swimDepth);updatePlaces();updateXray();
+}
 // All world painting stays off the animation thread.
 function worldPainter(){
 'use strict';
-let W,H,CELL,GW,GH,FW,FH,F={},land=null,has2=false,xrayCache=null;
+let W,H,CELL,GW,GH,FW,FH,F={},land=null,has2=false,has3=false,xrayCache=null;
 function sample(a,x,y){const u=x/CELL-.5,v=y/CELL-.5,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy,x0=(ix%GW+GW)%GW,x1=(x0+1)%GW,y0=((iy%GH+GH)%GH)*GW,y1=(y0+GW)%(GW*GH);return (a[y0+x0]/255*(1-fx)+a[y0+x1]/255*fx)*(1-fy)+(a[y1+x0]/255*(1-fx)+a[y1+x1]/255*fx)*fy;}
 function smooth(a,x,y){const u=x/2,v=y/2,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy,x0=ix>=0&&ix<FW?ix:(ix%FW+FW)%FW,x1=x0+1===FW?0:x0+1,y0=(iy>=0&&iy<FH?iy:(iy%FH+FH)%FH)*FW,y1=y0+FW===FW*FH?0:y0+FW;return(a[y0+x0]*(1-fx)+a[y0+x1]*fx)*(1-fy)+(a[y1+x0]*(1-fx)+a[y1+x1]*fx)*fy;}
-const terrace=(x,y)=>{const h=smooth(F.height,x,y);return has2?(h<-.25?-2:h<0?-1:h>=1?7:Math.max(0,Math.min(6,Math.floor(h*7)))):Math.min(6,Math.floor(h*7));};
+const terrace=(x,y)=>{const h=smooth(F.height,x,y);return has3||has2?(h<-.25?-2:h<0?-1:h>=1?Math.min(12,7+Math.floor((h-1)/.15+1e-9)):Math.max(0,Math.min(6,Math.floor(h*7)))):Math.min(6,Math.floor(h*7));};
 const ramp=[[126,150,88],[145,151,87],[176,158,96],[197,180,135],[210,207,182],[223,226,217],[241,241,230]];
+// Upper terraces fade into frost-grey rock; Int8 terrace caches hold −2…12.
+const highRamp=[[250,248,240],[250,250,246],[236,238,238],[214,216,218],[214,216,218],[214,216,218]];
 const rocks=[[150,142,132],[184,150,98],[218,208,180],[140,108,78],[96,94,98]];
 const bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 const ordered=(x,y)=>(bayer[((Math.floor(y/2)%4+4)%4)*4+(Math.floor(x/2)%4+4)%4]+.5)/16;
-function hash(x,y){let h=Math.imul(x+1,374761393)^Math.imul(y+1,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967295;}
+// A half-world texture tile repeats across both boundaries and half shifts.
+// Wrap offsets too: texture calls just outside a tile see the same grain.
+function hash(x,y){x=(x%(W/2)+W/2)%(W/2);y=(y%(H/2)+H/2)%(H/2);let h=Math.imul(x+1,374761393)^Math.imul(y+1,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967295;}
 // Cross each patch boundary in a six-world-unit band. Outside that band,
 // every terrace uses precisely four plant levels and three moisture levels.
 function patchLevel(a,x,y,levels){
@@ -344,9 +389,9 @@ function rockAt(geo,x,y,weights){
  if(first>second){const t=first;first=second;second=t;}
  return ordered(x,y)<weights[first]/(weights[first]+weights[second])?first:second;
 }
-function paintLand({elev,elev2,geo,has2:height2,hasGeo}){
+function paintLand({elev,elev2,elev3,elev3Range=[-1,2.5],geo,has2:height2,has3:height3,hasGeo}){
  // field() normalizes bytes; restore true units after filtering, retaining the old path verbatim.
- has2=height2;F.height=field(blur(has2?elev2:elev));if(has2)for(let i=0;i<F.height.length;i++)F.height[i]=F.height[i]*2.5-1;
+ has2=height2;has3=height3;F.height=field(blur(has3?elev3:has2?elev2:elev));if(has3)for(let i=0;i<F.height.length;i++)F.height[i]=F.height[i]*(elev3Range[1]-elev3Range[0])+elev3Range[0];else if(has2)for(let i=0;i<F.height.length;i++)F.height[i]=F.height[i]*2.5-1;
  const n=FW*FH;land={k:new Int8Array(n),tone:new Float32Array(n),shadow:new Float32Array(n),lip:new Uint8Array(n),rim:new Uint8Array(n),rock:hasGeo?new Uint8Array(n):null};
  const northwest=new Int8Array(n),lowest=new Int8Array(n),cleanGeo=hasGeo?cleanRocks(geo):null,rockWeights=hasGeo?new Float64Array(5):null;
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)land.k[y*FW+x]=terrace(x*2,y*2);
@@ -360,61 +405,90 @@ function paintLand({elev,elev2,geo,has2:height2,hasGeo}){
   land.lip[i]=lowest[((y+1)%FH)*FW+(x+1)%FW]<k&&terrace(wx+1.5/Math.SQRT2,wy+1.5/Math.SQRT2)<k;land.rim[i]=lowest[i]<k&&terrace(wx-1.5/Math.SQRT2,wy-1.5/Math.SQRT2)<k;
  }
 }
-function paintGround({terrain,water,snow,hedge,alluv}){
- const n=GW*GH,plant=new Uint8Array(n),moisture=new Uint8Array(n),depth=new Float32Array(n),ice=new Uint8Array(n);
- for(let i=0;i<n;i++){plant[i]=terrain[i*3];moisture[i]=terrain[i*3+1];depth[i]=(water[i]&127)/127*255;ice[i]=water[i]>=128?255:0;}
- F.plant=field(plant);F.moisture=field(moisture);F.depth=field(depth);F.ice=field(ice);F.snow=field(snow);F.hedge=field(blur(hedge));F.alluv=field(alluv);
- // At field centres smooth(height + .3 * depth, x*2, y*2) is exactly this value.
+// Hypsometric snow palette, indexed by terrace k + 2 (including below sea level).
+const snowWhites=Array.from({length:15},(_,i)=>{const k=i-2,t=Math.max(0,Math.min(1,(k-2)/2)),u=Math.max(0,Math.min(1,(k-5)/2));return k>=10?[244,247,252]:[228+12*t+10*u,230+12*t+9*u,222+14*t+16*u];});
+function paintGround({terrain,water,wScale,snow,hedge,alluv,swimDepth=.073}){
+ const open=.6*swimDepth;
+ const n=GW*GH,plant=new Uint8Array(n),moisture=new Uint8Array(n),depth=new Float64Array(n),ice=new Uint8Array(n);
+ for(let i=0;i<n;i++){plant[i]=terrain[i*3];moisture[i]=terrain[i*3+1];depth[i]=waterDepth(water,i,wScale);ice[i]=water[i]>=128?255:0;}
+ F.plant=field(plant);F.moisture=field(moisture);F.depth=new Float64Array(FW*FH);for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)F.depth[y*FW+x]=sample(depth,x*2,y*2)*255;F.ice=field(ice);F.snow=field(snow);F.hedge=field(blur(hedge));F.alluv=field(alluv);
+ // At field centres surface = ground height + true world depth.
  // Reuse its four neighbours directly, avoiding eight bilinear samples per wet pixel.
  const surface=new Float32Array(FW*FH);
- for(let i=0;i<surface.length;i++)surface[i]=(F.height?.[i]??0)+F.depth[i]*.3;
+ for(let i=0;i<surface.length;i++)surface[i]=(F.height?.[i]??0)+F.depth[i];
  // Open the blurred canopy with a 2×2 square: every surviving patch is at least four world units wide.
  const at=(a,x,y)=>a[((y+FH)%FH)*FW+(x+FW)%FW],seed=new Uint8Array(FW*FH),bush=new Uint8Array(FW*FH);
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)seed[y*FW+x]=at(F.hedge,x,y)>.25&&at(F.hedge,x+1,y)>.25&&at(F.hedge,x,y+1)>.25&&at(F.hedge,x+1,y+1)>.25;
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)bush[y*FW+x]=at(seed,x,y)||at(seed,x-1,y)||at(seed,x,y-1)||at(seed,x-1,y-1);
  const c=new OffscreenCanvas(FW,FH),g=c.getContext('2d'),im=g.createImageData(FW,FH);
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){
-  const wx=x*2,wy=y*2,i=y*FW+x,k=land?land.k[i]:0,p=patchLevel(F.plant,wx,wy,4),m=patchLevel(F.moisture,wx,wy,3),pale=k<0?.45:k===7?.99:[0,.12,.27,.48,.70,.87,.97][k],r=k===-2?[86,76,64]:k===-1?[118,104,84]:k===7?[250,248,240]:ramp[k];
+  const wx=x*2,wy=y*2,i=y*FW+x,k=land?land.k[i]:0,p=patchLevel(F.plant,wx,wy,4),m=patchLevel(F.moisture,wx,wy,3),pale=k<0?.45:k>=8?.995:k===7?.99:[0,.12,.27,.48,.70,.87,.97][k],r=k===-2?[86,76,64]:k===-1?[118,104,84]:k>=7?highRamp[k-7]:ramp[k];
   let col=earth[m][p].map((v,j)=>v*(1-pale)+r[j]*pale),rockCol=null;
   if(land?.rock){
    const type=land.rock[i],w=Math.min(.5,(.45*(1-p/3)+(land.tone[i]!==1?.25:0))*(1-.6*pale)),h=hash(wx,wy);rockCol=rocks[type]??rocks[0];
    const pit=type===2?hash(wx+5,wy+9):0,t=type===0?(h<.08?.82:1):type===1?(Math.floor(F.height[i]*60)%2!==0?.94:1):type===2?(pit<.05?.78:pit<.09?1.08:1):type===3?1+(h*2-1)*.05:type===4?(h<.06?1.12:1):1;
    col=col.map((v,j)=>(v*(1-w)+rockCol[j]*w)*(1+(t-1)*w));
   }
-  const a=smooth(F.alluv,wx,wy);if(F.depth[i]<=.05&&F.snow[i]<=.15&&!bush[i]&&a>.08&&ordered(wx,wy)<Math.min(1,(a-.08)/.08)){if(p<=1){const w=Math.min(.45,a*.6);col=col.map((v,j)=>v*(1-w)+[70,92,50][j]*w);}else{const w=Math.min(1,a*1.5);col=col.map((v,j)=>v*(1+([.88,.97,.85][j]-1)*w));}}
+  const a=smooth(F.alluv,wx,wy);if(F.depth[i]<.08&&F.snow[i]<=.15&&!bush[i]&&a>.08&&ordered(wx,wy)<Math.min(1,(a-.08)/.08)){if(p<=1){const w=Math.min(.45,a*.6);col=col.map((v,j)=>v*(1-w)+[70,92,50][j]*w);}else{const w=Math.min(1,a*1.5);col=col.map((v,j)=>v*(1+([.88,.97,.85][j]-1)*w));}}
+  if(k>=8&&hash(wx,wy)<.06)col=[222,232,240];
   if(land){if(land.lip[i]&&rockCol)col=rockCol;col=col.map(v=>v*land.tone[i]*(1-land.shadow[i])*(land.lip[i]?.62:1));if(land.rim[i])col=col.map(v=>v*.56+255*.44);}
-  const d=F.depth[i],ice=F.ice[i],sn=F.snow[i];
-  if(d>.05){
-   const deep=Math.round(d*3)/3;
+  const d=F.depth[i],ice=F.ice[i];
+  if(d>=.012&&d<open){
+   // Films retain the terrain with sparse, irregular glints at their deeper end.
+   col=col.map((v,j)=>v*.86+[0,1,4][j]);
+   if(d<.03){if(d>.02&&hash(wx+17,wy+43)<.035)col=[200,222,226];}
+   else if(ordered(wx,wy)<.4+.6*(d-.03)/Math.max(.001,open-.03)){
+    col=ice>.5?[211,231,233]:[132,186,194];
+    // A one-pixel inner edge beside dry ground, with no bright shoreline.
+    const edge=Math.min(at(F.depth,x-1,y),at(F.depth,x+1,y),at(F.depth,x,y-1),at(F.depth,x,y+1));
+    if(edge<.012&&ordered(wx+2,wy)<.5)col=[104,150,160];
+   }
+  }else if(d>=open){
    if(ice>.5)col=[211,231,233];
    else{
-    const level=surface[i]/.15,lo=Math.floor(level),band=Math.max(-4,Math.min(12,lo+(ordered(wx,wy)<level-lo?1:0)));
-    col=[91+band*6-deep*22,157+band*4-deep*27,173+band*2-deep*22];
+    const level=surface[i]/.15,lo=Math.floor(level),band=Math.max(-4,Math.min(12,lo+(ordered(wx,wy)<level-lo?1:0)))+(d<.25?1:0);
+    const deep=d<.25?0:1;
+    col=d>=2*swimDepth?[44,88,128]:d>=swimDepth?[62,112,150]:[91+band*6-deep*22,157+band*4-deep*27,173+band*2-deep*22];
     if(land){const shade=(1-.6*land.shadow[i])*(land.lip[i]?1-.38*.6:1);col=col.map(v=>v*shade);if(land.rim[i])col=col.map(v=>v*(1-.44*.6)+255*.44*.6);}
     const left=y*FW+(x+FW-1)%FW,right=y*FW+(x+1)%FW,up=((y+FH-1)%FH)*FW+x,down=((y+1)%FH)*FW+x,s=surface[i];
-    const drop=Math.max(F.depth[left]>.05?s-surface[left]:0,F.depth[right]>.05?s-surface[right]:0,F.depth[up]>.05?s-surface[up]:0,F.depth[down]>.05?s-surface[down]:0);
+    const drop=Math.max(F.depth[left]>=open?s-surface[left]:0,F.depth[right]>=open?s-surface[right]:0,F.depth[up]>=open?s-surface[up]:0,F.depth[down]>=open?s-surface[down]:0);
     if(drop>.12||drop>.04&&ordered(wx,wy)<.5)col=[236,244,240];
    }
-   if(smooth(F.depth,wx-1,wy)<.05||smooth(F.depth,wx+1,wy)<.05||smooth(F.depth,wx,wy-1)<.05||smooth(F.depth,wx,wy+1)<.05)col=ice>.5?[237,246,240]:[164,205,202];
+   const edge=Math.min(smooth(F.depth,wx-1,wy),smooth(F.depth,wx+1,wy),smooth(F.depth,wx,wy-1),smooth(F.depth,wx,wy+1));
+   if(d>=2*swimDepth&&edge<2*swimDepth)col=ice>.5?[211,231,233]:[36,73,112];
+   else if(edge<open)col=ice>.5?[237,246,240]:[164,205,202];
   }
-  if(sn>.15)col=[239,242,230];
+  if(d>=.012&&ice>.5)col=[211,231,233];
+  // smooth() samples the continuous snow field; keep ordered pixel cover at its edge.
+  let snowCover=0;
+  if(d<open){
+   let c=smooth(F.snow,wx,wy);
+   if(land&&(land.lip[i]||land.tone[i]!==1&&land.tone[i]<1))c*=.5;
+   snowCover=c>=.35||c>=.08&&ordered(wx,wy)<(c-.08)/.27;
+   if(snowCover){
+    const white=snowWhites[Math.max(0,Math.min(14,k+2))],tone=land?(land.tone[i]>1?1.10:land.tone[i]<1?.90:1):1,shadow=land?Math.min(.6,land.shadow[i]*1.1):0;
+    col=[white[0]*tone*(1-shadow)+168*shadow,white[1]*tone*(1-shadow)+186*shadow,white[2]*tone*(1-shadow)+212*shadow];
+    if(land?.lip[i])col=[150,170,198];
+    if(land?.rim[i])col=[255,255,255];
+   }
+  }
   if(!bush[i]&&at(bush,x-1,y-1))col=col.map(v=>v*.68);
-  if(bush[i]){col=[49,78,46];const bx=wx+1,by=wy+1,facing=smooth(F.hedge,bx+2,by+2)-smooth(F.hedge,bx-2,by-2);if(facing>.012&&ordered(bx,by)<.30)col=[99,128,71];}
+  if(bush[i]){col=[49,78,46];const bx=wx+1,by=wy+1,facing=smooth(F.hedge,bx+2,by+2)-smooth(F.hedge,bx-2,by-2);if(facing>.012&&ordered(bx,by)<.30)col=[99,128,71];if(snowCover)col=facing>.012&&ordered(bx,by)<.55?[238,242,240]:[col[0]*.92,col[1]*.96,col[2]*1.04];}
   const grain=1+(hash(wx,wy)*2-1)*.03,o=i*4;im.data[o]=col[0]*grain;im.data[o+1]=col[1]*grain;im.data[o+2]=col[2]*grain;im.data[o+3]=255;
  }
  g.putImageData(im,0,0);return c.transferToImageBitmap();
 }
 // Shared, input-keyed fields survive view switches. No decoding or pixel closures here.
 function prepareXray(d){
- const n=GW*GH,N=W*H,E=d.has2?d.elev2:d.elev;
- const h=new Float32Array(n),depth=new Float32Array(n),need=new Float32Array(n),ice=new Uint8Array(n);
+ const n=GW*GH,N=W*H,E=d.has3?d.elev3:d.has2?d.elev2:d.elev,range=d.elev3Range??[-1,2.5];
+ const h=new Float32Array(n),depth=new Float64Array(n),need=new Float32Array(n),ice=new Uint8Array(n);
  let min=Infinity,max=-Infinity;
- for(let i=0;i<n;i++){h[i]=E[i]/255*(d.has2?2.5:1)-(d.has2?1:0);min=Math.min(min,h[i]);max=Math.max(max,h[i]);depth[i]=(d.water[i]&127)/127;ice[i]=d.water[i]>=128;}
+ for(let i=0;i<n;i++){h[i]=d.has3?E[i]/255*(range[1]-range[0])+range[0]:E[i]/255*(d.has2?2.5:1)-(d.has2?1:0);min=Math.min(min,h[i]);max=Math.max(max,h[i]);depth[i]=waterDepth(d.water,i,d.wScale);ice[i]=d.water[i]>=128;}
  const flow=[];
  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
   const i=y*GW+x,l=y*GW+(x+GW-1)%GW,r=y*GW+(x+1)%GW,u=((y+GH-1)%GH)*GW+x,b=((y+1)%GH)*GW+x;
   need[i]=d.hasNeed?d.need[i]/255:Math.min(1,Math.max(Math.abs(h[i]-h[l]),Math.abs(h[i]-h[r]),Math.abs(h[i]-h[u]),Math.abs(h[i]-h[b]))/CELL*25);
-  if(x%3===0&&y%3===0&&depth[i]>.02){
+  if(x%4===0&&y%4===0&&depth[i]>=.08){
    let best=h[i]+depth[i],dx=0,dy=0;
    if(h[r]+depth[r]<best){best=h[r]+depth[r];dx=1;dy=0;}
    if(h[l]+depth[l]<best){best=h[l]+depth[l];dx=-1;dy=0;}
@@ -423,7 +497,7 @@ function prepareXray(d){
    if(dx||dy)flow.push((x+.5)*CELL,(y+.5)*CELL,dx*CELL*2/3,dy*CELL*2/3);
   }
  }
- const heights=new Float32Array(N),depths=new Float32Array(N),needs=new Float32Array(N),mud=new Float32Array(N),snow=new Float32Array(N),light=new Float32Array(N),types=new Uint8Array(N),contours=new Uint8Array(N),cells=new Uint32Array(N);
+ const heights=new Float32Array(N),depths=new Float64Array(N),needs=new Float32Array(N),mud=new Float32Array(N),snow=new Float32Array(N),light=new Float32Array(N),types=new Uint8Array(N),contours=new Uint8Array(N),cells=new Uint32Array(N);
  const clean=d.hasGeo?cleanRocks(d.geo):null,weights=new Float64Array(5);
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
   const i=y*W+x;heights[i]=sample(h,x,y)*255;depths[i]=sample(depth,x,y)*255;needs[i]=sample(need,x,y)*255;
@@ -444,14 +518,14 @@ function paintXray(d){
  const start=performance.now(),reused=xrayCache?.key===d.cacheKey;
  if(!reused)xrayCache=prepareXray(d);
  const sharedMs=performance.now()-start,{heights,depths,needs,mud,snow,light,types,contours,cells,ice,flow,min,max}=xrayCache;
- const stops=[-1,0,.5,.8,1,1.5],colors=[[12,35,65],[119,127,64],[195,171,123],[137,107,80],[235,235,222],[255,255,252]];
+ const stops=d.has3?[-1,0,.5,.8,1,1.5,2]:[-1,0,.5,.8,1,1.5],colors=d.has3?[[12,35,65],[119,127,64],[195,171,123],[137,107,80],[235,235,222],[214,208,226],[190,184,214]]:[[12,35,65],[119,127,64],[195,171,123],[137,107,80],[235,235,222],[255,255,252]];
  const c=new OffscreenCanvas(W,H),g=c.getContext('2d'),im=g.createImageData(W,H),out=im.data;
  const heightView=d.view==='height',rockView=d.view==='rock',waterView=d.view==='water';
  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
   const i=y*W+x,v=heights[i],ci=cells[i],dep=depths[i],li=light[i],ct=contours[i];
   let r=148,gg=148,b=140;
   if(heightView){
-   let j=1;while(j<5&&v>stops[j])j++;const a=colors[j-1],z=colors[j],t=Math.max(0,Math.min(1,(v-stops[j-1])/(stops[j]-stops[j-1])));
+   let j=1;while(j<stops.length-1&&v>stops[j])j++;const a=colors[j-1],z=colors[j],t=Math.max(0,Math.min(1,(v-stops[j-1])/(stops[j]-stops[j-1])));
    r=a[0]+(z[0]-a[0])*t;gg=a[1]+(z[1]-a[1])*t;b=a[2]+(z[2]-a[2])*t;
    if(d.hasCarve&&d.carve[ci]){const t=d.carve[ci]/255*.45;r+=(65-r)*t;gg+=(130-gg)*t;b+=(165-b)*t;}
   }else if(rockView&&d.hasGeo){const col=rocks[types[i]];r=col[0];gg=col[1];b=col[2];}
@@ -464,20 +538,26 @@ function paintXray(d){
    if(rockView&&mud[i]>.15&&(x+y)%2===0){r=43;gg=79;b=49;}
   }else if(waterView){
    if(mud[i]>.15){r+=(55-r)*.45;gg+=(105-gg)*.45;b+=(65-b)*.45;}
-   if(dep>.002){const t=Math.max(0,Math.min(1,dep));r=99-89*t;gg=167-127*t;b=201-105*t;}
-   if(ice[ci]){r=195;gg=235;b=239;}if(snow[i]>.03&&hash(x,y)<snow[i]){r=247;gg=249;b=247;}
+   if(dep>=.012){const threshold=d.swimDepth??.073,col=dep<.03?[112,133,130]:dep<.6*threshold?[150,196,198]:dep<threshold?[119,181,190]:dep<2*threshold?[62,112,150]:[44,88,128];r=col[0];gg=col[1];b=col[2];}
+   if(dep>=.012&&ice[ci]){r=195;gg=235;b=239;}if(snow[i]>.03&&hash(x,y)<snow[i]){r=247;gg=249;b=247;}
   }else{
-   const nd=needs[i];if(nd>.15){const t=Math.min(1,(nd-.15)/.65);r=240-32*t;gg=214-170*t;b=65-35*t;}
-   if(dep>.4&&(x+y)%4<2){r=40;gg=112;b=197;}
+   const nd=needs[i];if(nd>.15){const t=Math.min(1,(nd-.15)/.55);r=240-32*t;gg=214-170*t;b=65-35*t;}
+   if(swimBarrier(dep,d.swimDepth??.073)&&(x+y)%4<2){r=40;gg=112;b=197;}
   }
   const o=i*4;out[o]=r;out[o+1]=gg;out[o+2]=b;out[o+3]=255;
  }
  g.putImageData(im,0,0);
  if(waterView){
   g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=1;g.beginPath();
-  for(let i=0;i<flow.length;i+=4){g.moveTo(flow[i],flow[i+1]);g.lineTo(flow[i]+flow[i+2],flow[i+1]+flow[i+3]);}g.stroke();
+  // Repeat complete ticks; the canvas clips each torus image at its boundary.
+  for(let i=0;i<flow.length;i+=4)for(const sx of [-W,0,W])for(const sy of [-H,0,H]){g.moveTo(flow[i]+sx,flow[i+1]+sy);g.lineTo(flow[i]+flow[i+2]+sx,flow[i+1]+flow[i+3]+sy);}g.stroke();
   const rows=d.climate?.rows,frost=d.climate?.frost??.18;
-  if(rows?.length){g.setLineDash([3,3]);g.beginPath();for(let j=1;j<rows.length;j++)if((rows[j-1]-frost)*(rows[j]-frost)<=0&&rows[j]!==rows[j-1]){const y=(j-.5+(frost-rows[j-1])/(rows[j]-rows[j-1]))/rows.length*H;g.moveTo(0,y);g.lineTo(W,y);}g.stroke();g.setLineDash([]);}
+  if(rows?.length){g.setLineDash([3,3]);g.beginPath();for(let j=0;j<rows.length;j++){
+   const a=rows[(j+rows.length-1)%rows.length],b=rows[j];
+   // Half-open crossings count an exact frost sample once, including the seam.
+   if(a<=frost&&b>frost||b<=frost&&a>frost){const y=((j-.5+(frost-a)/(b-a))/rows.length*H+H)%H;
+    for(const sy of [-H,0,H]){g.moveTo(0,y+sy);g.lineTo(W,y+sy);}}
+  }g.stroke();g.setLineDash([]);}
  }
  const faults=(d.quakes??d.faults??[]).filter(f=>Number.isFinite(f.season??0)),seasons=faults.map(f=>f.season??0),oldest=Math.min(...seasons),latest=Math.max(...seasons);
  for(const f of faults){
@@ -494,9 +574,10 @@ function paintXray(d){
  return {bitmap:c.transferToImageBitmap(),stats:{min,max,approx:!d.hasNeed,sharedMs,colourMs:performance.now()-start-sharedMs,reused}};
 }
 function paintCoral(rock){F.rock=field(rock);
-const headThreshold=(x,y)=>.6+.06*(
- .6*Math.sin(x/W*Math.PI*2*23+y/H*Math.PI*2*7)+
- .4*Math.sin(x/W*Math.PI*2*9-y/H*Math.PI*2*19));
+// Even harmonics repeat at each half-world, as do the other texture tiles.
+const headThreshold=(x,y)=>{x=(x%(W/2)+W/2)%(W/2);y=(y%(H/2)+H/2)%(H/2);return .6+.06*(
+ .6*Math.sin(x/W*Math.PI*2*24+y/H*Math.PI*2*8)+
+ .4*Math.sin(x/W*Math.PI*2*10-y/H*Math.PI*2*20));};
 const headAt=(x,y)=>smooth(F.rock,x,y)>headThreshold(x,y);
 function coralCanvas(){return new OffscreenCanvas(W,H);}
 const heads=coralCanvas(),hg=heads.getContext('2d'),headImage=hg.createImageData(W,H);
@@ -508,8 +589,8 @@ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
 hg.putImageData(headImage,0,0);
 const reefNodes=Array.from(rock,(density,i)=>{
  const x=i%GW,y=Math.floor(i/GW);
- return {density:density/255,x:(x+.5)*CELL+(hash(x+71,y+139)*2-1)*1.5,
-  y:(y+.5)*CELL+(hash(x+313,y+29)*2-1)*1.5,children:0};
+ return {density:density/255,x:(x+.5)*CELL+(hash(x*CELL+71,y*CELL+139)*2-1)*1.5,
+  y:(y+.5)*CELL+(hash(x*CELL+313,y*CELL+29)*2-1)*1.5,children:0};
 });
 const fingers=[];
 for(let i=0;i<reefNodes.length;i++){
@@ -525,7 +606,7 @@ for(let i=0;i<reefNodes.length;i++){
  // Place the parent in the child's nearest torus image; never span the canvas.
  const px=(x+.5+stepX)*CELL+p.x-((parent%GW)+.5)*CELL;
  const py=(y+.5+stepY)*CELL+p.y-(Math.floor(parent/GW)+.5)*CELL;
- fingers.push({i,child,px,py,spines:hash(i+191,53)<1/6});
+ fingers.push({i,child,px,py,spines:hash(x*CELL+191,y*CELL+53)<1/6});
 }
 const mask=coralCanvas(),mg=mask.getContext('2d');mg.drawImage(heads,0,0);
 mg.fillStyle=mg.strokeStyle='#fff';mg.lineCap='round';mg.lineJoin='round';
@@ -569,7 +650,7 @@ for(let y=2;y<H;y+=4)for(let x=2;x<W;x+=4){
  tg.beginPath();tg.arc(px,py,.7,0,Math.PI*2);tg.fill();
 }
 tg.strokeStyle='rgba(232,209,183,.45)';tg.lineWidth=.65;tg.lineCap='round';
-for(let y=5;y<H;y+=13)for(let x=5;x<W;x+=13){
+for(let y=5;y<H;y+=16)for(let x=5;x<W;x+=16){
  if(hash(x+31,y+97)>.3)continue;
  const px=x+(hash(x,y)*2-1)*3,py=y+(hash(x+7,y+9)*2-1)*3;
  if(!headAt(px,py))continue;
@@ -589,9 +670,14 @@ for(const f of fingers)fingerCopies(f,(dx,dy)=>{
 });
 fg.setTransform(1,0,0,1,0,0);fg.globalCompositeOperation='destination-in';fg.drawImage(mask,0,0);
 mat.drawImage(highlights,0,0);
-const shadow=coralCanvas(),sg=shadow.getContext('2d');sg.drawImage(mask,0,0);
-sg.globalCompositeOperation='source-in';sg.fillStyle='hsl(24 18% 16%)';sg.fillRect(0,0,W,H);
-const out=new OffscreenCanvas(W,H),g=out.getContext('2d');g.globalAlpha=.35;for(const dx of [-W,0,W])for(const dy of [-H,0,H])g.drawImage(shadow,dx+2.5,dy+3);g.globalAlpha=1;g.drawImage(material,0,0);return out.transferToImageBitmap();
+// Build the offset shadow as one periodic image. Fractionally shifted canvas
+// copies would composite two clipped half-alpha edges and leave a tile seam.
+const out=new OffscreenCanvas(W,H),g=out.getContext('2d'),shadow=g.createImageData(W,H);
+for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+ const o=(y*W+x)*4;shadow.data[o]=48;shadow.data[o+1]=39;shadow.data[o+2]=33;
+ shadow.data[o+3]=(maskAlpha(x-3,y-3)+maskAlpha(x-2,y-3))*.5*.35*255;
+}
+g.putImageData(shadow,0,0);g.drawImage(material,0,0);return out.transferToImageBitmap();
 }
 onmessage=({data:d})=>{try{
  ({W,H,CELL,GW,GH}=d.meta);FW=Math.ceil(W/2);FH=Math.ceil(H/2);
@@ -602,23 +688,89 @@ onmessage=({data:d})=>{try{
 }
 // Keep one active job and just the newest request for each layer.
 let worldWorker=null,worldBusy=false,worldTimer=0,groundBitmap=null,coralBitmap=null,xrayBitmap=null;
+// True, unblurred cell heights; stable cell order breaks ties on flat summits.
+function findSummits(E,range,m){
+ const height=i=>E[i]/255*(range[1]-range[0])+range[0],point=i=>({i,x:(i%m.GW+.5)*m.CELL,y:(Math.floor(i/m.GW)+.5)*m.CELL,h:height(i)});
+ let main=0;for(let i=1;i<E.length;i++)if(E[i]>E[main])main=i;
+ const candidates=[],seen=new Uint8Array(E.length),queue=new Int32Array(E.length);
+ // Quantized height plateaus can straddle an edge. Visit each whole plateau
+ // once; local index tie-breaks alone would invent a second summit at the seam.
+ for(let i=0;i<E.length;i++){
+  if(seen[i]||height(i)<1&&E[i]!==E[main])continue;
+  let head=0,tail=1,representative=i,maximum=true;queue[0]=i;seen[i]=1;
+  while(head<tail){
+   const cell=queue[head++],x=cell%m.GW,y=Math.floor(cell/m.GW);
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+    if(!dx&&!dy)continue;const j=((y+dy+m.GH)%m.GH)*m.GW+(x+dx+m.GW)%m.GW;
+    if(E[j]>E[i])maximum=false;
+    if(E[j]===E[i]&&!seen[j]){seen[j]=1;queue[tail++]=j;representative=Math.min(representative,j);}
+   }
+  }
+  if(maximum&&(height(i)>=1||representative===main))candidates.push(point(representative));
+ }
+ candidates.sort((a,b)=>b.h-a.h||a.i-b.i);
+ // Reject against all higher candidates, not only the four selected marks.
+ const selected=[];
+ for(let i=0;i<candidates.length&&selected.length<4;i++){
+  const p=candidates[i];if(candidates.slice(0,i).some(q=>Math.hypot(wrappedDelta(p.x,q.x,m.W),wrappedDelta(p.y,q.y,m.H))<120))continue;
+  selected.push(p);
+ }
+ return selected;
+}
+function summitRise(samples){const a=samples[0],b=samples[samples.length-1];return a&&b&&b.season>a.season?(b.h-a.h)/(b.season-a.season):0;}
+function updateSummits(){
+ const R=climateNow?.relief,E=worldInputs.elev3??worldInputs.elev2??worldInputs.elev;if(!R||!E)return;
+ const range=worldInputs.elev3?(R.elev3Range??[-1,2.5]):worldInputs.elev2?[-1,1.5]:[0,1];
+ const key=[worldKeys.elev3??worldKeys.elev2??worldKeys.elev,...range,meta.W,meta.H,meta.CELL].join(':');
+ if(key!==summitKey){summitKey=key;summits=findSummits(E,range,meta);}
+ const h=summits[0]?.h;if(h===undefined)return;
+ const at=season;
+ if(peakHistory.length&&at<peakHistory[peakHistory.length-1].season)peakHistory=[];
+ if(peakHistory[peakHistory.length-1]?.season===at)peakHistory.pop();
+ peakHistory.push({season:at,h});
+ // Retain one sample on/before the five-season boundary for sparse relief updates.
+ while(peakHistory.length>2&&peakHistory[1].season<=at-5)peakHistory.shift();
+ peakRise=summitRise(peakHistory);
+}
+function peakAt(w){return peakMarks.find(p=>Math.abs(w.x-p.x)<=p.rx&&Math.abs(w.y-p.y)<=p.ry);}
+function peakTip(p){
+ hovered=null;tip.textContent=`${p.main?'the peak':'summit'} · height ${p.h.toFixed(2)}${p.main&&peakRise>0?` · rising ${peakRise.toFixed(3)} per season${worldInputs.elev3?' (the dome upheaval)':''}`:''}`;
+ tip.hidden=false;placeTip();
+}
+function drawSummits(tiles,ux,uy,css){
+ peakMarks=[];
+ for(const {ox,oy} of tiles)for(let i=0;i<summits.length;i++){
+  const p=summits[i];g.save();g.translate(p.x+ox,p.y+oy);g.scale(ux,uy);
+  // ux/uy cancel the camera transform: dimensions below are screen pixels.
+  const half=i===0?3.5:2.5,top=i===0?-4:-3;
+  g.globalAlpha=1;g.beginPath();g.moveTo(0,top);g.lineTo(half,top+2*half);g.lineTo(-half,top+2*half);g.closePath();g.lineJoin='round';
+  g.strokeStyle='rgb(40,34,30)';g.lineWidth=3.5;g.stroke();g.strokeStyle='#fff';g.lineWidth=1.5;g.stroke();g.fillStyle='rgb(40,34,30)';g.fill();
+  if(i===0||camera.z>=2){
+   const label=i===0?`peak ${p.h.toFixed(2)}${peakRise>.002?` ↑${peakRise.toFixed(2)}/season`:''}`:p.h.toFixed(2);
+   g.font='10px ui-monospace, monospace';const w=g.measureText(label).width,left=half+6;
+   g.fillStyle=css.getPropertyValue('--panel').trim();g.strokeStyle=css.getPropertyValue('--line').trim();g.lineWidth=1;g.beginPath();g.roundRect(left,-8,w+8,15,3);g.fill();g.stroke();g.fillStyle=css.getPropertyValue('--fg').trim();g.textAlign='left';g.textBaseline='middle';g.fillText(label,left+4,-.5);
+  }
+  g.restore();peakMarks.push({...p,x:p.x+ox,y:p.y+oy,main:i===0,rx:6*ux,ry:6*uy});
+ }
+}
+function heightAt(i){const E=worldInputs.elev3??worldInputs.elev2??worldInputs.elev,range=worldInputs.elev3?(climateNow?.relief?.elev3Range??[-1,2.5]):worldInputs.elev2?[-1,1.5]:[0,1];return E[i]/255*(range[1]-range[0])+range[0];}
 const worldInputs={},worldKeys={},worldVersions={},worldPending={},worldLast={ground:-Infinity,coral:-Infinity};
-function worldInput(key,value,bytes){if(worldKeys[key]===value)return;worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=bytes;if(showXray)worldPending.xray=true;if(key==='elev'||key==='elev2'||key==='geo')worldPending.land=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
+function worldInput(key,value,bytes){if(worldKeys[key]===value)return;worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=bytes;if(showXray)worldPending.xray=true;if(key==='elev'||key==='elev2'||key==='elev3'||key==='geo')worldPending.land=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
 function pumpWorld(){
  clearTimeout(worldTimer);if(worldBusy||!meta||!worldWorker)return;
  const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000,xray:2000};let wait=Infinity;
  for(const layer of ['xray','land','ground','coral']){
-  if(!worldPending[layer]||showXray&&(layer==='ground'||layer==='coral')||layer==='ground'&&!ready||layer==='xray'&&(!showXray||!worldInputs.elev&&!worldInputs.elev2))continue;
+  if(!worldPending[layer]||showXray&&(layer==='ground'||layer==='coral')||layer==='ground'&&!ready||layer==='xray'&&(!showXray||!worldInputs.elev&&!worldInputs.elev2&&!worldInputs.elev3))continue;
   const left=(worldLast[layer]??-Infinity)+delays[layer]-now;if(left>0){wait=Math.min(wait,left);continue;}
-  const d={layer,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH},has2:!!worldInputs.elev2,hasGeo:!!worldInputs.geo},transfer=[],n=meta.GW*meta.GH;
+  const d={layer,swimDepth,wScale:worldInputs.wScale??1/600,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH},has2:!!worldInputs.elev2,has3:!!worldInputs.elev3,elev3Range:climateNow?.relief?.elev3Range??[-1,2.5],hasGeo:!!worldInputs.geo},transfer=[],n=meta.GW*meta.GH;
   const copy=(key)=>{const a=(worldInputs[key]??new Uint8Array(n)).slice();d[key]=a;transfer.push(a.buffer);};
-  if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,...['elev','elev2','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','geo'])copy(key);else if(layer==='coral')copy('rock');else for(const key of ['terrain','water','snow','hedge','alluv'])copy(key);
+  if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,d.wScale,d.swimDepth,...d.elev3Range,...['elev','elev2','elev3','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','elev3','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','elev3','geo'])copy(key);else if(layer==='coral')copy('rock');else for(const key of ['terrain','water','snow','hedge','alluv'])copy(key);
   delete worldPending[layer];worldBusy=true;worldLast[layer]=now;worldWorker.postMessage(d,transfer);return;
  }
  if(wait<Infinity)worldTimer=setTimeout(pumpWorld,wait);
 }
 if(typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined')try{
- const src='('+worldPainter.toString()+')()',url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));worldWorker=new Worker(url);URL.revokeObjectURL(url);
+ const src=[waterDepth,swimBarrier].map(f=>f.toString()).join('\n')+'\n('+worldPainter.toString()+')()',url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));worldWorker=new Worker(url);URL.revokeObjectURL(url);
  worldWorker.onmessage=({data:d})=>{worldBusy=false;if(d.bitmap){if(d.layer==='xray'){if(showXray&&d.view===xrayView){xrayBitmap?.close();xrayBitmap=d.bitmap;xrayStats=d.stats;xrayPaintedRevision=d.revision;updateXray();}else d.bitmap.close();}else if(d.layer==='ground'){groundBitmap?.close();groundBitmap=d.bitmap;}else{coralBitmap?.close();coralBitmap=d.bitmap;}}if(d.error)console.error('World painter:',d.error);pumpWorld();};
  worldWorker.onerror=()=>{worldWorker.terminate();worldWorker=null;worldBusy=false;clearTimeout(worldTimer);};
 }catch(error){console.error('World painter:',error);}
@@ -627,15 +779,15 @@ function updateXray(){
  $('xraybtn').classList.toggle('on',showXray);$('xraybtn').setAttribute('aria-pressed',showXray);$('xraypanel').hidden=!showXray;
  for(const b of $('xraychips').children){b.classList.toggle('on',b.dataset.view===xrayView);b.setAttribute('aria-pressed',b.dataset.view===xrayView);}
  const sw=(c,t)=>`<i style="background:${c}"></i>${t}`;
- $('xraylegend').innerHTML=xrayView==='height'?`<i class="ramp"></i>−0.6 … 1.2 · min ${xrayStats?.min.toFixed(2)??'…'} / max ${xrayStats?.max.toFixed(2)??'…'} · contours 0.1 · blue: carved · red: faults`:xrayView==='rock'?['#968e84','#b89662','#dad0b4','#8c6c4e','#605e62'].map((c,i)=>sw(c,rockNames[i])).join(' · ')+' · '+sw('#2b4f31','river mud')+' · red: faults':xrayView==='water'?'blue: depth (dark = deep) · cyan: ice · white: snow / flow ticks · green: river mud · dashed: frost · red: faults':'yellow → red: climb 0.15 … 0.8+ · blue hatch: swim · red: faults'+(worldInputs.need?'':' · approx. — waiting for the world’s climb map');
+ $('xraylegend').innerHTML=xrayView==='height'?`<i class="ramp"${worldInputs.elev3?' style="background:linear-gradient(90deg,#374f41 0%,#777f40 23.08%,#c3ab7b 42.31%,#896b50 53.85%,#ebebde 61.54%,#d6d0e2 80.77%,#beb8d6 100%)"':''}></i>−0.6 … ${worldInputs.elev3?'2.0':'1.2'} · min ${xrayStats?.min.toFixed(2)??'…'} / max ${xrayStats?.max.toFixed(2)??'…'} · contours 0.1 · blue: carved · red: faults`:xrayView==='rock'?['#968e84','#b89662','#dad0b4','#8c6c4e','#605e62'].map((c,i)=>sw(c,rockNames[i])).join(' · ')+' · '+sw('#2b4f31','river mud')+' · red: faults':xrayView==='water'?`wet ground 0.012–0.03 · shallow · wadeable · swim-deep for a typical body (> ${swimDepth.toFixed(2)}) · cyan: ice · white: snow / flow ticks · green: river mud · dashed: frost · red: faults`:'yellow → red: climb need 0.15 … 0.7 (the most the world asks) · blue hatch: swimming needed (typical body)'+' · red: faults'+(worldInputs.need?'':' · approx. — waiting for the world’s climb map');
  if(showXray&&xrayPaintedRevision!==xrayRevision)$('xraylegend').innerHTML+=' · painting…';
 }
 function syncXray(){
  if(!showXray||!meta)return;
  const R=climateNow?.relief;
- if(R)for(const [key,value]of [['elev',R.elev],['elev2',R.elev2],['geo',R.geo??R.rock],['alluv',R.alluv],['need',R.need],['carve',R.carve]]){
-  if(value!==undefined&&worldKeys[key]!==value){worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=Uint8Array.from(atob(value),ch=>ch.charCodeAt(0));if(['elev','elev2','geo'].includes(key))worldPending.land=true;if(['elev','elev2','geo','alluv'].includes(key))worldPending.ground=true;}
-  else if(value===undefined&&['need','carve','elev2','geo','alluv'].includes(key)){if(worldInputs[key])worldVersions[key]=(worldVersions[key]??0)+1;delete worldKeys[key];delete worldInputs[key];}
+ if(R)for(const [key,value]of [['elev',R.elev],['elev2',R.elev2],['elev3',R.elev3],['geo',R.geo??R.rock],['alluv',R.alluv],['need',R.need],['carve',R.carve]]){
+  if(value!==undefined&&worldKeys[key]!==value){worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=Uint8Array.from(atob(value),ch=>ch.charCodeAt(0));if(['elev','elev2','elev3','geo'].includes(key))worldPending.land=true;if(['elev','elev2','elev3','geo','alluv'].includes(key))worldPending.ground=true;}
+  else if(value===undefined&&['need','carve','elev2','elev3','geo','alluv'].includes(key)){if(worldInputs[key]){worldVersions[key]=(worldVersions[key]??0)+1;if(key==='elev3'){worldPending.land=true;worldPending.ground=true;}}delete worldKeys[key];delete worldInputs[key];}
  }
  worldPending.xray=true;pumpWorld();updateXray();
 }
@@ -673,32 +825,51 @@ on('terrain', paintTerrain);
 // The river (orography step 2): water depth per cell (+128 frozen) and snow on the heights, painted into a small canvas.
 const waterCanvas = document.createElement('canvas'), wtg = waterCanvas.getContext('2d');
 let waterNow = null, riverGauge = '';
-on('water', ({ w, snow, aqua, lichen }) => {
+on('water', ({ w, w2, w2Enc, snow, aqua, lichen }) => {
   const A8 = aqua ? Uint8Array.from(atob(aqua), ch => ch.charCodeAt(0)) : null, L8 = lichen ? Uint8Array.from(atob(lichen), ch => ch.charCodeAt(0)) : null;
   if (!meta) return;
-  const W8 = Uint8Array.from(atob(w), ch => ch.charCodeAt(0)), S8 = Uint8Array.from(atob(snow), ch => ch.charCodeAt(0));
-  worldInput('water', w, W8);worldInput('snow', snow, S8);updatePlaces();
+  const encoded=w2??w, scale=w2!=null&&w2Enc==='sqrt1.5'?'sqrt1.5':1/600;
+  const W8 = typeof encoded==='string'?Uint8Array.from(atob(encoded),ch=>ch.charCodeAt(0)):Uint8Array.from(encoded), S8 = Uint8Array.from(atob(snow), ch => ch.charCodeAt(0));
+  worldInput('wScale', scale, scale);worldInput('water', JSON.stringify([encoded,scale]), W8);worldInput('snow', snow, S8);updatePlaces();
   waterCanvas.width = meta.GW; waterCanvas.height = meta.GH;
+  const open=.6*swimDepth;
   const img = !groundBitmap ? wtg.createImageData(meta.GW, meta.GH) : null;
   let vol = 0, wet = 0, ice = 0, snowSum = 0;
   for (let i = 0; i < W8.length; i++) {
-    const o = i * 4, frozen = W8[i] >= 128, d = (W8[i] & 127) / 127;
-    if (W8[i]) { wet++; vol += d; if (frozen) ice++; }
+    const o = i * 4, frozen = W8[i] >= 128, d = waterDepth(W8,i,scale);
+    if (d>=.012) { wet++; vol += d; if (frozen) ice++; }
     if (!img) { if (S8[i] > 8) snowSum += S8[i]; continue; }
-    if (frozen) { img.data[o] = 225; img.data[o + 1] = 240; img.data[o + 2] = 250; img.data[o + 3] = 200; }
-    else if (W8[i]) { img.data[o] = 40; img.data[o + 1] = 110 + 60 * (1 - d); img.data[o + 2] = 215; img.data[o + 3] = Math.round(Math.min(240, 140 + d * 500)); }
-    if (W8[i] && !frozen && A8 && A8[i] > 20) { const a = A8[i] / 255; img.data[o] = 60 + 20 * a; img.data[o + 1] = 130 + 50 * a; img.data[o + 2] = 160 - 60 * a; } // water plants green the water
-    if (!W8[i] && L8 && L8[i] > 25 && S8[i] <= 8) { const a = L8[i] / 255; img.data[o] = 170; img.data[o + 1] = 180; img.data[o + 2] = 150; img.data[o + 3] = Math.round(40 + a * 110); } // lichen: a pale grey-green crust on the heights
+    const ordered=([0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5][(Math.floor(i/meta.GW)%4)*4+i%meta.GW%4]+.5)/16;
+    if(d>=.012){
+      let col=[0,7,28],alpha=36;
+      if(d<.03){if(ordered<.08){col=[200,222,226];alpha=255;}}
+      else if(d<open){if(ordered<(d-.03)/Math.max(.001,open-.03)){col=[150,196,198];alpha=255;}}
+      else{
+        const x=i%meta.GW,y=Math.floor(i/meta.GW),neighbors=[y*meta.GW+(x+meta.GW-1)%meta.GW,y*meta.GW+(x+1)%meta.GW,((y+meta.GH-1)%meta.GH)*meta.GW+x,((y+1)%meta.GH)*meta.GW+x];
+        const hasHeight=!!(worldInputs.elev3??worldInputs.elev2??worldInputs.elev),surface=(hasHeight?heightAt(i):0)+d,level=surface/.15,lo=Math.floor(level),band=Math.max(-4,Math.min(12,lo+(ordered<level-lo?1:0)))+(d<.25?1:0),deep=d<.25?0:1;
+        col=frozen?[211,231,233]:d>=2*swimDepth?[44,88,128]:d>=swimDepth?[62,112,150]:[91+band*6-deep*22,157+band*4-deep*27,173+band*2-deep*22];alpha=255;
+        if(!frozen&&hasHeight){const drop=Math.max(...neighbors.map(j=>waterDepth(W8,j,scale)>=open?surface-heightAt(j)-waterDepth(W8,j,scale):0));if(drop>.12||drop>.04&&ordered<.5)col=[236,244,240];}
+        const edge=Math.min(...neighbors.map(j=>waterDepth(W8,j,scale)));
+        if(d>=2*swimDepth&&edge<2*swimDepth)col=frozen?[211,231,233]:[36,73,112];
+        else if(edge<open)col=frozen?[237,246,240]:[164,205,202];
+      }
+      if(frozen){col=[211,231,233];alpha=255;}
+      img.data.set([...col,alpha],o);
+    }
+    if (d>=open && !frozen && A8 && A8[i] > 20) { const a = A8[i] / 255; img.data[o] = 60 + 20 * a; img.data[o + 1] = 130 + 50 * a; img.data[o + 2] = 160 - 60 * a; } // water plants green open water
+    if (d<.012 && L8 && L8[i] > 25 && S8[i] <= 8) { const a = L8[i] / 255; img.data[o] = 170; img.data[o + 1] = 180; img.data[o + 2] = 150; img.data[o + 3] = Math.round(40 + a * 110); } // lichen: a pale grey-green crust on the heights
     else if (S8[i] > 8) { const a = Math.min(200, S8[i]); img.data[o] = 245; img.data[o + 1] = 248; img.data[o + 2] = 255; img.data[o + 3] = a; snowSum += S8[i]; }
   }
   if (img) wtg.putImageData(img, 0, 0);
   waterNow = true;
-  const level = wet < 60 ? 'dry (a canyon)' : vol < 8 ? 'low' : vol < 25 ? 'flowing' : 'high';
+  const mean=wet?vol/wet:0;
+  const level = !wet ? 'dry (a canyon)' : `${waterClass(mean)} · mean depth ${mean.toFixed(2)}`;
   riverGauge = `river: ${level}${ice > wet * 0.3 && wet ? ', frozen' : ''}${snowSum > 2000 ? ' · snow on the heights' : ''}`;
 });
 on('reef', paintReef);
 on('frame', f => {
   prev = cur; cur = unpack(f.c); recvAt = performance.now();
+  updateSwimDepth(cur,recvAt);
   for (const [id, c] of cur) {
     const p = prev?.get(id);
     c.targetHeading = p?.targetHeading ?? c.a;
@@ -1018,25 +1189,26 @@ function portrait(sp) {
   return c.toDataURL();
 }
 
-const lerpWrap = (a, b, t, m) => Math.abs(b - a) > m / 2 ? b : a + (b - a) * t;
+const lerpWrap = (a, b, t, m) => wrap(a + wrappedDelta(a, b, m) * t, m);
 const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * t; };
 
 // Connected neighbours, using world-space drawn sizes and a per-frame spatial grid.
 function clusterBodies(bodies) {
   const cell = Math.max(1, ...bodies.map(b => b.size * .5)), grid = new Map(), parent=bodies.map((_,i)=>i);
+  const nx=Math.max(1,Math.floor(meta.W/cell)),ny=Math.max(1,Math.floor(meta.H/cell)),cw=meta.W/nx,ch=meta.H/ny;
   const root = i => { while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];} return i; };
   bodies.forEach((b,i) => {
-    const gx=Math.floor(b.x/cell),gy=Math.floor(b.y/cell);
-    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)for(const j of grid.get(`${gx+dx},${gy+dy}`)??[]){
+    const gx=Math.floor(wrap(b.x,meta.W)/cw),gy=Math.floor(wrap(b.y,meta.H)/ch);
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)for(const j of grid.get(`${wrap(gx+dx,nx)},${wrap(gy+dy,ny)}`)??[]){
       const a=bodies[j],r=(a.size+b.size)*.25;
-      if((a.x-b.x)**2+(a.y-b.y)**2<=r*r)parent[root(i)]=root(j);
+      if(wrappedDelta(a.x,b.x,meta.W)**2+wrappedDelta(a.y,b.y,meta.H)**2<=r*r)parent[root(i)]=root(j);
     }
     const key=`${gx},${gy}`;if(!grid.has(key))grid.set(key,[]);grid.get(key).push(i);
   });
   const groups=new Map();bodies.forEach((b,i)=>{const key=root(i);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(b);});
   return [...groups.values()].map(members=>{
-    const x=members.reduce((v,b)=>v+b.x,0)/members.length,y=members.reduce((v,b)=>v+b.y,0)/members.length;
-    const nearest=[...members].sort((a,b)=>(a.x-x)**2+(a.y-y)**2-((b.x-x)**2+(b.y-y)**2)).slice(0,4);
+    const ref=members[0],x=wrap(ref.x+members.reduce((v,b)=>v+wrappedDelta(ref.x,b.x,meta.W),0)/members.length,meta.W),y=wrap(ref.y+members.reduce((v,b)=>v+wrappedDelta(ref.y,b.y,meta.H),0)/members.length,meta.H);
+    const nearest=[...members].sort((a,b)=>wrappedDelta(x,a.x,meta.W)**2+wrappedDelta(y,a.y,meta.H)**2-(wrappedDelta(x,b.x,meta.W)**2+wrappedDelta(y,b.y,meta.H)**2)).slice(0,4);
     return {members,x,y,nearest};
   });
 }
@@ -1044,7 +1216,7 @@ function shimmerFade(zoom) { return Math.max(0, 1-(zoom-1)/2); }
 
 let lastDrawAt = performance.now();
 function draw() {
-  // Layers, bottom to top: ground (terraces, patches, water, snow, bushes) → frost → quake crack → coral reef → slope light → corpses and eggs → creatures (shadow → body → the slope's light → markings; half-hidden in tall grass and thicket) → the air (rain wash, falling rain and snow, heat, the quake's dust).
+  // Prepare state once, tile world layers, then cover the viewport with air once.
   requestAnimationFrame(draw);
   const now = performance.now(), dtMs = now - lastDrawAt;
   lastDrawAt = now;
@@ -1054,42 +1226,81 @@ function draw() {
   if (following !== null) {
     const c = cur.get(following), p = prev?.get(following);
     if (!c || !species[c.s]) following = null;
-    else { anchor = null; target.cx = p ? lerpWrap(p.x, c.x, t, meta.W) : c.x; target.cy = p ? lerpWrap(p.y, c.y, t, meta.H) : c.y; }
+    else { anchor = null; target.cx = p ? lerpWrap(p.x, c.x, t, meta.W) : wrap(c.x, meta.W); target.cy = p ? lerpWrap(p.y, c.y, t, meta.H) : wrap(c.y, meta.H); }
   }
   clampCamera(target); camera.z += (target.z - camera.z) * 0.2;
   if (Math.abs(target.z - camera.z) < 0.0001) camera.z = target.z;
   if (anchor && following === null) { camera.cx = anchor.x - (anchor.u - 0.5) * meta.W / camera.z; camera.cy = anchor.y - (anchor.v - 0.5) * meta.H / camera.z; }
-  else { camera.cx += (target.cx - camera.cx) * 0.2; camera.cy += (target.cy - camera.cy) * 0.2; }
-  clampCamera(camera);
+  else { camera.cx += wrappedDelta(camera.cx, target.cx, meta.W) * 0.2; camera.cy += wrappedDelta(camera.cy, target.cy, meta.H) * 0.2; }
+  clampCamera(camera); normalizeCamera();
   $('zoomlevel').textContent = `${camera.z.toFixed(1)}×`; $('following').textContent = following === null ? '' : `following a ${species[cur.get(following).s].name} · esc`;
   const left = camera.cx - meta.W / (2 * camera.z), top = camera.cy - meta.H / (2 * camera.z), right = camera.cx + meta.W / (2 * camera.z), bottom = camera.cy + meta.H / (2 * camera.z);
-  drawn = []; pileBadges = [];
+  drawn = []; pileBadges = []; peakMarks = [];
   // An earthquake shakes the map for a few seconds (stronger for a big one).
-  const qAge = quakeSeen ? (performance.now() - quakeAt) / 1000 : 99, shake = qAge < 3 ? (1 - qAge / 3) * (quakeSeen.big ? 7 : 3) : 0;
+  const qAge = quakeSeen ? (now - quakeAt) / 1000 : 99, shake = qAge < 3 ? (1 - qAge / 3) * (quakeSeen.big ? 7 : 3) : 0;
   const factor = canvas.width / (meta.W * SCALE), k = SCALE * camera.z * factor, ky = canvas.height / meta.H * camera.z;
   viewShakeX = shake ? (Math.random() - 0.5) * shake / camera.z : 0; viewShakeY = shake ? (Math.random() - 0.5) * shake / camera.z : 0;
+  // STATE: interpolation, headings, piles and cached painting run once per frame.
+  const bodies=[];
+  for(const [id,c] of cur){
+    const sp=species[c.s];if(!sp)continue;const p=prev?.get(id);
+    const x=p?lerpWrap(p.x,c.x,t,meta.W):wrap(c.x,meta.W),y=p?lerpWrap(p.y,c.y,t,meta.H):wrap(c.y,meta.H);
+    let s=Math.max(4,c.z);
+    if(sp.unique&&sp.mark==='pulse')s*=1+.22*Math.sin(now*.006+id);
+    s*=1+.07*Math.max(0,Math.sin(now*.009*(c.p??1)+id))**6;
+    let a=p?lerpAngle(p.a,c.a,t):c.a;
+    if(!sp.unique){const heading=headings.get(id)??c.a,d=lerpAngle(heading,c.targetHeading??c.a,1)-heading;a=heading+Math.max(-.0035*dtMs,Math.min(.0035*dtMs,d));headings.set(id,a);}
+    bodies.push({id,x,y,s,a,size:!sp.unique&&creatureSprites.has(sp.name)?s*CREATURE_SCALE*1.4:s});
+  }
+  const piles=clusterBodies(bodies).filter(p=>p.members.length>=5), hiddenBodies=new Set();
+  if(camera.z<=2)for(const p of piles){const keep=new Set(p.nearest.map(b=>b.id));for(const b of p.members)if(!keep.has(b.id))hiddenBodies.add(b.id);}
+  if(climateNow?.relief && climateNow._painted!==climateNow){paintRelief();climateNow._painted=climateNow;}
+  const view={left:left-viewShakeX,top:top-viewShakeY,right:right-viewShakeX,bottom:bottom-viewShakeY};
+  const tiles=visibleTiles(view.left,view.top,view.right,view.bottom);
+  const weather=prepareWeather(now);
+  // Foreground overscan also repeats silhouettes/trails crossing a tile boundary.
+  const margin=Math.max(48,quakeSeen&&qAge<6?24+qAge*(quakeSeen.big?70:35):0,quakeSeen&&qAge<60?quakeSeen.len/2+12:0,...bodies.map(b=>b.s*(species[cur.get(b.id).s].shape==='serpent'?8:5)+40));
+  const objectTiles=visibleTiles(view.left,view.top,view.right,view.bottom,margin);
+  const rect=canvas.getBoundingClientRect(),ux=canvas.width/rect.width/k,uy=canvas.height/rect.height/ky;
+  const css=getComputedStyle(document.documentElement);
+  const badges=piles.map(p=>{
+    const counts={};for(const b of p.members){const name=species[cur.get(b.id).s].name;counts[name]=(counts[name]??0)+1;}
+    g.font='9px ui-monospace, monospace';const label=`×${p.members.length}`;
+    return {p,counts,label,y:Math.min(...p.members.map(b=>p.y+wrappedDelta(p.y,b.y,meta.H)-b.size))-9*uy,w:g.measureText(label).width+10,h:15};
+  });
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
   g.setTransform(k, 0, 0, ky, canvas.width / 2 - camera.cx * k + viewShakeX * k, canvas.height / 2 - camera.cy * ky + viewShakeY * ky);
   g.imageSmoothingEnabled = true;
   if(showXray){
-    g.imageSmoothingEnabled=false;if(xrayBitmap||groundBitmap)g.drawImage(xrayBitmap??groundBitmap,0,0,meta.W,meta.H);const dotUnit=meta.W*(devicePixelRatio||1)/canvas.width,r=2.5*dotUnit;
-    for(const [id,c]of cur){const sp=species[c.s];if(!sp)continue;const p=prev?.get(id),x=p?lerpWrap(p.x,c.x,t,meta.W):c.x,y=p?lerpWrap(p.y,c.y,t,meta.H):c.y;if(x<left-r||x>right+r||y<top-r||y>bottom+r)continue;g.globalAlpha=highlight&&!bodyHighlighted(c,sp) ? .12 : 1;g.fillStyle=`hsl(${sp.hue} 70% 50%)`;g.strokeStyle='rgba(20,18,12,.85)';g.lineWidth=dotUnit;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();g.stroke();drawn.push({x,y,s:r,hitRadius:r+dotUnit/2,id});}
-    g.globalAlpha=1;return;
+    g.imageSmoothingEnabled=false;
+    for(const {ox,oy} of tiles){g.save();g.translate(ox,oy);if(xrayBitmap||groundBitmap)g.drawImage(xrayBitmap??groundBitmap,0,0,meta.W,meta.H);g.restore();}
+    const dotUnit=meta.W*(devicePixelRatio||1)/canvas.width,r=2.5*dotUnit;
+    for(const {ox,oy} of objectTiles){g.save();g.translate(ox,oy);
+      for(const {id,x,y} of bodies){const c=cur.get(id),sp=species[c.s];if(x<view.left-ox-r||x>view.right-ox+r||y<view.top-oy-r||y>view.bottom-oy+r)continue;
+        g.globalAlpha=highlight&&!bodyHighlighted(c,sp) ? .12 : 1;g.fillStyle=`hsl(${sp.hue} 70% 50%)`;g.strokeStyle='rgba(20,18,12,.85)';g.lineWidth=dotUnit;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();g.stroke();drawn.push({x:x+ox,y:y+oy,s:r,hitRadius:r+dotUnit/2,id});
+      }g.restore();
+    }drawSummits(objectTiles,ux,uy,css);return;
   }
+  // WORLD: all opaque ground copies first, so they cannot erase edge-crossing bodies.
+  for(const {ox,oy} of tiles){g.save();g.translate(ox,oy);
   if (groundBitmap) { g.imageSmoothingEnabled = false; g.drawImage(groundBitmap, 0, 0, meta.W, meta.H); }
   else g.drawImage(terrainCanvas, 0, 0, meta.W, meta.H);
-  drawWeather(g, now);
-  if (!groundBitmap && waterNow) { g.imageSmoothingEnabled = true; g.drawImage(waterCanvas, 0, 0, meta.W, meta.H); }
+  drawWeather(g, weather, {left:view.left-ox,top:view.top-oy,right:view.right-ox,bottom:view.bottom-oy});
+  if (!groundBitmap && waterNow) { g.imageSmoothingEnabled = false; g.drawImage(waterCanvas, 0, 0, meta.W, meta.H); }
+  g.imageSmoothingEnabled = true;
+  if (coralBitmap) g.drawImage(coralBitmap, 0, 0, meta.W, meta.H);
+  else { g.imageSmoothingEnabled = false; g.drawImage(reefCanvas, 0, 0, meta.W, meta.H); g.imageSmoothingEnabled = true; }
+  if (!groundBitmap && climateNow?.relief && lightCanvas.width) { g.globalCompositeOperation = 'hard-light'; g.drawImage(lightCanvas, 0, 0, meta.W, meta.H); g.globalCompositeOperation = 'source-over'; }
+
+  g.restore();}
+  for(const {ox,oy} of objectTiles){g.save();g.translate(ox,oy);
+    const left=view.left-ox,top=view.top-oy,right=view.right-ox,bottom=view.bottom-oy;
   if (quakeSeen && qAge < 60) { // the fault: a jagged crack along the break, fading over a minute
     const q = quakeSeen, ux = Math.cos(q.ang), uy = Math.sin(q.ang), fade = 1 - qAge / 60;
     g.strokeStyle = `rgba(40,25,15,${0.85 * fade})`; g.lineWidth = q.big ? 3 : 2; g.beginPath();
     for (let k = 0; k <= 24; k++) { const t = (k / 24 - 0.5) * q.len, j = ((k * 7919) % 13 - 6) * (q.big ? 1.2 : 0.7); const x = q.x + ux * t - uy * j, y = q.y + uy * t + ux * j; k ? g.lineTo(x, y) : g.moveTo(x, y); }
     g.stroke();
   }
-  g.imageSmoothingEnabled = true;
-  if (coralBitmap) g.drawImage(coralBitmap, 0, 0, meta.W, meta.H);
-  else { g.imageSmoothingEnabled = false; g.drawImage(reefCanvas, 0, 0, meta.W, meta.H); g.imageSmoothingEnabled = true; }
-  if (!groundBitmap && climateNow?.relief && lightCanvas.width) { g.globalCompositeOperation = 'hard-light'; g.drawImage(lightCanvas, 0, 0, meta.W, meta.H); g.globalCompositeOperation = 'source-over'; }
 
   for (let i = 0; i < corpses.length; i += 4) {
     const x = corpses[i], y = corpses[i + 1], age = corpses[i + 2], eaten = corpses[i + 3];
@@ -1099,51 +1310,30 @@ function draw() {
 
   // Eggs: a glowing shell, warming from gold to red as it nears hatching, with slow rings spreading from it.
   for (let i = 0; i < eggs.length; i += 4) {
-    const x = eggs[i], y = eggs[i + 1], p = eggs[i + 2], t = performance.now(), r = 9 + 2 * Math.sin(t * 0.003), hue = 45 - p * 45;
+    const x = eggs[i], y = eggs[i + 1], p = eggs[i + 2], t = now, r = 9 + 2 * Math.sin(t * 0.003), hue = 45 - p * 45;
     for (let k = 0; k < 2; k++) { const u = ((t / 1600) + k / 2) % 1; g.strokeStyle = `hsla(${hue} 90% 65% / ${0.6 * (1 - u)})`; g.lineWidth = 1.5; g.beginPath(); g.arc(x, y, r + u * 26, 0, Math.PI * 2); g.stroke(); }
     g.fillStyle = `hsl(${hue} 85% ${68 - p * 15}%)`; g.beginPath(); g.ellipse(x, y, r, r * 1.3, 0, 0, Math.PI * 2); g.fill();
     g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1; g.stroke();
   }
 
-  const bodies=[];
-  for(const [id,c] of cur){
-    const sp=species[c.s];if(!sp)continue;const p=prev?.get(id);
-    const x=p?lerpWrap(p.x,c.x,t,meta.W):c.x,y=p?lerpWrap(p.y,c.y,t,meta.H):c.y;
-    let s=Math.max(4,c.z);
-    if(sp.unique&&sp.mark==='pulse')s*=1+.22*Math.sin(now*.006+id);
-    s*=1+.07*Math.max(0,Math.sin(now*.009*(c.p??1)+id))**6;
-    bodies.push({id,x,y,s,size:!sp.unique&&creatureSprites.has(sp.name)?s*CREATURE_SCALE*1.4:s});
-  }
-  const piles=clusterBodies(bodies).filter(p=>p.members.length>=5), hiddenBodies=new Set();
-  if(camera.z<=2)for(const p of piles){const keep=new Set(p.nearest.map(b=>b.id));for(const b of p.members)if(!keep.has(b.id))hiddenBodies.add(b.id);}
-  const bodyById=new Map(bodies.map(b=>[b.id,b]));
-  // Interpolate between the last two frames so 15 updates/s look smooth at 60fps.
-  for (const [id, c] of cur) {
-    const sp = species[c.s];
-    if (!sp || hiddenBodies.has(id)) continue;
-    const p = prev?.get(id);
-    const x = p ? lerpWrap(p.x, c.x, t, meta.W) : c.x, y = p ? lerpWrap(p.y, c.y, t, meta.H) : c.y;
-    let a = p ? lerpAngle(p.a, c.a, t) : c.a;
-    if (!sp.unique) {
-      const heading = headings.get(id) ?? c.a, d = lerpAngle(heading, c.targetHeading, 1) - heading;
-      a = heading + Math.max(-0.0035 * dtMs, Math.min(0.0035 * dtMs, d));
-      headings.set(id, a);
-    }
-    let s = bodyById.get(id).s;
+  // Prepared once above; drawing a tile never advances headings or trails.
+  for (const {id,x,y,s:preparedSize,a} of bodies) {
+    const c=cur.get(id),sp=species[c.s];
+    if(hiddenBodies.has(id))continue;
+    let s=preparedSize;
     if (sp.unique && sp.shape === 'serpent') {
       // The body trails behind the head along the exact path it took (like the snake game), seven of its sizes long.
       const t = trails.get(id) ?? [], want = s * 7;
       let len = 0, px = x, py = y;
       g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : 1;
       for (let j = t.length - 1; j >= 0 && len < want; j--) {
-        let dx = t[j].x - px, dy = t[j].y - py;
-        if (Math.abs(dx) > meta.W / 2 || Math.abs(dy) > meta.H / 2) break; // wrapped across the edge
+        const dx=wrappedDelta(px,t[j].x,meta.W),dy=wrappedDelta(py,t[j].y,meta.H),tx=px+dx,ty=py+dy;
         len += Math.hypot(dx, dy);
         const k = 1 - len / want;
         g.fillStyle = `hsl(${c.h} 55% ${34 + 18 * k}%)`;
         const rr = Math.max(1.2, s * 0.4 * (0.3 + 0.7 * k)); // segments, slimmer than the head
-        g.beginPath(); g.roundRect(t[j].x - rr, t[j].y - rr, rr * 2, rr * 2, rr * 0.6); g.fill();
-        px = t[j].x; py = t[j].y;
+        g.beginPath(); g.roundRect(tx - rr, ty - rr, rr * 2, rr * 2, rr * 0.6); g.fill();
+        px = tx; py = ty;
       }
       g.globalAlpha = 1;
     }
@@ -1161,7 +1351,7 @@ function draw() {
       const look=creatureSprites.get(sp.name),lv=lightData?(lightData[ci*4]-128)/90:0;
       if(look){const energy=c.e<.325?0:c.e<.7?1:2,light=lv<-.25?0:lv>.25?2:1,stage=lifeStage(c),index=stage==='adult'?(c.b&1?0:c.b&32?8:energy*3+light):(stage==='juvenile'?9:12)+energy;
         g.save();g.globalAlpha*=c.b&1?.7:c.b&32?.5:1;g.scale(s/6*CREATURE_SCALE,s/6*CREATURE_SCALE*(1+.35*((c.f??look.fat)-look.fat)));stampCreature(g,look.variants[index]);g.restore();}
-      drawn.push({x,y,s,id,hitRadius:Math.max(6,bodySize)});
+      drawn.push({x:x+ox,y:y+oy,s,id,hitRadius:Math.max(6,bodySize)});
     }else{
     if (sp.mark === 'glow') { g.fillStyle = `hsla(${c.h} 85% 60% / .1)`; g.beginPath(); g.arc(0, 0, s * 1.25, 0, Math.PI * 2); g.fill(); }
     if (sp.mark === 'trail') { g.strokeStyle = `hsla(${c.h} 70% 65% / .45)`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-s * 0.6, 0); g.lineTo(-s * 2.8, 0); g.stroke(); }
@@ -1200,7 +1390,7 @@ function draw() {
       }
     }
     const legs = c.l ?? 1; g.scale(legs, (1 + 0.35 * (c.f ?? 0)) / Math.sqrt(legs)); // fat rounds the body out
-    drawn.push({ x, y, s, id });
+    drawn.push({ x:x+ox, y:y+oy, s, id });
     body(g, sp.shape, s);
     g.strokeStyle = 'rgba(20,18,12,.45)'; g.lineWidth = 0.5; g.stroke(); // a thin dark edge, like ink
     if (lightData && !(c.b & 32)) { const lv = (lightData[cellOf(x, y) * 4] - 128) / 90; if (Math.abs(lv) > 0.05) { g.fillStyle = lv > 0 ? `rgba(255,248,230,${0.22 * lv})` : `rgba(0,0,12,${-0.3 * lv})`; body(g, sp.shape, s); } }
@@ -1216,23 +1406,24 @@ function draw() {
     if (id === hovered) { g.save(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 0.8; g.beginPath(); g.arc(x, y, spriteDrawn ? s * CREATURE_SCALE * 1.2 + 2 : s + 3, 0, Math.PI * 2); g.stroke(); g.restore(); } // the body under the tip
   }
 
-  g.fillStyle = `rgba(70,110,160,${Math.max(0, rain - 0.5) * 0.06})`; // the rain's grey wash, in the air
-  g.fillRect(0, 0, meta.W, meta.H);
-  drawAir(g, now);
   if (quakeSeen && qAge < 6) { const q = quakeSeen; g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); } // the quake's dust
   // Badge dimensions and strokes stay in CSS pixels at every camera zoom.
-  const rect=canvas.getBoundingClientRect(), ux=canvas.width/rect.width/k, uy=canvas.height/rect.height/ky;
-  const css=getComputedStyle(document.documentElement);
-  for(const p of piles){
-    const counts={};for(const b of p.members){const name=species[cur.get(b.id).s].name;counts[name]=(counts[name]??0)+1;}
-    const y=Math.min(...p.members.map(b=>b.y-b.size))-9*uy;
+  for(const {p,counts,label,y,w,h} of badges){
+    if(p.x+w*ux/2<left||p.x-w*ux/2>right||y+h*uy/2<top||y-h*uy/2>bottom)continue;
     g.save();g.translate(p.x,y);g.scale(ux,uy);g.font='9px ui-monospace, monospace';
-    const label=`×${p.members.length}`,w=g.measureText(label).width+10,h=15;
     g.beginPath();g.roundRect(-w/2,-h/2,w,h,5);g.globalAlpha=.85;g.fillStyle=css.getPropertyValue('--panel').trim();g.fill();
     g.globalAlpha=1;g.lineWidth=1;g.strokeStyle=css.getPropertyValue('--line').trim();g.stroke();
     g.fillStyle=css.getPropertyValue('--fg').trim();g.textAlign='center';g.textBaseline='middle';g.fillText(label,0,0);g.restore();
-    pileBadges.push({x:p.x,y,w:w*ux,h:h*uy,n:p.members.length,counts});
+    pileBadges.push({x:p.x+ox,y:y+oy,w:w*ux,h:h*uy,n:p.members.length,counts});
   }
+  g.restore();}
+  for(const {ox,oy} of tiles){g.save();g.translate(ox,oy);drawHeat(g,weather,{left:view.left-ox,top:view.top-oy,right:view.right-ox,bottom:view.bottom-oy});g.restore();}
+  drawSummits(objectTiles,ux,uy,css);
+  // SCREEN: rain/snow and the grey air wash cover the viewport once, independent of tiles.
+  g.setTransform(canvas.width/meta.W,0,0,canvas.height/meta.H,0,0);
+  g.fillStyle=`rgba(70,110,160,${Math.max(0,rain-.5)*.06})`;g.fillRect(0,0,meta.W,meta.H);
+  drawAir(g,now);
+
 
 
 }
@@ -1245,9 +1436,10 @@ function tempOf(y, x) {
   const R = climateNow?.relief;
   if (R && x !== undefined && reliefElev) { // on relief: from the height of this cell
     const gx = Math.floor(((x % meta.W) + meta.W) % meta.W / meta.W * meta.GW), gy = Math.floor(((y % meta.H) + meta.H) % meta.H / meta.H * meta.GH);
-    const e = reliefElev[gy * meta.GW + gx] / 255 * R.rise, ns = R.ns[0] + (R.ns[1] - R.ns[0]) * gy / meta.GH + climateNow.era;
+    const e = (worldInputs.elev3?heightAt(gy * meta.GW + gx):reliefElev[gy * meta.GW + gx] / 255 * R.rise), ns = R.ns[0] + (R.ns[1] - R.ns[0]) * gy / meta.GH + climateNow.era;
     return ns * (1 - R.rise) + (R.low + climateNow.era - R.lapse * e) * R.rise;
   }
+  y=wrap(y,meta.H);
   const r = climateNow?.rows; if (!r?.length) return 0.5; return r[Math.min(r.length - 1, Math.max(0, Math.floor(y / meta.H * r.length)))];
 }
 // A fixed scatter of points (seeded, so specks and drops keep their places between frames).
@@ -1263,10 +1455,12 @@ let reliefKey = '', reliefElev = null;
 function paintRelief() {
   const R = climateNow.relief, GW = meta.GW, GH = meta.GH;
   if (reliefKey !== R.elev) { reliefKey = R.elev; reliefElev = Uint8Array.from(atob(R.elev), ch => ch.charCodeAt(0));worldInput('elev', R.elev, reliefElev); }
-  for(const [key,value] of [['geo',R.geo??R.rock],['alluv',R.alluv],['elev2',R.elev2]])if(value!==undefined&&worldKeys[key]!==value)worldInput(key,value,Uint8Array.from(atob(value),ch=>ch.charCodeAt(0)));
+  for(const key of ['elev2','elev3'])if(R[key]===undefined&&worldInputs[key]){delete worldInputs[key];delete worldKeys[key];worldVersions[key]=(worldVersions[key]??0)+1;worldPending.land=true;worldPending.ground=true;worldPending.xray=true;}
+  for(const [key,value] of [['geo',R.geo??R.rock],['alluv',R.alluv],['elev2',R.elev2],['elev3',R.elev3]])if(value!==undefined&&worldKeys[key]!==value)worldInput(key,value,Uint8Array.from(atob(value),ch=>ch.charCodeAt(0)));
+  updateSummits();
   reliefCanvas.width = GW; reliefCanvas.height = GH;
   lightCanvas.width = GW; lightCanvas.height = GH;
-  const img = rlg.createImageData(GW, GH), light = lig.createImageData(GW, GH), E = (x, y) => reliefElev[((y + GH) % GH) * GW + ((x + GW) % GW)] / 255 * R.rise;
+  const img = rlg.createImageData(GW, GH), light = lig.createImageData(GW, GH), E = (x, y) => {const i=((y + GH) % GH) * GW + ((x + GW) % GW);return worldInputs.elev3?heightAt(i):reliefElev[i] / 255 * R.rise;};
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     const e = E(x, y), o = (y * GW + x) * 4;
     const ns = R.ns[0] + (R.ns[1] - R.ns[0]) * (y + 0.5) / GH + climateNow.era, T = ns * (1 - R.rise) + (R.low + climateNow.era - R.lapse * e) * R.rise;
@@ -1284,48 +1478,54 @@ function paintRelief() {
   lightData = light.data;
 }
 // The ground's weather (drawn under the creatures): the relief and its temperature tint, and frost glints.
-function drawWeather(g, now) {
-  if (!climateNow?.rows?.length) return;
-  const rows = climateNow.rows, bh = meta.H / rows.length, frost = climateNow.frost ?? 0.18;
-  if (climateNow.relief) {
-    if (climateNow._painted !== climateNow) { paintRelief(); climateNow._painted = climateNow; }
-    if (!groundBitmap) { g.imageSmoothingEnabled = true; g.drawImage(reliefCanvas, 0, 0, meta.W, meta.H); }
-  } else if (!groundBitmap) rows.forEach((T, j) => {
-    const d = T - 0.5, a = Math.min(0.16, Math.abs(d) * 0.55);
-    if (a < 0.01) return;
-    g.fillStyle = d < 0 ? `rgba(110,165,240,${a})` : `rgba(240,150,50,${a})`;
-    g.fillRect(0, j * bh, meta.W, bh + 1);
-  });
-  // Frost: pale glints on ground colder than the frost line (and a thin rime just above it).
-  g.fillStyle = 'rgba(235,245,255,.75)';
-  for (let i = 0; i < 600; i++) {
-    const [u, v] = SCATTER[i], x = u * meta.W, y = v * meta.H, T = tempOf(y, x), k = (frost + 0.06 - T) / 0.06;
-    if (k <= 0 || (i % 10) / 10 > k) continue;
-    const tw = 0.6 + 0.4 * Math.sin(now * 0.003 + i);
-    g.globalAlpha = Math.min(1, k) * tw; g.fillRect(x - 1.5, y, 3, 0.8); g.fillRect(x - 0.4, y - 1.1, 0.8, 3);
+function prepareWeather(now) {
+  const frostGlints=[],heat=[];
+  if(!climateNow?.rows?.length||showXray)return {frostGlints,heat};
+  const frost=climateNow.frost??.18;
+  for(let i=0;i<600;i++){
+    const [u,v]=SCATTER[i],x=u*meta.W,y=v*meta.H,k=(frost+.06-tempOf(y,x))/.06;
+    if(k>0&&(i%10)/10<=k)frostGlints.push({x,y,alpha:Math.min(1,k)*(.6+.4*Math.sin(now*.003+i))});
   }
-  g.globalAlpha = 1;
-}
-// The air above everything (drawn over the creatures): heat shimmer, and falling rain or snow.
-function drawAir(g, now) {
-  if (!climateNow?.rows?.length) return;
-  const rows = climateNow.rows, bh = meta.H / rows.length;
-  // Short, separated world-space ripples; opacity and width never grow with zoom.
-  const fade=shimmerFade(camera.z), pixel=canvas.width/canvas.getBoundingClientRect().width;
-  g.lineWidth=pixel/Math.abs(g.getTransform().a);
-  if(fade>0)for(let j=0;j<rows.length;j++)for(let line=0;line<2;line++){
+  const fade=shimmerFade(camera.z),bh=meta.H/climateNow.rows.length;
+  if(fade>0)for(let j=0;j<climateNow.rows.length;j++)for(let line=0;line<2;line++){
     const y0=(j+.3+line*.45)*bh;
     for(let x=0;x<meta.W;x+=24){
       const y=y0+Math.sin(x*.04+now*.002+j+line*2)*2.2,k=(tempOf(y,x)-.56)/.14;if(k<=0)continue;
       const x1=Math.min(x+8,meta.W),y1=y0+Math.sin(x1*.04+now*.002+j+line*2)*2.2;
-      g.strokeStyle=`rgba(255,200,120,${Math.min(.22,k*.18)*fade})`;g.beginPath();g.moveTo(x,y);g.lineTo(x1,y1);g.stroke();
+      heat.push({x,y,x1,y1,alpha:Math.min(.22,k*.18)*fade});
     }
   }
-  g.lineWidth=1;
+  return {frostGlints,heat};
+}
+function drawWeather(g, weather, view) {
+  if (!climateNow?.rows?.length) return;
+  const rows=climateNow.rows,bh=meta.H/rows.length;
+  if(climateNow.relief){if(!groundBitmap){g.imageSmoothingEnabled=true;g.drawImage(reliefCanvas,0,0,meta.W,meta.H);}}
+  else if(!groundBitmap)rows.forEach((T,j)=>{
+    const d=T-.5,a=Math.min(.16,Math.abs(d)*.55);if(a<.01)return;
+    g.fillStyle=d<0?`rgba(110,165,240,${a})`:`rgba(240,150,50,${a})`;g.fillRect(0,j*bh,meta.W,bh+1);
+  });
+  g.fillStyle='rgba(235,245,255,.75)';
+  for(const {x,y,alpha} of weather.frostGlints){
+    if(x<view.left-2||x>view.right+2||y<view.top-3||y>view.bottom+3)continue;
+    g.globalAlpha=alpha;g.fillRect(x-1.5,y,3,.8);g.fillRect(x-.4,y-1.1,.8,3);
+  }g.globalAlpha=1;
+}
+// Heat belongs to the ground; precipitation below belongs to the viewport.
+function drawHeat(g, weather, view) {
+  const pixel=canvas.width/canvas.getBoundingClientRect().width;
+  g.lineWidth=pixel/Math.abs(g.getTransform().a);
+  for(const {x,y,x1,y1,alpha}of weather.heat){
+    if(x1<view.left||x>view.right||Math.max(y,y1)<view.top||Math.min(y,y1)>view.bottom)continue;
+    g.strokeStyle=`rgba(255,200,120,${alpha})`;g.beginPath();g.moveTo(x,y);g.lineTo(x1,y1);g.stroke();
+  }g.lineWidth=1;
+}
+function drawAir(g, now) {
+  if (!climateNow?.rows?.length) return;
   // Rain, or snow where it is cold: more of it the wetter the day.
   const n = Math.round(Math.max(0, rain - 0.35) / 0.65 * 700);
   for (let i = 0; i < n; i++) {
-    const [u, v] = SCATTER[i % SCATTER.length], x0 = u * meta.W, T = tempOf(v * meta.H, x0);
+    const [u, v] = SCATTER[i % SCATTER.length], x0 = u * meta.W, T = tempOf(camera.cy+(v-.5)*meta.H/camera.z, camera.cx+(u-.5)*meta.W/camera.z);
     if (T < 0.36) { // snow: slow, drifting flakes
       const y = (v * meta.H + now * 0.02 * (0.6 + u)) % meta.H, x = (x0 + Math.sin(now * 0.001 + i) * 6 + meta.W) % meta.W;
       g.fillStyle = 'rgba(240,248,255,.7)'; g.beginPath(); g.arc(x, y, 1.3, 0, Math.PI * 2); g.fill();
@@ -1435,13 +1635,13 @@ function counts() {
 }
 
 // Ecosystem places: O(cells), four neighbours on a torus; only the viewer owns this map.
-function buildPlaces(GW,GH,need,water,elev,section=null,sectionNames=null){
+function buildPlaces(GW,GH,need,water,elev,section=null,sectionNames=null,wScale=1/600,swimDepth=.073){
  const N=GW*GH,map=new Int32Array(N).fill(-1),queue=new Int32Array(N),sizes=[],neighbors=new Int32Array(4);let regions=0;
  const around=i=>{const x=i%GW,y=(i/GW)|0;neighbors[0]=y*GW+(x+1)%GW;neighbors[1]=y*GW+(x+GW-1)%GW;neighbors[2]=((y+1)%GH)*GW+x;neighbors[3]=((y+GH-1)%GH)*GW+x;};
  const official=[];
  if(section){const ids=new Map();for(let i=0;i<N;i++){const id=section[i];if(!ids.has(id)){ids.set(id,regions++);official.push(id);}map[i]=ids.get(id);}}
  else{
-  const walk=i=>(need?.[i]??255)<.15*255&&((water?.[i]??0)&127)<.4*127;
+  const walk=i=>(need?.[i]??255)<.15*255&&waterDepth(water,i,wScale)<swimDepth;
   for(let i=0;i<N;i++)if(map[i]<0&&walk(i)){let head=0,tail=1;queue[0]=i;map[i]=regions;while(head<tail){around(queue[head++]);for(let k=0;k<4;k++){const j=neighbors[k];if(map[j]<0&&walk(j)){map[j]=regions;queue[tail++]=j;}}}sizes.push(tail);regions++;}
   let kept=sizes.map((n,i)=>n>=N*.03?i:-1).filter(i=>i>=0);
   // If every patch is tiny (or no ground is walkable), keep the largest as a safe single place.
@@ -1462,11 +1662,11 @@ function buildPlaces(GW,GH,need,water,elev,section=null,sectionNames=null){
 let places={map:null,names:['unknown place']},placeKey='',placeWater=null,placeAt=-Infinity;
 function updatePlaces(now=performance.now()){
  const R=climateNow?.relief;if(!meta||!R)return;
- const key=JSON.stringify([meta.GW,meta.GH,R.section??R.need,R.sectionNames??null]);if(!R.section&&!R.need)return;
+ const key=JSON.stringify([meta.GW,meta.GH,R.section??R.need,R.sectionNames??null,R.elev3??null,R.elev3Range??null,swimDepth]);if(!R.section&&!R.need)return;
  if(key===placeKey&&(placeWater===worldKeys.water||R.section||now-placeAt<30000))return;
  const decode=s=>s?Uint8Array.from(atob(s),c=>c.charCodeAt(0)):null;
  const need=decode(R.need),section=decode(R.section),N=meta.GW*meta.GH;if((section??need)?.length!==N)return;
- places=buildPlaces(meta.GW,meta.GH,need,worldInputs.water,decode(R.elev2??R.elev),section,R.sectionNames);
+ places=buildPlaces(meta.GW,meta.GH,need,worldInputs.water,R.elev3?Float32Array.from((worldKeys.elev3===R.elev3?worldInputs.elev3:decode(R.elev3)),v=>v/255*((R.elev3Range??[-1,2.5])[1]-(R.elev3Range??[-1,2.5])[0])+(R.elev3Range??[-1,2.5])[0]):decode(R.elev2??R.elev),section,R.sectionNames,worldInputs.wScale,swimDepth);
  placeKey=key;placeWater=worldKeys.water;placeAt=now;
 }
 function placeIndex(x,y){return places.map?.[cellOf(x,y)]??0;}
