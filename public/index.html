@@ -17,28 +17,35 @@
     --bg: #f3f1ea; --fg: #3d4740; --dim: #7c867e; --line: #d9d6cb; --hi: #141a16; --panel: #e9e6dc;
     --warm: #8a6d14; --omni: #7d6a1e; --hunter: #a4502e; --apex: #c0302a; --strike: #c08a80;
     --ink: rgba(60,70,62,.6); --plantline: rgba(70,120,50,.55); color-scheme: light; }
-  #theme { float: right; background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px;
-           padding: 1px 6px; cursor: pointer; }
+  #head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  #tools { display: flex; gap: 6px; align-items: center; }
+  #reportslink, #wikilink, #theme { font: inherit; font-size: 10px; line-height: 16px; height: 18px; padding: 0 6px; box-sizing: border-box; border: 1px solid var(--line); display: inline-flex; align-items: center; color: var(--dim); }
+  #theme { background: none; cursor: pointer; }
   #theme:hover { color: var(--hi); }
   #zoom { position: absolute; top: 22px; right: 22px; display: flex; gap: 5px; align-items: center; padding: 4px; background: color-mix(in srgb, var(--bg) 82%, transparent); color: var(--dim); font-size: 10px; }
   #zoom button { background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--line); color: var(--dim); font: inherit; padding: 1px 6px; cursor: pointer; }
   #zoom button:hover { color: var(--hi); }
-  #mindbtn { float: right; margin-right: 6px; background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px; cursor: pointer; }
-  #mindbtn.on { color: var(--hi); border-color: var(--hi); }
-  #reportslink { float: right; margin-right: 6px; border: 1px solid var(--line); color: var(--dim); font-size: 10px; padding: 0 6px; text-decoration: none; }
-  #reportslink:hover { color: var(--hi); }
+  #zoom .divider { width: 1px; height: 12px; margin: 0 2px; background: var(--line); }
+  #xraypanel { position: absolute; bottom: 22px; left: 22px; max-width: calc(100% - 44px); padding: 4px; background: color-mix(in srgb, var(--bg) 82%, transparent); color: var(--dim); font-size: 10px; }
+  #xraychips { display: flex; gap: 5px; }
+  #xraychips button { background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--line); color: var(--dim); font: inherit; padding: 1px 6px; cursor: pointer; }
+  #xraychips button.on, #xraychips button:hover { color: var(--hi); border-color: var(--hi); }
+  #xraylegend { margin-top: 4px; font-size: 10px; white-space: nowrap; overflow-x: auto; }
+  #xraylegend i { display: inline-block; width: 9px; height: 9px; vertical-align: -1px; margin-right: 3px; }
+  #xraylegend .ramp { width: 65px; background: linear-gradient(90deg,#153c51,#777f40,#c3ab7b,#896b50,#f4f3ec); }
+  #xraybtn.on { color: var(--hi); border-color: var(--hi); }
+  #reportslink, #wikilink { text-decoration: none; }
+  #reportslink:hover, #wikilink:hover { color: var(--hi); }
   #reportslink.unread { color: var(--hi); border-color: var(--warm); }
   #reportsbadge { margin-left: 4px; background: var(--warm); color: var(--bg); border-radius: 7px; padding: 0 5px; font-weight: 700; }
-  #mindkey { font-size: 10px; color: var(--dim); margin-top: 2px; }
-  #climatebox { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+  #weatherwrap { position: relative; }
+  #weather { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; overflow-wrap: anywhere; }
+  #climatebox { position: absolute; top: 100%; left: 0; width: 100%; display: flex; gap: 8px; align-items: center; padding: 8px; background: var(--bg); border: 1px solid var(--line); box-shadow: 0 4px 12px #0004; z-index: 20; }
   #climatebox[hidden] { display: none; }
-  #dial { width: 156px; height: 156px; flex: none; border: 1px solid var(--line); border-radius: 4px; }
-  #climatetext { font-size: 10px; line-height: 1.45; }
+  #dial { width: min(48%, 156px); height: auto; aspect-ratio: 1; flex: none; border: 1px solid var(--line); border-radius: 4px; }
+  #climatetext { min-width: 0; overflow-wrap: anywhere; font-size: 10px; line-height: 1.45; }
   b.stand { color: var(--hi); font-weight: 600; }
   .portraitline { color: var(--hi); }
-  #mindkey .key { display: inline-block; width: 10px; height: 10px; vertical-align: -1px; margin: 0 3px 0 8px; border-radius: 2px; }
-  #mindkey .key.trap { background: rgba(220,60,50,.7); }
-  #mindkey .key.food { background: rgba(230,180,60,.7); }
   #ranges { float: right; display: flex; gap: 4px; text-transform: none; letter-spacing: 0; }
   #ranges button { background: none; border: 1px solid var(--line); color: var(--dim); font: inherit; font-size: 10px; padding: 0 6px; cursor: pointer; }
   #ranges button.on, #ranges button:hover { color: var(--hi); border-color: var(--dim); }
@@ -63,20 +70,24 @@
   @keyframes toastOut { from { opacity: 1; } to { opacity: 0; transform: translateY(-6px); } }
   @keyframes toast { 0% { opacity: 0; transform: translateY(10px); } 6% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px); } }
   #world { width: 1920px; max-width: min(100%, calc(150vh - 51px)); max-height: calc(100vh - 32px); height: auto; aspect-ratio: 3 / 2; box-sizing: content-box; border: 1px solid var(--line); touch-action: none; }
-  aside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
+  aside { min-width: 0; border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 18px; }
   h1 { font-size: 13px; font-weight: normal; letter-spacing: .2em; text-transform: uppercase; margin: 0; color: var(--hi); }
   h2 { font-size: 11px; font-weight: normal; letter-spacing: .15em; text-transform: uppercase; margin: 0 0 6px; color: var(--dim); }
   .dim { color: var(--dim); }
   #god { color: var(--dim); min-height: 1.5em; }
+  #god:empty { display: none; }
   #god.thinking { color: var(--warm); animation: breathe 2.4s ease-in-out infinite; }
   @keyframes breathe { 50% { opacity: .45; } }
   details { border-top: 1px solid var(--line); padding: 4px 0; }
-  summary { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; cursor: pointer; list-style: none; }
+  summary { display: grid; grid-template-columns: 22px 1fr auto; gap: 1px 6px; align-items: center; cursor: pointer; list-style: none; }
   .portrait { width: 22px; height: 22px; }
   summary::-webkit-details-marker { display: none; }
   summary > i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
   summary b { font-weight: normal; color: var(--hi); font-variant-numeric: tabular-nums; }
-  summary small { grid-column: 2 / 4; color: var(--dim); }
+  summary small { grid-column: 1 / 4; color: var(--fg); font-size: 10px; line-height: 1.3; }
+  summary .identity { grid-column: 2 / 4; font-size: 11px; line-height: 1.3; }
+  .speciesbody { padding-top: 6px; font-size: 10px; overflow-wrap: anywhere; }
+  #clock { overflow-wrap: anywhere; }
   summary > span, summary small { min-width: 0; overflow-wrap: anywhere; }
   details:hover summary span { color: var(--hi); }
   .new { color: var(--warm); }
@@ -86,8 +97,19 @@
   #extinct { color: var(--dim); overflow-wrap: anywhere; }
   .total { padding: 2px 0 6px; font-weight: 700; color: var(--dim); }
   .egg { padding: 4px 0; color: hsl(35 85% 55%); font-weight: 600; }
+  #extinct button { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; text-decoration: underline dotted; }
   #extinct s { text-decoration-color: var(--strike); }
-  #chart, #drift { width: 100%; height: 120px; display: block; }
+  .lenses { display:flex; flex-wrap:wrap; gap:4px; margin:8px 0 6px; }
+  .lenses button { font:inherit; font-size:10px; padding:2px 5px; border:1px solid var(--line); border-radius:10px; background:none; color:var(--dim); cursor:pointer; }
+  .lenses button.on { color:var(--hi); border-color:var(--dim); } .lenses button:disabled { opacity:.4; cursor:default; }
+  .niche { display:grid; align-items:center; width:100%; margin:3px 0 6px; font-size:9px; }
+  .niche .place { font-size:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; color:var(--dim); }
+  .niche .nicherole { height:16px; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .nicheabsence { color:var(--dim); font-size:9px; line-height:1.5; margin:2px 0 6px; } .niche button { display:flex; align-items:center; justify-content:center; height:16px; min-width:0; padding:0; border:0; color:var(--dim); background:none; cursor:crosshair; }
+  .niche i { display:block; border-radius:50%; } .roleheading { font-size:10px; color:var(--dim); margin:8px 0 2px; }
+  .popbar { display:block; grid-column:1 / 4; height:2px; margin:2px 0 1px; background:var(--line); } .popbar i { display:block; height:2px; }
+  #ecotip { position:fixed; z-index:20; max-width:min(320px,calc(100vw - 16px)); padding:6px 8px; background:var(--panel); color:var(--fg); border:1px solid var(--line); border-radius:4px; font-size:11px; pointer-events:none; overflow-wrap:anywhere; }
+  #chart { width: 100%; height: 120px; display: block; }
   .diet { display: flex; height: 4px; margin: 3px 0 2px; background: var(--line); }
   .diet i { display: block; height: 100%; }
   #events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -97,20 +119,21 @@
 </style>
 </head>
 <body>
-<main><canvas id="world"></canvas><div id="zoom"><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="toasts"></div><div id="tip" hidden></div></main>
+<main><canvas id="world"></canvas><div id="zoom"><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
 <aside>
-  <div><button id="theme" title="theme: auto, light, dark">auto</button><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="mindbtn" title="show what the kraken has learned: where it got stuck (red) and where it fed (gold)">kraken's mind</button><h1>The Terrarium</h1><div class="dim" id="clock">connecting…</div><div id="mindkey" hidden><b>kraken's mind:</b> <i class="key trap"></i> got stuck here <i class="key food"></i> fed here <span class="dim">· stronger colour = surer; it fades as the kraken forgets, and its egg inherits a blurred copy</span></div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div><div id="god"></div></div>
-  <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
+  <div><div id="head"><h1>The Terrarium</h1><nav id="tools"><a id="wikilink" href="/reports.html?section=wiki" title="the world's wiki: guides, concepts, species and history">wiki</a><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="theme" title="theme: auto, light, dark">auto</button></nav></div><div class="dim" id="clock">connecting…</div><div id="weatherwrap"><div id="weather" tabindex="0" aria-controls="climatebox" aria-expanded="false">Waiting for the weather.</div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div></div><div id="god"></div></div>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart"></canvas></section>
-  <section><h2>Evolution</h2><canvas id="drift"></canvas><div class="dim">how far each species has come from its line's founder: code numbers (solid) and body (dashed), across every split</div></section>
+  <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
   <section><h2>Chronicle</h2><ul id="events"></ul></section>
   <footer><a href="/miniature.html">god in miniature</a></footer>
 </aside>
+<div id="ecotip" role="tooltip" hidden></div>
 
 <script>
 const $ = id => document.getElementById(id);
-let mind = null, showMind = false; // the kraken's map (traps, feeding grounds), and whether to draw it
-try { showMind = localStorage.getItem('mind') === '1'; } catch {}
+let showXray=false,xrayView='height',xrayRevision=0,xrayStats=null,xrayPaintedRevision=-1;
+const xrayViews=['height','rock','water','barriers'],rockNames=['hard','soft','soluble','sediment','basement'];
+try { showXray=localStorage.getItem('xray')==='1';const v=localStorage.getItem('xrayView');if(xrayViews.includes(v))xrayView=v; } catch {}
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // Theme: auto (system), light or dark, remembered per browser. Charts redraw in the new ink.
 {
@@ -129,8 +152,6 @@ const css = name => getComputedStyle(document.documentElement).getPropertyValue(
     $('reportslink').title = n ? `${n} new status report${n > 1 ? 's' : ''} not read yet` : 'status reports of the world';
   }).catch(() => {});
   reportsAlert(); setInterval(reportsAlert, 60000);
-  const mb = $('mindbtn'), key = () => { mb.classList.toggle('on', showMind); $('mindkey').hidden = !showMind; }; key();
-  mb.onclick = () => { showMind = !showMind; key(); try { localStorage.setItem('mind', showMind ? '1' : '0'); } catch {} };
   $('theme').onclick = () => { theme = order[(order.indexOf(theme) + 1) % 3]; try { localStorage.setItem('theme', theme); } catch {} apply(true); };
   matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => apply(true));
   apply(false);
@@ -147,24 +168,42 @@ let krakenClock = null; // { awake, ticks }: when the kraken next rises, or when
 let climateNow = null; // { rows: temperature by band of rows (0 cold … 1 hot), era } — sent every 300 ticks once the climate is on
 const speedLog = []; // [tick, ms] of recent frames, for the measured speed
 const trails = new Map();
+const headings = new Map(); // id → the heading drawn, turned smoothly toward where the body really goes
 const SCALE = 2;
 let meta, frameMs, cur = null, prev = null, recvAt = 0, rain = 0, tick = 0, season = 1;
 let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null;
 // The camera eases toward a clamped target; zoom keeps its chosen world point under the pointer.
 const camera = { z: 1, cx: 0, cy: 0 }, target = { ...camera }, pointers = new Map();
+let pileBadges = [];
 let following = null, drawn = [], anchor = null, gesture = null, viewShakeX = 0, viewShakeY = 0;
 // Hover shares the click's nearest-body test.
 const tip = $('tip'); let hovered = null, hoverPoint = null;
 function hideTip() { hovered = null; hoverPoint = null; tip.hidden = true; }
 function creatureAt(w) { let hit = null, distance = Infinity; for (const c of drawn) { const d = Math.hypot(w.x - c.x, w.y - c.y); if (d <= (c.hitRadius ?? Math.max(8, c.s)) && d < distance) { hit = c; distance = d; } } return hit; }
 function placeTip() { if (!hoverPoint || tip.hidden) return; const main = tip.parentElement, r = main.getBoundingClientRect(), x = hoverPoint.x - r.left - main.clientLeft, y = hoverPoint.y - r.top - main.clientTop, w = tip.offsetWidth, h = tip.offsetHeight; tip.style.left = `${Math.max(0, Math.min(main.clientWidth - w, x + 14 + w > main.clientWidth ? x - w - 14 : x + 14))}px`; tip.style.top = `${Math.max(0, Math.min(main.clientHeight - h, y + 14 + h > main.clientHeight ? y - h - 14 : y + 14))}px`; }
+function badgeAt(w) { return pileBadges.find(b => Math.abs(w.x-b.x)<=b.w/2 && Math.abs(w.y-b.y)<=b.h/2); }
+function pileTip(b) {
+  const names = Object.entries(b.counts).map(([name,n]) => `${name} ×${n}`).join(', ');
+  tip.textContent = `${b.n} bodies piled here (species: ${names}) — the world has no collision; bodies waiting to mate gather on one spot`;
+  tip.hidden = false; placeTip();
+}
 function refreshTip() {
-  if (hovered === null) return;
+  if (hoverPoint && !gesture && meta) { const b=badgeAt(worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y}))); if(b){hovered=null;pileTip(b);return;} }
+  if (hovered === null) { if(showXray&&hoverPoint&&!gesture)groundTip();else hideTip();return; }
   const c = cur?.get(hovered), sp = c && species[c.s]; if (gesture || !sp) { hideTip(); return; }
   const ci = cellOf(c.x, c.y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7);
   const states = [[2, 'ready to mate'], [4, 'sprinting'], [8, 'shoving'], [16, 'infested'], [1, 'broken'], [32, 'asleep'], [64, 'raging']].filter(([flag]) => c.b & flag).map(([, label]) => label); if (hid) states.push('hidden in cover');
   tip.innerHTML = `<b>${esc(sp.name)} · ${esc(sp.unique ? 'giant' : traits[sp.name]?.label ?? '')} · ${lifeStage(c)==='juvenile'?'young':lifeStage(c)}</b><br>${esc(`size ${c.z.toFixed(1)} · energy ${Math.round(c.e * 100)}% · fat ${Math.round((c.f ?? 0) * 100)}%`)}<br>${esc(`legs ${(c.l ?? 1).toFixed(2)} · armour ${(c.r ?? 0).toFixed(2)}${c.g===undefined?'':` · ${Math.round(c.g*100)}% of its life`}`)}${states.length ? `<br><span class="states">${esc(states.join(' · '))}</span>` : ''}`;
+  const ground=worldInputs.alluv?.[ci]>60?'river mud':worldInputs.geo?['hard rock','soft rock','limestone','sediment','hard basement'][worldInputs.geo[ci]]:null;
+  if(ground)tip.innerHTML+=`<br>on ${ground}`;
+  tip.innerHTML+=`<br>on the ${esc(placeOf(c.x,c.y))}`;
   tip.hidden = false; placeTip();
+}
+function groundTip(){
+ if(!meta||!hoverPoint)return;const w=worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y})),i=cellOf(w.x,w.y),x=i%meta.GW,y=Math.floor(i/meta.GW),E=worldInputs.elev2??worldInputs.elev;if(!E){hideTip();return;}
+ const height=j=>E[j]/255*(worldInputs.elev2?2.5:1)-(worldInputs.elev2?1:0),h=height(i),slope=Math.max(...[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>Math.abs(h-height(((y+dy+meta.GH)%meta.GH)*meta.GW+(x+dx+meta.GW)%meta.GW))))/meta.CELL,need=worldInputs.need?worldInputs.need[i]/255:Math.min(1,slope*25),mud=(worldInputs.alluv?.[i]??0)/255;
+ tip.innerHTML=`${esc(placeOf(w.x,w.y))}<br>height ${h.toFixed(2)} · ${worldInputs.geo?rockNames[worldInputs.geo[i]]:'rock unknown'}<br>slope ${slope.toFixed(3)} · water ${(((worldInputs.water?.[i]??0)&127)/127).toFixed(2)}${mud>0?`<br>river mud ${mud.toFixed(2)}`:''}<br>climb need ${need.toFixed(2)}${worldInputs.need?'':' (approx.)'}`;
+ tip.hidden=false;placeTip();
 }
 setInterval(refreshTip, 200);
 canvas.addEventListener('pointerleave', hideTip);
@@ -194,7 +233,7 @@ canvas.addEventListener('pointerdown', e => {
 });
 canvas.addEventListener('pointermove', e => {
   if (gesture) hideTip();
-  else if (e.pointerType === 'mouse' && meta) { const hit = creatureAt(worldPoint(canvasPoint(e))); if (hit && cur?.has(hit.id)) { const changed = hovered !== hit.id; hovered = hit.id; hoverPoint = { x: e.clientX, y: e.clientY }; if (changed) refreshTip(); else placeTip(); } else hideTip(); }
+  else if (e.pointerType === 'mouse' && meta) { const w=worldPoint(canvasPoint(e)), badge=badgeAt(w), hit = creatureAt(w); if(badge){hovered=null;hoverPoint={x:e.clientX,y:e.clientY};pileTip(badge);} else if (hit && cur?.has(hit.id)) { const changed = hovered !== hit.id; hovered = hit.id; hoverPoint = { x: e.clientX, y: e.clientY }; if (changed) refreshTip(); else placeTip(); } else if(showXray){hovered=null;hoverPoint={x:e.clientX,y:e.clientY};groundTip();}else hideTip(); }
   if (!pointers.has(e.pointerId)) return;
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 2) { const p = pinchInfo(); zoomTo(gesture.z * p.distance / gesture.distance, p.q, gesture.at); return; }
@@ -219,6 +258,8 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') { following = null; anchor = null; }
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomTo(target.z * 1.5); }
   else if (e.key === '-') { e.preventDefault(); zoomTo(target.z / 1.5); }
+  else if (e.key.toLowerCase() === 'x') { e.preventDefault();setXray(!showXray); }
+  else if (showXray && /^[1-4]$/.test(e.key)) { e.preventDefault();setXray(true,xrayViews[+e.key-1]); }
   else if (e.key === '0') { e.preventDefault(); fitWorld(); }
 });
 const portraits = new Map();
@@ -247,11 +288,12 @@ const portraitOf = sp => portraits.get(sp.name) ?? portraits.set(sp.name, portra
 // All world painting stays off the animation thread.
 function worldPainter(){
 'use strict';
-let W,H,CELL,GW,GH,FW,FH,F={},land=null;
-function sample(a,x,y){const u=x/CELL-.5,v=y/CELL-.5,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy;const at=(x,y)=>a[((y%GH+GH)%GH)*GW+(x%GW+GW)%GW]/255;return (at(ix,iy)*(1-fx)+at(ix+1,iy)*fx)*(1-fy)+(at(ix,iy+1)*(1-fx)+at(ix+1,iy+1)*fx)*fy;}
-function smooth(a,x,y){const u=x/2,v=y/2,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy;const at=(x,y)=>a[((y%FH+FH)%FH)*FW+(x%FW+FW)%FW];return(at(ix,iy)*(1-fx)+at(ix+1,iy)*fx)*(1-fy)+(at(ix,iy+1)*(1-fx)+at(ix+1,iy+1)*fx)*fy;}
-const terrace=(x,y)=>Math.min(6,Math.floor(smooth(F.height,x,y)*7));
+let W,H,CELL,GW,GH,FW,FH,F={},land=null,has2=false,xrayCache=null;
+function sample(a,x,y){const u=x/CELL-.5,v=y/CELL-.5,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy,x0=(ix%GW+GW)%GW,x1=(x0+1)%GW,y0=((iy%GH+GH)%GH)*GW,y1=(y0+GW)%(GW*GH);return (a[y0+x0]/255*(1-fx)+a[y0+x1]/255*fx)*(1-fy)+(a[y1+x0]/255*(1-fx)+a[y1+x1]/255*fx)*fy;}
+function smooth(a,x,y){const u=x/2,v=y/2,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy,x0=ix>=0&&ix<FW?ix:(ix%FW+FW)%FW,x1=x0+1===FW?0:x0+1,y0=(iy>=0&&iy<FH?iy:(iy%FH+FH)%FH)*FW,y1=y0+FW===FW*FH?0:y0+FW;return(a[y0+x0]*(1-fx)+a[y0+x1]*fx)*(1-fy)+(a[y1+x0]*(1-fx)+a[y1+x1]*fx)*fy;}
+const terrace=(x,y)=>{const h=smooth(F.height,x,y);return has2?(h<-.25?-2:h<0?-1:h>=1?7:Math.max(0,Math.min(6,Math.floor(h*7)))):Math.min(6,Math.floor(h*7));};
 const ramp=[[126,150,88],[145,151,87],[176,158,96],[197,180,135],[210,207,182],[223,226,217],[241,241,230]];
+const rocks=[[150,142,132],[184,150,98],[218,208,180],[140,108,78],[96,94,98]];
 const bayer=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5];
 const ordered=(x,y)=>(bayer[((Math.floor(y/2)%4+4)%4)*4+(Math.floor(x/2)%4+4)%4]+.5)/16;
 function hash(x,y){let h=Math.imul(x+1,374761393)^Math.imul(y+1,668265263);h=Math.imul(h^(h>>>13),1274126177);return((h^(h>>>16))>>>0)/4294967295;}
@@ -276,36 +318,180 @@ const earth=[
 
 function blur(a){const out=new Float32Array(GW*GH);for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){let sum=0;for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)sum+=a[((y+dy+GH)%GH)*GW+(x+dx+GW)%GW];out[y*GW+x]=sum/9;}return out;}
 function field(a){const out=new Float32Array(FW*FH);for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)out[y*FW+x]=sample(a,x*2,y*2);return out;}
-function paintLand(elev){
- F.height=field(blur(elev));const n=FW*FH;land={k:new Uint8Array(n),tone:new Float32Array(n),shadow:new Float32Array(n),lip:new Uint8Array(n),rim:new Uint8Array(n)};
+// Remove cell-scale layer noise before dithering the categorical rock boundaries.
+function cleanRocks(geo){
+ const counts=new Uint8Array(5);
+ for(let pass=0;pass<2;pass++){
+  const out=new Uint8Array(GW*GH);
+  for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+   counts.fill(0);
+   for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)counts[geo[((y+dy+GH)%GH)*GW+(x+dx+GW)%GW]]++;
+   let type=geo[y*GW+x];for(let t=0;t<5;t++)if(counts[t]>counts[type])type=t;
+   out[y*GW+x]=type;
+  }
+  geo=out;
+ }
+ return geo;
+}
+function rockAt(geo,x,y,weights){
+ const u=x/CELL-.5,v=y/CELL-.5,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy,x0=(ix+GW)%GW,x1=(x0+1)%GW,y0=(iy+GH)%GH,y1=(y0+1)%GH;
+ weights.fill(0);
+ weights[geo[y0*GW+x0]]+=(1-fx)*(1-fy);weights[geo[y0*GW+x1]]+=fx*(1-fy);
+ weights[geo[y1*GW+x0]]+=(1-fx)*fy;weights[geo[y1*GW+x1]]+=fx*fy;
+ let first=0,second=1;if(weights[second]>weights[first]){first=1;second=0;}
+ for(let t=2;t<5;t++)if(weights[t]>weights[first]){second=first;first=t;}else if(weights[t]>weights[second])second=t;
+ // Stable type order keeps the dither continuous when the dominant type changes.
+ if(first>second){const t=first;first=second;second=t;}
+ return ordered(x,y)<weights[first]/(weights[first]+weights[second])?first:second;
+}
+function paintLand({elev,elev2,geo,has2:height2,hasGeo}){
+ // field() normalizes bytes; restore true units after filtering, retaining the old path verbatim.
+ has2=height2;F.height=field(blur(has2?elev2:elev));if(has2)for(let i=0;i<F.height.length;i++)F.height[i]=F.height[i]*2.5-1;
+ const n=FW*FH;land={k:new Int8Array(n),tone:new Float32Array(n),shadow:new Float32Array(n),lip:new Uint8Array(n),rim:new Uint8Array(n),rock:hasGeo?new Uint8Array(n):null};
+ const northwest=new Int8Array(n),lowest=new Int8Array(n),cleanGeo=hasGeo?cleanRocks(geo):null,rockWeights=hasGeo?new Float64Array(5):null;
+ for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)land.k[y*FW+x]=terrace(x*2,y*2);
+ // Bound the shadow ray by its northwest 2×2 patches; skip rays that cannot cross a higher terrace.
+ for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){const i=y*FW+x,left=x?i-1:i+FW-1,up=y?i-FW:i+FW*(FH-1),corner=y?left-FW:left+FW*(FH-1);northwest[i]=Math.max(land.k[i],land.k[left],land.k[up],land.k[corner]);lowest[i]=Math.min(land.k[i],land.k[left],land.k[up],land.k[corner]);}
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){
-  const wx=x*2,wy=y*2,i=y*FW+x,k=terrace(wx,wy),slope=smooth(F.height,wx+4,wy+4)-smooth(F.height,wx-4,wy-4),dither=ordered(wx,wy);
-  land.k[i]=k;land.tone[i]=dither<Math.max(0,Math.min(1,(slope-.008)/.006+.5))?1.08:dither<Math.max(0,Math.min(1,(-slope-.008)/.006+.5))?.90:1;
-  for(let d=.5;d<=6;d+=.5)if(terrace(wx-d/Math.SQRT2,wy-d/Math.SQRT2)>k){land.shadow[i]=.4*(1-(d-.5)/6);break;}
-  land.lip[i]=terrace(wx+1.5/Math.SQRT2,wy+1.5/Math.SQRT2)<k;land.rim[i]=terrace(wx-1.5/Math.SQRT2,wy-1.5/Math.SQRT2)<k;
+  const wx=x*2,wy=y*2,i=y*FW+x,k=land.k[i],slope=F.height[((y+2)%FH)*FW+(x+2)%FW]-F.height[((y+FH-2)%FH)*FW+(x+FW-2)%FW],dither=ordered(wx,wy);
+  land.k[i]=k;if(land.rock)land.rock[i]=rockAt(cleanGeo,wx,wy,rockWeights);land.tone[i]=dither<Math.max(0,Math.min(1,(slope-.008)/.006+.5))?1.08:dither<Math.max(0,Math.min(1,(-slope-.008)/.006+.5))?.90:1;
+  const q0=northwest[i],q1=northwest[((y+FH-1)%FH)*FW+(x+FW-1)%FW],q2=northwest[((y+FH-2)%FH)*FW+(x+FW-2)%FW];
+  if(Math.max(q0,q1,q2)>k)for(let d=.5;d<=6;d+=.5){if(d<3?q0<=k:d<6?q1<=k:q2<=k){d=d<3?2.5:d<6?5.5:6;continue;}if(terrace(wx-d/Math.SQRT2,wy-d/Math.SQRT2)>k){land.shadow[i]=.4*(1-(d-.5)/6);break;}}
+  land.lip[i]=lowest[((y+1)%FH)*FW+(x+1)%FW]<k&&terrace(wx+1.5/Math.SQRT2,wy+1.5/Math.SQRT2)<k;land.rim[i]=lowest[i]<k&&terrace(wx-1.5/Math.SQRT2,wy-1.5/Math.SQRT2)<k;
  }
 }
-function paintGround({terrain,water,snow,hedge}){
+function paintGround({terrain,water,snow,hedge,alluv}){
  const n=GW*GH,plant=new Uint8Array(n),moisture=new Uint8Array(n),depth=new Float32Array(n),ice=new Uint8Array(n);
  for(let i=0;i<n;i++){plant[i]=terrain[i*3];moisture[i]=terrain[i*3+1];depth[i]=(water[i]&127)/127*255;ice[i]=water[i]>=128?255:0;}
- F.plant=field(plant);F.moisture=field(moisture);F.depth=field(depth);F.ice=field(ice);F.snow=field(snow);F.hedge=field(blur(hedge));
+ F.plant=field(plant);F.moisture=field(moisture);F.depth=field(depth);F.ice=field(ice);F.snow=field(snow);F.hedge=field(blur(hedge));F.alluv=field(alluv);
+ // At field centres smooth(height + .3 * depth, x*2, y*2) is exactly this value.
+ // Reuse its four neighbours directly, avoiding eight bilinear samples per wet pixel.
+ const surface=new Float32Array(FW*FH);
+ for(let i=0;i<surface.length;i++)surface[i]=(F.height?.[i]??0)+F.depth[i]*.3;
  // Open the blurred canopy with a 2×2 square: every surviving patch is at least four world units wide.
  const at=(a,x,y)=>a[((y+FH)%FH)*FW+(x+FW)%FW],seed=new Uint8Array(FW*FH),bush=new Uint8Array(FW*FH);
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)seed[y*FW+x]=at(F.hedge,x,y)>.25&&at(F.hedge,x+1,y)>.25&&at(F.hedge,x,y+1)>.25&&at(F.hedge,x+1,y+1)>.25;
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)bush[y*FW+x]=at(seed,x,y)||at(seed,x-1,y)||at(seed,x,y-1)||at(seed,x-1,y-1);
  const c=new OffscreenCanvas(FW,FH),g=c.getContext('2d'),im=g.createImageData(FW,FH);
  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){
-  const wx=x*2,wy=y*2,i=y*FW+x,k=land?land.k[i]:0,p=patchLevel(F.plant,wx,wy,4),m=patchLevel(F.moisture,wx,wy,3),pale=[0,.12,.27,.48,.70,.87,.97][k];
-  let col=earth[m][p].map((v,j)=>v*(1-pale)+ramp[k][j]*pale);
-  if(land){col=col.map(v=>v*land.tone[i]*(1-land.shadow[i])*(land.lip[i]?.62:1));if(land.rim[i])col=col.map(v=>v*.56+255*.44);}
+  const wx=x*2,wy=y*2,i=y*FW+x,k=land?land.k[i]:0,p=patchLevel(F.plant,wx,wy,4),m=patchLevel(F.moisture,wx,wy,3),pale=k<0?.45:k===7?.99:[0,.12,.27,.48,.70,.87,.97][k],r=k===-2?[86,76,64]:k===-1?[118,104,84]:k===7?[250,248,240]:ramp[k];
+  let col=earth[m][p].map((v,j)=>v*(1-pale)+r[j]*pale),rockCol=null;
+  if(land?.rock){
+   const type=land.rock[i],w=Math.min(.5,(.45*(1-p/3)+(land.tone[i]!==1?.25:0))*(1-.6*pale)),h=hash(wx,wy);rockCol=rocks[type]??rocks[0];
+   const pit=type===2?hash(wx+5,wy+9):0,t=type===0?(h<.08?.82:1):type===1?(Math.floor(F.height[i]*60)%2!==0?.94:1):type===2?(pit<.05?.78:pit<.09?1.08:1):type===3?1+(h*2-1)*.05:type===4?(h<.06?1.12:1):1;
+   col=col.map((v,j)=>(v*(1-w)+rockCol[j]*w)*(1+(t-1)*w));
+  }
+  const a=smooth(F.alluv,wx,wy);if(F.depth[i]<=.05&&F.snow[i]<=.15&&!bush[i]&&a>.08&&ordered(wx,wy)<Math.min(1,(a-.08)/.08)){if(p<=1){const w=Math.min(.45,a*.6);col=col.map((v,j)=>v*(1-w)+[70,92,50][j]*w);}else{const w=Math.min(1,a*1.5);col=col.map((v,j)=>v*(1+([.88,.97,.85][j]-1)*w));}}
+  if(land){if(land.lip[i]&&rockCol)col=rockCol;col=col.map(v=>v*land.tone[i]*(1-land.shadow[i])*(land.lip[i]?.62:1));if(land.rim[i])col=col.map(v=>v*.56+255*.44);}
   const d=F.depth[i],ice=F.ice[i],sn=F.snow[i];
-  if(d>.05){const deep=Math.round(d*3)/3;col=ice>.5?[211,231,233]:[91-deep*22,157-deep*27,173-deep*22];if(smooth(F.depth,wx-1,wy)<.05||smooth(F.depth,wx+1,wy)<.05||smooth(F.depth,wx,wy-1)<.05||smooth(F.depth,wx,wy+1)<.05)col=ice>.5?[237,246,240]:[164,205,202];}
+  if(d>.05){
+   const deep=Math.round(d*3)/3;
+   if(ice>.5)col=[211,231,233];
+   else{
+    const level=surface[i]/.15,lo=Math.floor(level),band=Math.max(-4,Math.min(12,lo+(ordered(wx,wy)<level-lo?1:0)));
+    col=[91+band*6-deep*22,157+band*4-deep*27,173+band*2-deep*22];
+    if(land){const shade=(1-.6*land.shadow[i])*(land.lip[i]?1-.38*.6:1);col=col.map(v=>v*shade);if(land.rim[i])col=col.map(v=>v*(1-.44*.6)+255*.44*.6);}
+    const left=y*FW+(x+FW-1)%FW,right=y*FW+(x+1)%FW,up=((y+FH-1)%FH)*FW+x,down=((y+1)%FH)*FW+x,s=surface[i];
+    const drop=Math.max(F.depth[left]>.05?s-surface[left]:0,F.depth[right]>.05?s-surface[right]:0,F.depth[up]>.05?s-surface[up]:0,F.depth[down]>.05?s-surface[down]:0);
+    if(drop>.12||drop>.04&&ordered(wx,wy)<.5)col=[236,244,240];
+   }
+   if(smooth(F.depth,wx-1,wy)<.05||smooth(F.depth,wx+1,wy)<.05||smooth(F.depth,wx,wy-1)<.05||smooth(F.depth,wx,wy+1)<.05)col=ice>.5?[237,246,240]:[164,205,202];
+  }
   if(sn>.15)col=[239,242,230];
   if(!bush[i]&&at(bush,x-1,y-1))col=col.map(v=>v*.68);
   if(bush[i]){col=[49,78,46];const bx=wx+1,by=wy+1,facing=smooth(F.hedge,bx+2,by+2)-smooth(F.hedge,bx-2,by-2);if(facing>.012&&ordered(bx,by)<.30)col=[99,128,71];}
   const grain=1+(hash(wx,wy)*2-1)*.03,o=i*4;im.data[o]=col[0]*grain;im.data[o+1]=col[1]*grain;im.data[o+2]=col[2]*grain;im.data[o+3]=255;
  }
  g.putImageData(im,0,0);return c.transferToImageBitmap();
+}
+// Shared, input-keyed fields survive view switches. No decoding or pixel closures here.
+function prepareXray(d){
+ const n=GW*GH,N=W*H,E=d.has2?d.elev2:d.elev;
+ const h=new Float32Array(n),depth=new Float32Array(n),need=new Float32Array(n),ice=new Uint8Array(n);
+ let min=Infinity,max=-Infinity;
+ for(let i=0;i<n;i++){h[i]=E[i]/255*(d.has2?2.5:1)-(d.has2?1:0);min=Math.min(min,h[i]);max=Math.max(max,h[i]);depth[i]=(d.water[i]&127)/127;ice[i]=d.water[i]>=128;}
+ const flow=[];
+ for(let y=0;y<GH;y++)for(let x=0;x<GW;x++){
+  const i=y*GW+x,l=y*GW+(x+GW-1)%GW,r=y*GW+(x+1)%GW,u=((y+GH-1)%GH)*GW+x,b=((y+1)%GH)*GW+x;
+  need[i]=d.hasNeed?d.need[i]/255:Math.min(1,Math.max(Math.abs(h[i]-h[l]),Math.abs(h[i]-h[r]),Math.abs(h[i]-h[u]),Math.abs(h[i]-h[b]))/CELL*25);
+  if(x%3===0&&y%3===0&&depth[i]>.02){
+   let best=h[i]+depth[i],dx=0,dy=0;
+   if(h[r]+depth[r]<best){best=h[r]+depth[r];dx=1;dy=0;}
+   if(h[l]+depth[l]<best){best=h[l]+depth[l];dx=-1;dy=0;}
+   if(h[b]+depth[b]<best){best=h[b]+depth[b];dx=0;dy=1;}
+   if(h[u]+depth[u]<best){dx=0;dy=-1;}
+   if(dx||dy)flow.push((x+.5)*CELL,(y+.5)*CELL,dx*CELL*2/3,dy*CELL*2/3);
+  }
+ }
+ const heights=new Float32Array(N),depths=new Float32Array(N),needs=new Float32Array(N),mud=new Float32Array(N),snow=new Float32Array(N),light=new Float32Array(N),types=new Uint8Array(N),contours=new Uint8Array(N),cells=new Uint32Array(N);
+ const clean=d.hasGeo?cleanRocks(d.geo):null,weights=new Float64Array(5);
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const i=y*W+x;heights[i]=sample(h,x,y)*255;depths[i]=sample(depth,x,y)*255;needs[i]=sample(need,x,y)*255;
+  mud[i]=sample(d.alluv,x,y);snow[i]=sample(d.snow,x,y);cells[i]=Math.min(GH-1,Math.floor(y/CELL))*GW+Math.min(GW-1,Math.floor(x/CELL));
+  if(clean)types[i]=rockAt(clean,x,y,weights);
+ }
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const i=y*W+x,v=heights[i],r=heights[y*W+(x+1)%W],l=heights[y*W+(x+W-1)%W],b=heights[((y+1)%H)*W+x],u=heights[((y+H-1)%H)*W+x];
+  light[i]=(128+90*Math.max(-1,Math.min(1,(r-l+b-u)*12)))/255;
+  const minor=Math.floor((v+1e-6)/.1)!==Math.floor((r+1e-6)/.1)||Math.floor((v+1e-6)/.1)!==Math.floor((b+1e-6)/.1);
+  const major=Math.floor((v+1e-6)/.5)!==Math.floor((r+1e-6)/.5)||Math.floor((v+1e-6)/.5)!==Math.floor((b+1e-6)/.5);
+  const steep=Math.max(Math.abs(v-r),Math.abs(v-l),Math.abs(v-b),Math.abs(v-u))>.2;
+  contours[i]=(minor?1:0)|(major?2:0)|(steep?4:0);
+ }
+ return {key:d.cacheKey,heights,depths,needs,mud,snow,light,types,contours,cells,ice,flow,min,max};
+}
+function paintXray(d){
+ const start=performance.now(),reused=xrayCache?.key===d.cacheKey;
+ if(!reused)xrayCache=prepareXray(d);
+ const sharedMs=performance.now()-start,{heights,depths,needs,mud,snow,light,types,contours,cells,ice,flow,min,max}=xrayCache;
+ const stops=[-1,0,.5,.8,1,1.5],colors=[[12,35,65],[119,127,64],[195,171,123],[137,107,80],[235,235,222],[255,255,252]];
+ const c=new OffscreenCanvas(W,H),g=c.getContext('2d'),im=g.createImageData(W,H),out=im.data;
+ const heightView=d.view==='height',rockView=d.view==='rock',waterView=d.view==='water';
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const i=y*W+x,v=heights[i],ci=cells[i],dep=depths[i],li=light[i],ct=contours[i];
+  let r=148,gg=148,b=140;
+  if(heightView){
+   let j=1;while(j<5&&v>stops[j])j++;const a=colors[j-1],z=colors[j],t=Math.max(0,Math.min(1,(v-stops[j-1])/(stops[j]-stops[j-1])));
+   r=a[0]+(z[0]-a[0])*t;gg=a[1]+(z[1]-a[1])*t;b=a[2]+(z[2]-a[2])*t;
+   if(d.hasCarve&&d.carve[ci]){const t=d.carve[ci]/255*.45;r+=(65-r)*t;gg+=(130-gg)*t;b+=(165-b)*t;}
+  }else if(rockView&&d.hasGeo){const col=rocks[types[i]];r=col[0];gg=col[1];b=col[2];}
+  // Hard-light is affine in each channel; apply it without allocating arrays.
+  const strength=heightView?1:.5,factor=li<.5?2*li:2*(1-li),add=li<.5?0:255*(2*li-1);
+  r+=(r*factor+add-r)*strength;gg+=(gg*factor+add-gg)*strength;b+=(b*factor+add-b)*strength;
+  if(heightView||rockView){
+   const t=heightView?(!(ct&4)&&(ct&1)?(ct&2?.70:.35):0):(ct&1?.16:0);
+   r+=((heightView?60:25)-r)*t;gg+=((heightView?45:28)-gg)*t;b+=((heightView?30:26)-b)*t;
+   if(rockView&&mud[i]>.15&&(x+y)%2===0){r=43;gg=79;b=49;}
+  }else if(waterView){
+   if(mud[i]>.15){r+=(55-r)*.45;gg+=(105-gg)*.45;b+=(65-b)*.45;}
+   if(dep>.002){const t=Math.max(0,Math.min(1,dep));r=99-89*t;gg=167-127*t;b=201-105*t;}
+   if(ice[ci]){r=195;gg=235;b=239;}if(snow[i]>.03&&hash(x,y)<snow[i]){r=247;gg=249;b=247;}
+  }else{
+   const nd=needs[i];if(nd>.15){const t=Math.min(1,(nd-.15)/.65);r=240-32*t;gg=214-170*t;b=65-35*t;}
+   if(dep>.4&&(x+y)%4<2){r=40;gg=112;b=197;}
+  }
+  const o=i*4;out[o]=r;out[o+1]=gg;out[o+2]=b;out[o+3]=255;
+ }
+ g.putImageData(im,0,0);
+ if(waterView){
+  g.strokeStyle='rgba(255,255,255,.8)';g.lineWidth=1;g.beginPath();
+  for(let i=0;i<flow.length;i+=4){g.moveTo(flow[i],flow[i+1]);g.lineTo(flow[i]+flow[i+2],flow[i+1]+flow[i+3]);}g.stroke();
+  const rows=d.climate?.rows,frost=d.climate?.frost??.18;
+  if(rows?.length){g.setLineDash([3,3]);g.beginPath();for(let j=1;j<rows.length;j++)if((rows[j-1]-frost)*(rows[j]-frost)<=0&&rows[j]!==rows[j-1]){const y=(j-.5+(frost-rows[j-1])/(rows[j]-rows[j-1]))/rows.length*H;g.moveTo(0,y);g.lineTo(W,y);}g.stroke();g.setLineDash([]);}
+ }
+ const faults=(d.quakes??d.faults??[]).filter(f=>Number.isFinite(f.season??0)),seasons=faults.map(f=>f.season??0),oldest=Math.min(...seasons),latest=Math.max(...seasons);
+ for(const f of faults){
+  const half=f.len/2,dx=Math.cos(f.ang)*half,dy=Math.sin(f.ang)*half;
+  const x1=f.x1??f.x-dx,y1=f.y1??f.y-dy,x2=f.x2??f.x+dx,y2=f.y2??f.y+dy;
+  if(![x1,y1,x2,y2].every(Number.isFinite))continue;
+  const age=latest===oldest?1:((f.season??0)-oldest)/(latest-oldest);
+  g.strokeStyle=`rgba(255,45,40,${.25+.65*age})`;g.lineWidth=f.big?1.5:1;
+  for(const sx of [-W,0,W])for(const sy of [-H,0,H]){
+   if(Math.max(x1,x2)+sx<0||Math.min(x1,x2)+sx>W||Math.max(y1,y2)+sy<0||Math.min(y1,y2)+sy>H)continue;
+   g.beginPath();g.moveTo(x1+sx,y1+sy);g.lineTo(x2+sx,y2+sy);g.stroke();
+  }
+ }
+ return {bitmap:c.transferToImageBitmap(),stats:{min,max,approx:!d.hasNeed,sharedMs,colourMs:performance.now()-start-sharedMs,reused}};
 }
 function paintCoral(rock){F.rock=field(rock);
 const headThreshold=(x,y)=>.6+.06*(
@@ -409,33 +595,59 @@ const out=new OffscreenCanvas(W,H),g=out.getContext('2d');g.globalAlpha=.35;for(
 }
 onmessage=({data:d})=>{try{
  ({W,H,CELL,GW,GH}=d.meta);FW=Math.ceil(W/2);FH=Math.ceil(H/2);
- let bitmap=null;if(d.layer==='land')paintLand(d.elev);else if(d.layer==='ground')bitmap=paintGround(d);else bitmap=paintCoral(d.rock);
- postMessage({layer:d.layer,bitmap},bitmap?[bitmap]:[]);
+ const start=performance.now();let bitmap=null,stats=null;if(d.layer==='xray')({bitmap,stats}=paintXray(d));else if(d.layer==='land')paintLand(d);else if(d.layer==='ground')bitmap=paintGround(d);else bitmap=paintCoral(d.rock);
+ postMessage({layer:d.layer,bitmap,stats,view:d.view,revision:d.revision,paintMs:performance.now()-start},bitmap?[bitmap]:[]);
  }catch(error){postMessage({layer:d.layer,error:String(error)});}
 };
 }
 // Keep one active job and just the newest request for each layer.
-let worldWorker=null,worldBusy=false,worldTimer=0,groundBitmap=null,coralBitmap=null;
-const worldInputs={},worldKeys={},worldPending={},worldLast={ground:-Infinity,coral:-Infinity};
-function worldInput(key,value,bytes){if(worldKeys[key]===value)return;worldKeys[key]=value;worldInputs[key]=bytes;if(key==='elev')worldPending.land=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
+let worldWorker=null,worldBusy=false,worldTimer=0,groundBitmap=null,coralBitmap=null,xrayBitmap=null;
+const worldInputs={},worldKeys={},worldVersions={},worldPending={},worldLast={ground:-Infinity,coral:-Infinity};
+function worldInput(key,value,bytes){if(worldKeys[key]===value)return;worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=bytes;if(showXray)worldPending.xray=true;if(key==='elev'||key==='elev2'||key==='geo')worldPending.land=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
 function pumpWorld(){
  clearTimeout(worldTimer);if(worldBusy||!meta||!worldWorker)return;
- const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000};let wait=Infinity;
- for(const layer of ['land','ground','coral']){
-  if(!worldPending[layer]||layer==='ground'&&!ready)continue;
+ const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000,xray:2000};let wait=Infinity;
+ for(const layer of ['xray','land','ground','coral']){
+  if(!worldPending[layer]||showXray&&(layer==='ground'||layer==='coral')||layer==='ground'&&!ready||layer==='xray'&&(!showXray||!worldInputs.elev&&!worldInputs.elev2))continue;
   const left=(worldLast[layer]??-Infinity)+delays[layer]-now;if(left>0){wait=Math.min(wait,left);continue;}
-  const d={layer,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH}},transfer=[],n=meta.GW*meta.GH;
+  const d={layer,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH},has2:!!worldInputs.elev2,hasGeo:!!worldInputs.geo},transfer=[],n=meta.GW*meta.GH;
   const copy=(key)=>{const a=(worldInputs[key]??new Uint8Array(n)).slice();d[key]=a;transfer.push(a.buffer);};
-  if(layer==='land')copy('elev');else if(layer==='coral')copy('rock');else for(const key of ['terrain','water','snow','hedge'])copy(key);
+  if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,...['elev','elev2','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','geo'])copy(key);else if(layer==='coral')copy('rock');else for(const key of ['terrain','water','snow','hedge','alluv'])copy(key);
   delete worldPending[layer];worldBusy=true;worldLast[layer]=now;worldWorker.postMessage(d,transfer);return;
  }
  if(wait<Infinity)worldTimer=setTimeout(pumpWorld,wait);
 }
 if(typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined')try{
  const src='('+worldPainter.toString()+')()',url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));worldWorker=new Worker(url);URL.revokeObjectURL(url);
- worldWorker.onmessage=({data:d})=>{worldBusy=false;if(d.bitmap){if(d.layer==='ground'){groundBitmap?.close();groundBitmap=d.bitmap;}else{coralBitmap?.close();coralBitmap=d.bitmap;}}if(d.error)console.error('World painter:',d.error);pumpWorld();};
+ worldWorker.onmessage=({data:d})=>{worldBusy=false;if(d.bitmap){if(d.layer==='xray'){if(showXray&&d.view===xrayView){xrayBitmap?.close();xrayBitmap=d.bitmap;xrayStats=d.stats;xrayPaintedRevision=d.revision;updateXray();}else d.bitmap.close();}else if(d.layer==='ground'){groundBitmap?.close();groundBitmap=d.bitmap;}else{coralBitmap?.close();coralBitmap=d.bitmap;}}if(d.error)console.error('World painter:',d.error);pumpWorld();};
  worldWorker.onerror=()=>{worldWorker.terminate();worldWorker=null;worldBusy=false;clearTimeout(worldTimer);};
 }catch(error){console.error('World painter:',error);}
+
+function updateXray(){
+ $('xraybtn').classList.toggle('on',showXray);$('xraybtn').setAttribute('aria-pressed',showXray);$('xraypanel').hidden=!showXray;
+ for(const b of $('xraychips').children){b.classList.toggle('on',b.dataset.view===xrayView);b.setAttribute('aria-pressed',b.dataset.view===xrayView);}
+ const sw=(c,t)=>`<i style="background:${c}"></i>${t}`;
+ $('xraylegend').innerHTML=xrayView==='height'?`<i class="ramp"></i>−0.6 … 1.2 · min ${xrayStats?.min.toFixed(2)??'…'} / max ${xrayStats?.max.toFixed(2)??'…'} · contours 0.1 · blue: carved · red: faults`:xrayView==='rock'?['#968e84','#b89662','#dad0b4','#8c6c4e','#605e62'].map((c,i)=>sw(c,rockNames[i])).join(' · ')+' · '+sw('#2b4f31','river mud')+' · red: faults':xrayView==='water'?'blue: depth (dark = deep) · cyan: ice · white: snow / flow ticks · green: river mud · dashed: frost · red: faults':'yellow → red: climb 0.15 … 0.8+ · blue hatch: swim · red: faults'+(worldInputs.need?'':' · approx. — waiting for the world’s climb map');
+ if(showXray&&xrayPaintedRevision!==xrayRevision)$('xraylegend').innerHTML+=' · painting…';
+}
+function syncXray(){
+ if(!showXray||!meta)return;
+ const R=climateNow?.relief;
+ if(R)for(const [key,value]of [['elev',R.elev],['elev2',R.elev2],['geo',R.geo??R.rock],['alluv',R.alluv],['need',R.need],['carve',R.carve]]){
+  if(value!==undefined&&worldKeys[key]!==value){worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=Uint8Array.from(atob(value),ch=>ch.charCodeAt(0));if(['elev','elev2','geo'].includes(key))worldPending.land=true;if(['elev','elev2','geo','alluv'].includes(key))worldPending.ground=true;}
+  else if(value===undefined&&['need','carve','elev2','geo','alluv'].includes(key)){if(worldInputs[key])worldVersions[key]=(worldVersions[key]??0)+1;delete worldKeys[key];delete worldInputs[key];}
+ }
+ worldPending.xray=true;pumpWorld();updateXray();
+}
+function setXray(on,view=xrayView){
+ const changed=view!==xrayView||on!==showXray;showXray=on;xrayView=view;
+ try { localStorage.setItem('xray',on?'1':'0');localStorage.setItem('xrayView',view); } catch {}
+ if(changed){xrayRevision++;worldLast.xray=-Infinity;hideTip();}
+ if(on)syncXray();else{delete worldPending.xray;pumpWorld();}updateXray();
+}
+$('xraybtn').onclick=()=>setXray(!showXray);
+for(const b of $('xraychips').children)b.onclick=()=>setXray(true,b.dataset.view);
+updateXray();
 
 const on = (name, fn) => es.addEventListener(name, e => fn(JSON.parse(e.data)));
 
@@ -456,7 +668,7 @@ on('god', s => {
   const waiting = s.queue?.length ? ` (waiting: ${s.queue.join(', ')})` : '';
   $('god').textContent = s.state === 'thinking' ? `the god is reaching into the ${s.parent}s…${waiting}` : '';
 });
-on('past', p => { ({ history, events, stats, records, traits } = p); renderEvents(); drawChart(); });
+on('past', p => { ({ history, events, stats, records, traits } = p);rememberEcoRoles(history);renderSpecies(true); renderEvents(); drawChart(); });
 on('terrain', paintTerrain);
 // The river (orography step 2): water depth per cell (+128 frozen) and snow on the heights, painted into a small canvas.
 const waterCanvas = document.createElement('canvas'), wtg = waterCanvas.getContext('2d');
@@ -465,7 +677,7 @@ on('water', ({ w, snow, aqua, lichen }) => {
   const A8 = aqua ? Uint8Array.from(atob(aqua), ch => ch.charCodeAt(0)) : null, L8 = lichen ? Uint8Array.from(atob(lichen), ch => ch.charCodeAt(0)) : null;
   if (!meta) return;
   const W8 = Uint8Array.from(atob(w), ch => ch.charCodeAt(0)), S8 = Uint8Array.from(atob(snow), ch => ch.charCodeAt(0));
-  worldInput('water', w, W8);worldInput('snow', snow, S8);
+  worldInput('water', w, W8);worldInput('snow', snow, S8);updatePlaces();
   waterCanvas.width = meta.GW; waterCanvas.height = meta.GH;
   const img = !groundBitmap ? wtg.createImageData(meta.GW, meta.GH) : null;
   let vol = 0, wet = 0, ice = 0, snowSum = 0;
@@ -487,6 +699,18 @@ on('water', ({ w, snow, aqua, lichen }) => {
 on('reef', paintReef);
 on('frame', f => {
   prev = cur; cur = unpack(f.c); recvAt = performance.now();
+  for (const [id, c] of cur) {
+    const p = prev?.get(id);
+    c.targetHeading = p?.targetHeading ?? c.a;
+    c.vx = p?.vx ?? 0; c.vy = p?.vy ?? 0;
+    if (p) {
+      let dx = c.x - p.x, dy = c.y - p.y;
+      if (dx > meta.W / 2) dx -= meta.W; else if (dx < -meta.W / 2) dx += meta.W;
+      if (dy > meta.H / 2) dy -= meta.H; else if (dy < -meta.H / 2) dy += meta.H;
+      c.vx = c.vx * 0.75 + dx * 0.25; c.vy = c.vy * 0.75 + dy * 0.25;
+      if (Math.hypot(c.vx, c.vy) > 0.3) c.targetHeading = Math.atan2(c.vy, c.vx);
+    }
+  }
   // Serpents leave a body behind them: remember where each head has been.
   for (const [id, c] of cur) {
     if (species[c.s]?.shape !== 'serpent') continue;
@@ -495,6 +719,7 @@ on('frame', f => {
     trails.set(id, t);
   }
   for (const id of trails.keys()) if (!cur.has(id)) trails.delete(id);
+  for (const id of headings.keys()) if (!cur.has(id)) headings.delete(id);
   // The world's real speed, measured: ticks per second, smoothed (it runs below its target when crowded).
   const nowMs = performance.now();
   // Measured over the last few seconds, not frame to frame: frames can arrive in bursts (a restart, a background tab),
@@ -505,7 +730,7 @@ on('frame', f => {
   const [t0, ms0] = speedLog[0];
   if (nowMs - ms0 > 1500 && f.t > t0) tickRate = (f.t - t0) / ((nowMs - ms0) / 1000);
   lastTick = f.t; lastTickAt = nowMs;
-  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap; divide = f.divide ?? null; krakenClock = f.kraken ?? null; grassFood = f.food ?? 1; if (f.quake && f.quake.x !== quakeSeen?.x) { quakeSeen = f.quake; quakeAt = performance.now(); } if (f.temp !== undefined) climateNow = f.temp; if (f.mind !== undefined) mind = f.mind;
+  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap; divide = f.divide ?? null; krakenClock = f.kraken ?? null; grassFood = f.food ?? 1; if (f.quake && f.quake.x !== quakeSeen?.x) { quakeSeen = f.quake; quakeAt = performance.now(); } if (f.temp !== undefined) { climateNow = f.temp; updatePlaces(); if(showXray)syncXray(); }
   renderClock();
 });
 on('event', e => { events.push(e); renderEvents(); toast(e.text); });
@@ -527,12 +752,17 @@ function toast(text) {
   el.addEventListener('mouseleave', () => { el.classList.remove('held'); el.classList.add('leaving'); timer = setTimeout(() => el.remove(), 1200); });
 }
 on('history', ({ h, stats: s, records: r, traits: tr }) => {
-  history.push(h); stats = s; records = r; traits = tr || {}; refreshCreatureSprites();
+  history.push(h); stats = s; records = r; traits = tr || {};rememberEcoRoles([h]); refreshCreatureSprites();
   if (history.length > 4000) history.shift();
   drawChart();
 });
-$('species').addEventListener('mouseover', e => { highlight = e.target.closest('details')?.dataset.name ?? null; });
-$('species').addEventListener('mouseleave', () => { highlight = null; });
+$('species').addEventListener('mouseover', e => {
+ const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number);highlight=(c,sp)=>ecoRole(sp)===ECO_ROLES[r]&&placeIndex(c.x,c.y)===p;showEcoTip(e,cell.title);return;}
+ hideEcoTip();highlight=e.target.closest('details')?.dataset.name??null;
+});
+$('species').addEventListener('mousemove',e=>{if(e.target.closest('[data-niche]'))positionEcoTip(e);});
+$('species').addEventListener('mouseleave',()=>{highlight=null;hideEcoTip();});
+$('species').addEventListener('click',e=>{const b=e.target.closest('[data-lens]');if(!b||b.disabled)return;lifeLens=b.dataset.lens;try{localStorage.setItem('lifeLens',lifeLens);}catch{}highlight=null;hideEcoTip();renderSpecies(true);});
 es.onerror = () => { $('clock').textContent = 'the glass is dark (server stopped?)'; };
 
 function unpack(c) {
@@ -791,12 +1021,36 @@ function portrait(sp) {
 const lerpWrap = (a, b, t, m) => Math.abs(b - a) > m / 2 ? b : a + (b - a) * t;
 const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return a + d * t; };
 
+// Connected neighbours, using world-space drawn sizes and a per-frame spatial grid.
+function clusterBodies(bodies) {
+  const cell = Math.max(1, ...bodies.map(b => b.size * .5)), grid = new Map(), parent=bodies.map((_,i)=>i);
+  const root = i => { while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];} return i; };
+  bodies.forEach((b,i) => {
+    const gx=Math.floor(b.x/cell),gy=Math.floor(b.y/cell);
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)for(const j of grid.get(`${gx+dx},${gy+dy}`)??[]){
+      const a=bodies[j],r=(a.size+b.size)*.25;
+      if((a.x-b.x)**2+(a.y-b.y)**2<=r*r)parent[root(i)]=root(j);
+    }
+    const key=`${gx},${gy}`;if(!grid.has(key))grid.set(key,[]);grid.get(key).push(i);
+  });
+  const groups=new Map();bodies.forEach((b,i)=>{const key=root(i);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(b);});
+  return [...groups.values()].map(members=>{
+    const x=members.reduce((v,b)=>v+b.x,0)/members.length,y=members.reduce((v,b)=>v+b.y,0)/members.length;
+    const nearest=[...members].sort((a,b)=>(a.x-x)**2+(a.y-y)**2-((b.x-x)**2+(b.y-y)**2)).slice(0,4);
+    return {members,x,y,nearest};
+  });
+}
+function shimmerFade(zoom) { return Math.max(0, 1-(zoom-1)/2); }
+
+let lastDrawAt = performance.now();
 function draw() {
-  // Layers, bottom to top: ground (terraces, patches, water, snow, bushes) → frost → quake crack → coral reef → slope light → corpses and eggs → creatures (shadow → body → the slope's light → markings; half-hidden in tall grass and thicket) → the air (rain wash, falling rain and snow, heat, the quake's dust) → overlays (the kraken's mind).
+  // Layers, bottom to top: ground (terraces, patches, water, snow, bushes) → frost → quake crack → coral reef → slope light → corpses and eggs → creatures (shadow → body → the slope's light → markings; half-hidden in tall grass and thicket) → the air (rain wash, falling rain and snow, heat, the quake's dust).
   requestAnimationFrame(draw);
+  const now = performance.now(), dtMs = now - lastDrawAt;
+  lastDrawAt = now;
   if (hovered !== null && (gesture || !cur?.has(hovered))) hideTip();
   if (!meta || !cur) return;
-  const now = performance.now(), t = Math.min(1, (now - recvAt) / frameMs);
+  const t = Math.min(1, (now - recvAt) / frameMs);
   if (following !== null) {
     const c = cur.get(following), p = prev?.get(following);
     if (!c || !species[c.s]) following = null;
@@ -809,7 +1063,7 @@ function draw() {
   clampCamera(camera);
   $('zoomlevel').textContent = `${camera.z.toFixed(1)}×`; $('following').textContent = following === null ? '' : `following a ${species[cur.get(following).s].name} · esc`;
   const left = camera.cx - meta.W / (2 * camera.z), top = camera.cy - meta.H / (2 * camera.z), right = camera.cx + meta.W / (2 * camera.z), bottom = camera.cy + meta.H / (2 * camera.z);
-  drawn = [];
+  drawn = []; pileBadges = [];
   // An earthquake shakes the map for a few seconds (stronger for a big one).
   const qAge = quakeSeen ? (performance.now() - quakeAt) / 1000 : 99, shake = qAge < 3 ? (1 - qAge / 3) * (quakeSeen.big ? 7 : 3) : 0;
   const factor = canvas.width / (meta.W * SCALE), k = SCALE * camera.z * factor, ky = canvas.height / meta.H * camera.z;
@@ -817,6 +1071,11 @@ function draw() {
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height);
   g.setTransform(k, 0, 0, ky, canvas.width / 2 - camera.cx * k + viewShakeX * k, canvas.height / 2 - camera.cy * ky + viewShakeY * ky);
   g.imageSmoothingEnabled = true;
+  if(showXray){
+    g.imageSmoothingEnabled=false;if(xrayBitmap||groundBitmap)g.drawImage(xrayBitmap??groundBitmap,0,0,meta.W,meta.H);const dotUnit=meta.W*(devicePixelRatio||1)/canvas.width,r=2.5*dotUnit;
+    for(const [id,c]of cur){const sp=species[c.s];if(!sp)continue;const p=prev?.get(id),x=p?lerpWrap(p.x,c.x,t,meta.W):c.x,y=p?lerpWrap(p.y,c.y,t,meta.H):c.y;if(x<left-r||x>right+r||y<top-r||y>bottom+r)continue;g.globalAlpha=highlight&&!bodyHighlighted(c,sp) ? .12 : 1;g.fillStyle=`hsl(${sp.hue} 70% 50%)`;g.strokeStyle='rgba(20,18,12,.85)';g.lineWidth=dotUnit;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();g.stroke();drawn.push({x,y,s:r,hitRadius:r+dotUnit/2,id});}
+    g.globalAlpha=1;return;
+  }
   if (groundBitmap) { g.imageSmoothingEnabled = false; g.drawImage(groundBitmap, 0, 0, meta.W, meta.H); }
   else g.drawImage(terrainCanvas, 0, 0, meta.W, meta.H);
   drawWeather(g, now);
@@ -846,22 +1105,36 @@ function draw() {
     g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1; g.stroke();
   }
 
+  const bodies=[];
+  for(const [id,c] of cur){
+    const sp=species[c.s];if(!sp)continue;const p=prev?.get(id);
+    const x=p?lerpWrap(p.x,c.x,t,meta.W):c.x,y=p?lerpWrap(p.y,c.y,t,meta.H):c.y;
+    let s=Math.max(4,c.z);
+    if(sp.unique&&sp.mark==='pulse')s*=1+.22*Math.sin(now*.006+id);
+    s*=1+.07*Math.max(0,Math.sin(now*.009*(c.p??1)+id))**6;
+    bodies.push({id,x,y,s,size:!sp.unique&&creatureSprites.has(sp.name)?s*CREATURE_SCALE*1.4:s});
+  }
+  const piles=clusterBodies(bodies).filter(p=>p.members.length>=5), hiddenBodies=new Set();
+  if(camera.z<=2)for(const p of piles){const keep=new Set(p.nearest.map(b=>b.id));for(const b of p.members)if(!keep.has(b.id))hiddenBodies.add(b.id);}
+  const bodyById=new Map(bodies.map(b=>[b.id,b]));
   // Interpolate between the last two frames so 15 updates/s look smooth at 60fps.
   for (const [id, c] of cur) {
     const sp = species[c.s];
-    if (!sp) continue;
+    if (!sp || hiddenBodies.has(id)) continue;
     const p = prev?.get(id);
     const x = p ? lerpWrap(p.x, c.x, t, meta.W) : c.x, y = p ? lerpWrap(p.y, c.y, t, meta.H) : c.y;
-    const a = p ? lerpAngle(p.a, c.a, t) : c.a;
-    let s = Math.max(4, c.z); // every body is drawn at its own inherited size, but never too small to see
-    if (sp.unique && sp.mark === 'pulse') s *= 1 + 0.22 * Math.sin(now * 0.006 + id);
-    // A heartbeat: every body throbs at its own heart rate (small ones flutter, big ones plod, sprinters race).
-    s *= 1 + 0.07 * Math.max(0, Math.sin(now * 0.009 * (c.p ?? 1) + id)) ** 6;
+    let a = p ? lerpAngle(p.a, c.a, t) : c.a;
+    if (!sp.unique) {
+      const heading = headings.get(id) ?? c.a, d = lerpAngle(heading, c.targetHeading, 1) - heading;
+      a = heading + Math.max(-0.0035 * dtMs, Math.min(0.0035 * dtMs, d));
+      headings.set(id, a);
+    }
+    let s = bodyById.get(id).s;
     if (sp.unique && sp.shape === 'serpent') {
       // The body trails behind the head along the exact path it took (like the snake game), seven of its sizes long.
       const t = trails.get(id) ?? [], want = s * 7;
       let len = 0, px = x, py = y;
-      g.globalAlpha = highlight && sp.name !== highlight ? 0.12 : 1;
+      g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : 1;
       for (let j = t.length - 1; j >= 0 && len < want; j--) {
         let dx = t[j].x - px, dy = t[j].y - py;
         if (Math.abs(dx) > meta.W / 2 || Math.abs(dy) > meta.H / 2) break; // wrapped across the edge
@@ -878,11 +1151,11 @@ function draw() {
     const margin = 40 + s * Math.max(4, 2 * (c.l ?? 1), 2 * (1 + 0.35 * (c.f ?? 0)) / Math.sqrt(c.l ?? 1));
     if (x < left - margin || x > right + margin || y < top - margin || y > bottom + margin) continue;
     const ci = cellOf(x, y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7);
-    g.globalAlpha = highlight && sp.name !== highlight ? 0.12 : hid ? 0.5 : 1;
+    g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : hid ? 0.5 : 1;
     const spriteDrawn=!sp.unique&&creatureSprites.has(sp.name),bodySize=spriteDrawn?s*CREATURE_SCALE*1.4:s;
     if (!(c.b & 32)) { g.fillStyle = 'rgba(10,8,5,.28)'; g.beginPath(); g.ellipse(x + bodySize * 0.3, y + bodySize * 0.4, bodySize * 0.95, bodySize * 0.6, a, 0, Math.PI * 2); g.fill(); } // a contact shadow, away from the light
     g.save(); g.translate(x, y); g.rotate(a);
-    g.globalAlpha = highlight && sp.name !== highlight ? 0.12 : hid ? 0.5 : 1;
+    g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : hid ? 0.5 : 1;
     if(spriteDrawn){
       if(c.b&4){g.strokeStyle=`hsla(${c.h} 60% 80% / .55)`;g.lineWidth=.8;g.beginPath();for(const o of [-.45,.45]){g.moveTo(-s*.9,o*s);g.lineTo(-s*2.4,o*s);}g.stroke();}
       const look=creatureSprites.get(sp.name),lv=lightData?(lightData[ci*4]-128)/90:0;
@@ -947,15 +1220,21 @@ function draw() {
   g.fillRect(0, 0, meta.W, meta.H);
   drawAir(g, now);
   if (quakeSeen && qAge < 6) { const q = quakeSeen; g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); } // the quake's dust
-  // The kraken's mind: where it learned it gets stuck (red) and where it fed (gold), stronger the surer it is.
-  if (showMind && mind) {
-    const cw = meta.W / mind.w, ch = meta.H / mind.h;
-    for (let i = 0; i < mind.w * mind.h; i++) {
-      const x = (i % mind.w) * cw, y = Math.floor(i / mind.w) * ch, t = mind.trap[i], f = mind.food[i];
-      if (f > 0.03) { g.fillStyle = `rgba(230,180,60,${Math.min(0.45, f * 0.6)})`; g.fillRect(x, y, cw, ch); }
-      if (t > 0.03) { g.fillStyle = `rgba(220,60,50,${Math.min(0.45, t * 0.6)})`; g.fillRect(x, y, cw, ch); }
-    }
+  // Badge dimensions and strokes stay in CSS pixels at every camera zoom.
+  const rect=canvas.getBoundingClientRect(), ux=canvas.width/rect.width/k, uy=canvas.height/rect.height/ky;
+  const css=getComputedStyle(document.documentElement);
+  for(const p of piles){
+    const counts={};for(const b of p.members){const name=species[cur.get(b.id).s].name;counts[name]=(counts[name]??0)+1;}
+    const y=Math.min(...p.members.map(b=>b.y-b.size))-9*uy;
+    g.save();g.translate(p.x,y);g.scale(ux,uy);g.font='9px ui-monospace, monospace';
+    const label=`×${p.members.length}`,w=g.measureText(label).width+10,h=15;
+    g.beginPath();g.roundRect(-w/2,-h/2,w,h,5);g.globalAlpha=.85;g.fillStyle=css.getPropertyValue('--panel').trim();g.fill();
+    g.globalAlpha=1;g.lineWidth=1;g.strokeStyle=css.getPropertyValue('--line').trim();g.stroke();
+    g.fillStyle=css.getPropertyValue('--fg').trim();g.textAlign='center';g.textBaseline='middle';g.fillText(label,0,0);g.restore();
+    pileBadges.push({x:p.x,y,w:w*ux,h:h*uy,n:p.members.length,counts});
   }
+
+
 }
 requestAnimationFrame(draw);
 
@@ -984,6 +1263,7 @@ let reliefKey = '', reliefElev = null;
 function paintRelief() {
   const R = climateNow.relief, GW = meta.GW, GH = meta.GH;
   if (reliefKey !== R.elev) { reliefKey = R.elev; reliefElev = Uint8Array.from(atob(R.elev), ch => ch.charCodeAt(0));worldInput('elev', R.elev, reliefElev); }
+  for(const [key,value] of [['geo',R.geo??R.rock],['alluv',R.alluv],['elev2',R.elev2]])if(value!==undefined&&worldKeys[key]!==value)worldInput(key,value,Uint8Array.from(atob(value),ch=>ch.charCodeAt(0)));
   reliefCanvas.width = GW; reliefCanvas.height = GH;
   lightCanvas.width = GW; lightCanvas.height = GH;
   const img = rlg.createImageData(GW, GH), light = lig.createImageData(GW, GH), E = (x, y) => reliefElev[((y + GH) % GH) * GW + ((x + GW) % GW)] / 255 * R.rise;
@@ -1030,28 +1310,18 @@ function drawWeather(g, now) {
 function drawAir(g, now) {
   if (!climateNow?.rows?.length) return;
   const rows = climateNow.rows, bh = meta.H / rows.length;
-  // Heat: wavering amber lines drifting over the hottest ground.
-  g.lineWidth = 1;
-  for (let j = 0; j < rows.length; j++) {
-    if (!climateNow.relief) {
-      const k = (rows[j] - 0.56) / 0.14; if (k <= 0) continue;
-      g.strokeStyle = `rgba(255,200,120,${Math.min(0.22, k * 0.18)})`;
-    }
-    for (let line = 0; line < 2; line++) {
-      const y0 = (j + 0.3 + line * 0.45) * bh;
-      if (climateNow.relief) {
-        for (let x = 0; x < meta.W; x += 12) {
-          const y = y0 + Math.sin(x * 0.04 + now * 0.002 + j + line * 2) * 2.2, k = (tempOf(y, x) - 0.56) / 0.14; if (k <= 0) continue;
-          const x1 = Math.min(x + 12, meta.W), y1 = y0 + Math.sin(x1 * 0.04 + now * 0.002 + j + line * 2) * 2.2;
-          g.strokeStyle = `rgba(255,200,120,${Math.min(0.22, k * 0.18)})`; g.beginPath(); g.moveTo(x, y); g.lineTo(x1, y1); g.stroke();
-        }
-        continue;
-      }
-      g.beginPath();
-      for (let x = 0; x <= meta.W; x += 12) { const y = y0 + Math.sin(x * 0.04 + now * 0.002 + j + line * 2) * 2.2; x ? g.lineTo(x, y) : g.moveTo(x, y); }
-      g.stroke();
+  // Short, separated world-space ripples; opacity and width never grow with zoom.
+  const fade=shimmerFade(camera.z), pixel=canvas.width/canvas.getBoundingClientRect().width;
+  g.lineWidth=pixel/Math.abs(g.getTransform().a);
+  if(fade>0)for(let j=0;j<rows.length;j++)for(let line=0;line<2;line++){
+    const y0=(j+.3+line*.45)*bh;
+    for(let x=0;x<meta.W;x+=24){
+      const y=y0+Math.sin(x*.04+now*.002+j+line*2)*2.2,k=(tempOf(y,x)-.56)/.14;if(k<=0)continue;
+      const x1=Math.min(x+8,meta.W),y1=y0+Math.sin(x1*.04+now*.002+j+line*2)*2.2;
+      g.strokeStyle=`rgba(255,200,120,${Math.min(.22,k*.18)*fade})`;g.beginPath();g.moveTo(x,y);g.lineTo(x1,y1);g.stroke();
     }
   }
+  g.lineWidth=1;
   // Rain, or snow where it is cold: more of it the wetter the day.
   const n = Math.round(Math.max(0, rain - 0.35) / 0.65 * 700);
   for (let i = 0; i < n; i++) {
@@ -1071,8 +1341,8 @@ function drawAir(g, now) {
 const dialCanvas = document.getElementById('dial'), dg = dialCanvas.getContext('2d');
 function drawDial() {
   const box = $('climatebox');
-  if (!climateNow?.now) { box.hidden = true; return; }
-  box.hidden = false;
+  if (!climateNow?.now) { $('weatherwrap').classList.remove('ready'); weatherExpanded(); return; }
+  $('weatherwrap').classList.add('ready'); weatherExpanded();
   const S = dialCanvas.width, pad = 22, inner = S - pad * 2;
   const X = w => pad + w * inner, Y = T => pad + (1 - (T - 0.1) / 0.8) * inner; // warmth 0.1 … 0.9 fills the height
   // Ground: four corners blended (hot-dry sand, hot-wet green, cold-dry grey, cold-wet blue).
@@ -1113,20 +1383,49 @@ function drawDial() {
   $('climatetext').innerHTML = `<b>now:</b> ${wet}, ${word(h)}<br>${climateNow.relief ? 'peak' : 'north'}: ${word(climateNow.north)}<br>${climateNow.relief ? 'lowlands' : 'south'}: ${word(climateNow.south)}${riverGauge ? '<br>' + riverGauge : ''}<br>today: ${rain > 0.75 ? 'storms' : rain > 0.55 ? 'rain' : rain > 0.35 ? 'overcast' : rain > 0.2 ? 'dry' : 'drought'}<br><span style="opacity:.8">dot = now · line = last 30 seasons · bar = ${climateNow.relief ? 'peak→lowlands' : 'north→south'}</span>`;
 }
 
+// The dial keeps painting while hidden; hover, keyboard focus or a tap reveals it.
+const weatherWrap = $('weatherwrap'), weatherLine = $('weather');
+function weatherExpanded() {
+  const show = weatherWrap.classList.contains('ready') && !weatherWrap.classList.contains('dismissed') && (weatherWrap.matches(':hover, :focus-within') || weatherWrap.classList.contains('pinned'));
+  $('climatebox').hidden = !show; weatherLine.setAttribute('aria-expanded', String(show));
+}
+weatherLine.addEventListener('click', () => {
+  const pinned = weatherWrap.classList.toggle('pinned');
+  weatherWrap.classList.toggle('dismissed', !pinned); weatherExpanded();
+});
+weatherLine.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); weatherLine.click(); } });
+for (const type of ['mouseenter', 'focusin']) weatherWrap.addEventListener(type, () => { weatherWrap.classList.remove('dismissed'); weatherExpanded(); });
+for (const type of ['mouseleave', 'focusout']) weatherWrap.addEventListener(type, () => requestAnimationFrame(weatherExpanded));
+document.addEventListener('click', e => { if (!weatherWrap.contains(e.target)) { weatherWrap.classList.remove('pinned'); weatherWrap.classList.add('dismissed'); weatherExpanded(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { weatherWrap.classList.remove('pinned'); weatherWrap.classList.add('dismissed'); weatherExpanded(); } });
+function renderWeather() {
+  const sky = rain > 0.75 ? 'Storms' : rain > 0.55 ? 'Raining' : rain > 0.35 ? 'Overcast' : rain > 0.2 ? 'Dry skies' : 'Drought';
+  const wet = climate > 0.66 ? 'wet' : climate < 0.34 ? 'dry' : climate > 0.5 ? 'wetting' : 'drying';
+  const era = climateNow ? (climateNow.era > 0.05 ? 'warm' : climateNow.era < -0.05 ? 'cold' : 'mild') : '';
+  const fr = climateNow?.frost ?? 0.18;
+  const word = T => T < fr ? 'frosty' : T < 0.4 ? 'cold' : T < 0.47 ? 'cool' : T <= 0.53 ? 'mild' : T <= 0.6 ? 'warm' : 'hot';
+  const facts = [];
+  if (riverGauge) facts.push(riverGauge.replace('river: ', 'river ').replace(' · ', ', '));
+  if (climateNow?.now) {
+    const seen=new Set([era]);
+    for(const [label,T] of [[climateNow.relief?'lowlands':'south',climateNow.south],[climateNow.relief?'the peak':'the north',climateNow.north],['overall',climateNow.now[1]]]){
+      const w=word(T);if(seen.has(w))continue;seen.add(w);facts.push(label==='overall'?`${w} overall`:`${label} ${w}`);
+    }
+  }
+  weatherLine.textContent = `${sky} in a ${wet}${era ? ', ' + era : ''} era${facts.length ? ' — ' + facts.join(', ') : ''}.`;
+  weatherExpanded();
+}
 function renderClock() {
   const day = Math.floor(tick / meta.TICKS_PER_DAY) + 1;
-  const left = Math.ceil((meta.SEASON_TICKS - tick % meta.SEASON_TICKS) / (tickRate || meta.TICKS_PER_SEC)); // at the measured speed
-  const sky = rain > 0.75 ? 'storms' : rain > 0.55 ? 'rain' : rain > 0.35 ? 'overcast' : rain > 0.2 ? 'dry' : 'drought';
-  const era = climate > 0.66 ? 'wet era' : climate < 0.34 ? 'dry era' : climate > 0.5 ? 'wetting era' : 'drying era';
+  const left = Math.ceil((meta.SEASON_TICKS - tick % meta.SEASON_TICKS) / (tickRate || meta.TICKS_PER_SEC));
   const mmss = secs => `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
   const split = divide ? Math.ceil(divide.ticks / (tickRate || meta.TICKS_PER_SEC)) : null;
-  const heat = climateNow ? (climateNow.era > 0.05 ? ' · warm era' : climateNow.era < -0.05 ? ' · cold era' : ' · mild era') : '';
   const lean = grassFood < 0.999 ? ` · grass worth ${Math.round(grassFood * 100)}%` : '';
-  $('clock').textContent = `season ${season} · day ${day} · ${sky} · ${era}${heat}${lean} · season ends in ${mmss(left)}`
-    + (divide ? ` · great divide (${divide.name}s, over 60%) ${divide.ticks > 0 ? `in ${mmss(split)}` : 'now'}` : ' · no great divide due')
-    + (krakenClock ? ` · ${krakenClock.awake ? 'kraken sinks in' : 'kraken rises in'} ${mmss(Math.ceil(krakenClock.ticks / (tickRate || meta.TICKS_PER_SEC)))}` : '');
+  $('clock').textContent = `season ${season} · day ${day} · next season in ${mmss(left)}${lean}`
+    + (divide ? ` · great divide (${divide.name}s, over 60%) ${divide.ticks > 0 ? `in ${mmss(split)}` : 'now'}` : '');
+  renderWeather();
   if (tick % 30 === 0) { renderSpecies(); drawDial(); }
-  else for (const el of document.querySelectorAll('[data-count]')) el.textContent = counts()[el.dataset.count] ?? 0;
+  else {const n=counts(),max=Math.max(1,...Object.values(n));for(const el of document.querySelectorAll('[data-count]'))el.textContent=n[el.dataset.count]??0;for(const el of document.querySelectorAll('[data-popbar]'))el.style.width=((n[el.dataset.popbar]??0)/max*100)+'%';}
 }
 
 function counts() {
@@ -1134,6 +1433,103 @@ function counts() {
   if (cur) for (const c of cur.values()) { const name = species[c.s]?.name; if (name) n[name] = (n[name] ?? 0) + 1; }
   return n;
 }
+
+// Ecosystem places: O(cells), four neighbours on a torus; only the viewer owns this map.
+function buildPlaces(GW,GH,need,water,elev,section=null,sectionNames=null){
+ const N=GW*GH,map=new Int32Array(N).fill(-1),queue=new Int32Array(N),sizes=[],neighbors=new Int32Array(4);let regions=0;
+ const around=i=>{const x=i%GW,y=(i/GW)|0;neighbors[0]=y*GW+(x+1)%GW;neighbors[1]=y*GW+(x+GW-1)%GW;neighbors[2]=((y+1)%GH)*GW+x;neighbors[3]=((y+GH-1)%GH)*GW+x;};
+ const official=[];
+ if(section){const ids=new Map();for(let i=0;i<N;i++){const id=section[i];if(!ids.has(id)){ids.set(id,regions++);official.push(id);}map[i]=ids.get(id);}}
+ else{
+  const walk=i=>(need?.[i]??255)<.15*255&&((water?.[i]??0)&127)<.4*127;
+  for(let i=0;i<N;i++)if(map[i]<0&&walk(i)){let head=0,tail=1;queue[0]=i;map[i]=regions;while(head<tail){around(queue[head++]);for(let k=0;k<4;k++){const j=neighbors[k];if(map[j]<0&&walk(j)){map[j]=regions;queue[tail++]=j;}}}sizes.push(tail);regions++;}
+  let kept=sizes.map((n,i)=>n>=N*.03?i:-1).filter(i=>i>=0);
+  // If every patch is tiny (or no ground is walkable), keep the largest as a safe single place.
+  if(!kept.length){if(sizes.length)kept=[sizes.indexOf(Math.max(...sizes))];else{map.fill(0);kept=[0];}}
+  const ids=new Map(kept.map((id,i)=>[id,i]));let head=0,tail=0;
+  for(let i=0;i<N;i++){map[i]=ids.get(map[i])??-1;if(map[i]>=0)queue[tail++]=i;}
+  while(head<tail){const i=queue[head++];around(i);for(let k=0;k<4;k++){const j=neighbors[k];if(map[j]<0){map[j]=map[i];queue[tail++]=j;}}}regions=kept.length;
+ }
+ const info=Array.from({length:regions},()=>({n:0,x:0,y:0,h:0}));
+ for(let i=0;i<N;i++){const a=info[map[i]];a.n++;a.x+=i%GW+.5;a.y+=((i/GW)|0)+.5;a.h+=elev?.[i]??0;}
+ let peak=0;info.forEach((a,i)=>{if(a.h/a.n>info[peak].h/info[peak].n)peak=i;});const used=new Set();
+ const names=info.map((a,i)=>{
+  const dx=a.x/a.n/GW-.5,dy=a.y/a.n/GH-.5,h=dx<0?'west':'east',v=dy<0?'north':'south';
+  let name=sectionNames?.[official[i]]??(i===peak?'meseta':Math.abs(dx)>Math.abs(dy)*1.5?`${h} lowlands`:Math.abs(dy)>Math.abs(dx)*1.5?v:`${v} ${h}`);name=String(name);
+  const base=name;let suffix=2;while(used.has(name))name=`${base} ${suffix++}`;used.add(name);return name;
+ });return {map,names,info};
+}
+let places={map:null,names:['unknown place']},placeKey='',placeWater=null,placeAt=-Infinity;
+function updatePlaces(now=performance.now()){
+ const R=climateNow?.relief;if(!meta||!R)return;
+ const key=JSON.stringify([meta.GW,meta.GH,R.section??R.need,R.sectionNames??null]);if(!R.section&&!R.need)return;
+ if(key===placeKey&&(placeWater===worldKeys.water||R.section||now-placeAt<30000))return;
+ const decode=s=>s?Uint8Array.from(atob(s),c=>c.charCodeAt(0)):null;
+ const need=decode(R.need),section=decode(R.section),N=meta.GW*meta.GH;if((section??need)?.length!==N)return;
+ places=buildPlaces(meta.GW,meta.GH,need,worldInputs.water,decode(R.elev2??R.elev),section,R.sectionNames);
+ placeKey=key;placeWater=worldKeys.water;placeAt=now;
+}
+function placeIndex(x,y){return places.map?.[cellOf(x,y)]??0;}
+function placeOf(x,y){return places.names[placeIndex(x,y)]??'unknown place';}
+function bodyHighlighted(c,sp){return typeof highlight==='function'?highlight(c,sp):sp.name===highlight;}
+const ECO_ROLES=['grazer','browser','mixed feeder','decomposer','omnivore','scavenger','hunter','apex','parasite'];
+const rolePlural=r=>r==='apex'?'apex predators':r+'s';
+const recordedEcoRoles=new Map();
+// Keep only explicit roles: missing historical data must not imply a grazer.
+function explicitEcoRole(...sources){for(const s of sources)for(const r of [s?.label,s?.dietLabel,s?.role])if(ECO_ROLES.includes(r))return r;return null;}
+function rememberEcoRoles(points){
+ for(const e of [...points,{stats,traits}])for(const [name,tr]of Object.entries(e.stats??{}).concat(Object.entries(e.traits??{}))){
+  const r=explicitEcoRole(tr,tr?.lastTraits,tr?.traits,tr?.lastStats);if(r)recordedEcoRoles.set(name,r);
+ }
+}
+function ecoRole(sp){
+ const st=stats[sp.name],r=explicitEcoRole(traits[sp.name],sp,sp.lastTraits,sp.lastStats,sp.traits,sp.stats,st?.lastTraits,st?.traits,st?.lastStats,st)??recordedEcoRoles.get(sp.name);
+ return r??(sp.extinct==null?role({...sp,...traits[sp.name]}):null);
+}
+function shortPlaceName(name){
+ const words=String(name).trim().toLowerCase().split(/[\s-]+/);
+ return words.every(w=>['north','south','east','west'].includes(w))?words.map(w=>w[0].toUpperCase()).join(''):words[0].slice(0,7);
+}
+function nicheColumns(names){
+ const order=['heights','NW','NE','SW','SE','river'];
+ return names.map((name,index)=>({name,index,short:shortPlaceName(name)})).sort((a,b)=>(order.indexOf(a.short)<0?order.length:order.indexOf(a.short))-(order.indexOf(b.short)<0?order.length:order.indexOf(b.short))||a.index-b.index);
+}
+function absentRoles(living){
+ const absent=ECO_ROLES.filter(r=>!living.some(sp=>ecoRole(sp)===r));
+ const names=absent.map(rolePlural),notes=absent.flatMap(r=>{
+  const last=species.filter(sp=>Number.isFinite(sp.extinct)&&ecoRole(sp)===r).reduce((n,sp)=>Math.max(n,sp.extinct),-1);
+  return last<0?[]:[`${rolePlural(r)} since s${last}`];
+ });
+ const text=names.length<2?names.join(''):names.slice(0,-1).join(', ')+' or '+names.at(-1);
+ return text?`<div class="nicheabsence">no ${esc(text)}${notes.length?` (${esc(notes.join('; '))})`:''}</div>`:'';
+}
+function familyOrder(living,all){
+ const byName=new Map(all.map(s=>[s.name,s])),live=new Set(living.map(s=>s.name)),parent=new Map(),children=new Map(),roots=[];
+ const birth=(a,b)=>(a.born??0)-(b.born??0)||a.name.localeCompare(b.name);
+ for(const sp of living){let p=sp.parent;const seen=new Set([sp.name]);while(p&&!live.has(p)&&!seen.has(p)){seen.add(p);p=byName.get(p)?.parent;}if(seen.has(p))p=null;parent.set(sp.name,p&&live.has(p)?p:null);}
+ for(const sp of living){const p=parent.get(sp.name);if(p)(children.get(p)??(children.set(p,[]),children.get(p))).push(sp);else roots.push(sp);}
+ const out=[],seen=new Set();function visit(sp,depth){if(seen.has(sp.name))return;seen.add(sp.name);out.push({sp,depth,parent:parent.get(sp.name)});for(const child of (children.get(sp.name)??[]).sort(birth))visit(child,depth+1);}
+ roots.sort(birth).forEach(sp=>visit(sp,0));living.slice().sort(birth).forEach(sp=>visit(sp,0));return out;
+}
+function nicheCounts(bodies,all,roleOf,regionOf){
+ const cells=new Map();for(const c of bodies){const sp=all[c.s];if(!sp)continue;const r=roleOf(sp),p=regionOf(c.x,c.y),key=r+':'+p;let cell=cells.get(key);if(!cell){cell={n:0,names:new Map()};cells.set(key,cell);}cell.n++;cell.names.set(sp.name,(cell.names.get(sp.name)??0)+1);}return cells;
+}
+function nicheGrid(living){
+ const cells=nicheCounts(cur?.values()??[],species,ecoRole,placeIndex),byName=new Map(species.map(sp=>[sp.name,sp])),max=Math.max(1,...[...cells.values()].map(c=>c.n));
+ const attr=s=>esc(String(s)).replace(/"/g,'&quot;'),columns=nicheColumns(places.names);
+ return `<div class="niche" style="grid-template-columns:minmax(78px,1fr) repeat(${places.names.length},minmax(0,1fr))"><span></span>`+columns.map(p=>`<span class="place" title="${attr(p.name)}">${esc(p.short)}</span>`).join('')+ECO_ROLES.flatMap((r,ri)=>{
+  if(!living.some(sp=>ecoRole(sp)===r))return [];
+  return `<span class="nicherole" title="${rolePlural(r)}">${rolePlural(r)}</span>`+columns.map(({name:p,index:pi})=>{
+   const c=cells.get(r+':'+pi),names=[...(c?.names??[])].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])),dominant=byName.get(names[0]?.[0]),title=`${rolePlural(r)} on the ${p}: ${c?.n??0}${c?' ('+names.map(([n,v])=>`${n}s ${v}`).join(', ')+')':''}`,d=c?14*Math.sqrt(c.n/max):0;
+   return `<button type="button" data-niche="${ri}:${pi}" title="${attr(title)}" aria-label="${attr(title)}">${c?`<i style="width:${d}px;height:${d}px;background:hsl(${dominant?.hue??0} 55% 50%)"></i>`:'·'}</button>`;
+  }).join('');
+ }).join('')+'</div>'+absentRoles(living);
+}
+let lifeLens='Way of life';try{const v=localStorage.getItem('lifeLens');if(['Way of life','Family'].includes(v))lifeLens=v;}catch{}
+function lensChips(){return '<div class="lenses" aria-label="Life lens">'+['Way of life','Family','Place','Change'].map(l=>`<button type="button" data-lens="${l}" ${['Place','Change'].includes(l)?'disabled title="coming soon"':`aria-pressed="${lifeLens===l}"`} class="${lifeLens===l?'on':''}">${l}</button>`).join('')+'</div>';}
+function positionEcoTip(e){const t=$('ecotip');t.style.left=Math.max(8,Math.min(innerWidth-t.offsetWidth-8,e.clientX+12))+'px';t.style.top=Math.max(8,Math.min(innerHeight-t.offsetHeight-8,e.clientY+12))+'px';}
+function showEcoTip(e,text){const t=$('ecotip');t.textContent=text;t.hidden=false;positionEcoTip(e);}
+function hideEcoTip(){$('ecotip').hidden=true;}
 
 // How each species stands apart from its kin (living species of the same line, never the unique giants): per trait,
 // how far it sits from the others, in units of the trait's spread across the family (z); the 2–3 strongest standouts
@@ -1164,12 +1560,45 @@ function kinship(living) {
   return out;
 }
 
-// Living species, most numerous first; each opens to show its lineage and the code it runs on.
+// Noun phrases after "Has" for every trait highlighted by mark().
+const KIN_WORDS = {
+  size: ['a larger body', 'a smaller body'], gut: ['more meat adaptation', 'more grass adaptation'], legs: ['longer legs', 'shorter legs'],
+  wind: ['more stamina', 'less stamina'], armor: ['more armour', 'less armour'], toxin: ['more toxin', 'less toxin'],
+  litter: ['larger litters', 'smaller litters'], mature: ['later maturity', 'earlier maturity'], browse: ['more browsing', 'less browsing'],
+  gape: ['a wider mouth', 'a narrower mouth'], resist: ['stronger resistance', 'weaker resistance'], eyes: ['sharper eyes', 'weaker eyes'],
+  decomp: ['more dung in its diet', 'less dung in its diet'], swim: ['more swimming', 'less swimming'], parasitism: ['more parasitism', 'less parasitism'],
+  coat: ['a thicker coat', 'a thinner coat'], water: ['more water thrift', 'less water thrift']
+};
+function trendPoint(name) {
+  const target=tick-5*meta.SEASON_TICKS;
+  // Nearest recorded point, even when sampling falls just before the window boundary.
+  return history.filter(e=>e.t<=tick&&e.pops?.[name]!==undefined)
+    .reduce((best,e)=>!best||Math.abs(e.t-target)<Math.abs(best.t-target)?e:best,null);
+}
+function speciesStory(sp, z, now) {
+  const stand = Object.entries(z).filter(([, v]) => Math.abs(v) >= 1).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1])).slice(0, 2)
+    .map(([k, v]) => KIN_WORDS[k]?.[v>0?0:1]??`${v>0?'more':'less'} ${k}`).join(' and ');
+  const comparison=stand?`Has ${stand} than its kin`:'';
+  const past = trendPoint(sp.name);
+  const delta = past ? now - past.pops[sp.name] : 0, base = past?.pops[sp.name];
+  const arrow = past && delta > base * 0.1 ? '↑' : past && delta < -base * 0.1 ? '↓' : '→';
+  const seasons = past ? Math.min(5, Number(((tick - past.t) / meta.SEASON_TICKS).toFixed(2))) : 0;
+  const trend = sp.born === season && sp.parent ? `new this season, from the ${sp.parent}s` : delta ? `numbers ${delta > 0 ? 'up' : 'down'} ${Math.abs(delta)} in ${Math.max(1,Math.round(seasons))} season${Math.round(seasons)<=1?'':'s'}` : 'steady';
+  return { arrow, text: comparison ? `${comparison}; ${trend}.` : `${trend[0].toUpperCase()}${trend.slice(1)}.` };
+}
+
+let extinctExpanded=false;
+$('extinct').addEventListener('click',e=>{if(e.target.closest('button')){extinctExpanded=true;renderSpecies(true);}});
+
+// Living species, grouped by ecology or ancestry; each opens to its full card.
 function renderSpecies(force) {
   const list = $('species');
+  if(!meta)return;updatePlaces();
   if (!force && list.matches(':hover')) return; // don't reshuffle under the pointer
   const n = counts(), open = new Set([...list.querySelectorAll('details[open]')].map(d => d.dataset.name));
-  const living = species.filter(s => s.extinct === null && !s.waiting).sort((a, b) => (n[b.name] ?? 0) - (n[a.name] ?? 0));
+  const eggTimes=new Map();
+  for(let i=0;i<eggs.length;i+=4){const name=species[eggs[i+3]]?.name;if(name){const seconds=Math.max(0,Math.ceil((1-eggs[i+2])*meta.SEASON_TICKS/(tickRate||meta.TICKS_PER_SEC)));eggTimes.set(name,Math.min(eggTimes.get(name)??Infinity,seconds));}}
+  const living = species.filter(s => s.extinct === null && !s.waiting && ((n[s.name]??0)>0||eggTimes.has(s.name)));
   // Eggs waiting to hatch are listed too, so they can be found.
   const eggRows = [];
   for (let i = 0; i < eggs.length; i += 4) {
@@ -1181,7 +1610,9 @@ function renderSpecies(force) {
   const total = cur ? cur.size : 0;
   const head = `<div class="total">${total.toLocaleString('en')} creatures alive${cap ? ` · room for ${cap.toLocaleString('en')}` : ''} · ${living.length} species</div>`;
   const kin = kinship(living);
-  list.innerHTML = head + eggRows.join('') + living.map(sp => {
+  const family=familyOrder(living,species),maxPop=Math.max(1,...Object.values(n));
+  const ordered=lifeLens==='Family'?family:ECO_ROLES.flatMap(r=>family.filter(({sp})=>ecoRole(sp)===r));
+  const rows=new Map(ordered.map(({sp,depth,parent})=>{ 
     const st = stats[sp.name] ?? {};
     const kn = kin[sp.name], z = kn?.z ?? {};
     // A trait that sets it apart from its kin is shown in bold with ▲ (above them) or ▼ (below).
@@ -1190,25 +1621,48 @@ function renderSpecies(force) {
     const fresh = sp.parent && sp.born === season ? ' · <span class="new">first season</span>' : '';
     const tr = traits[sp.name] ?? {};
     const deeds = `kills ${st.kills ?? 0} · eaten ${st.eaten ?? 0}`;
+    const story = speciesStory(sp, z, n[sp.name] ?? 0);
+    if(!(n[sp.name]>0)&&eggTimes.has(sp.name)){const secs=eggTimes.get(sp.name);story.text=`only eggs, hatching in ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;story.arrow='';}
+    const drift = founderDrift(sp.name);
+    const food = Object.entries(tr.food ?? {}).sort((a, b) => b[1] - a[1])[0]?.[0];
     const progress = Math.max(0, (records[sp.name]?.generation ?? 0) - (sp.lastBranchGen ?? 0));
-    return `<details data-name="${sp.name}"${open.has(sp.name) ? ' open' : ''}><summary>
-      <img class="portrait" src="${portraitOf(sp)}" alt=""><span>${sp.name}s <span class="dim">${sp.lineage ?? ''} · <span class="role-${tr.role}">${tr.label ?? tr.role ?? ''}</span>${sideFoods(tr)}${sp.variant ? ' · variant' : ''}</span></span><b data-count="${sp.name}">${n[sp.name] ?? 0}</b>
-      <small>${tr.food ? 'lives on: ' + Object.entries(tr.food).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join(' · ') + '<br>' : ''}${dietBreakdown(tr)}${origin}${fresh} · next branch ${progress}/${meta.GENERATIONS_PER_MUTATION} generations<br>
+    if(lifeLens==='Family'&&sp.parent&&living.some(s=>s.name===sp.parent))story.text=`split from the ${sp.parent}s in s${sp.born} · ${story.text}`;
+    return [sp.name,`<details style="margin-left:${lifeLens==='Family'?Math.min(depth,4)*10:0}px" data-name="${sp.name}"${open.has(sp.name) ? ' open' : ''}><summary>
+      <img class="portrait" src="${portraitOf(sp)}" alt=""><span class="identity">${sp.name}s <b data-count="${sp.name}">${n[sp.name] ?? 0}</b> ${story.arrow} <span class="dim"><span class="role-${tr.role}">${tr.label ?? tr.role ?? ''}</span>${food ? ' · lives on ' + food : ''}</span></span>
+      <span class="popbar"><i data-popbar="${sp.name}" style="width:${(n[sp.name]??0)/maxPop*100}%;background:hsl(${sp.hue} 55% 50%)"></i></span><small>${esc(story.text)}</small></summary><div class="speciesbody">
+      <span class="dim">${sp.lineage ?? ''}${sideFoods(tr)}${sp.variant ? ' · variant' : ''}</span><br>
+      ${tr.food ? 'lives on: ' + Object.entries(tr.food).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join(' · ') + '<br>' : ''}${dietBreakdown(tr)}${origin}${fresh} · next branch ${progress}/${meta.GENERATIONS_PER_MUTATION} generations<br>
       ${tr.minds?.length ? `hidden minds: ${tr.minds.map(m => `${m.count} carry “${m.what}”`).join(' · ')} <span class="dim">(a kind of its own at 15)</span><br>` : ''}
       ${kn ? `<i class="portraitline">${kn.portrait}</i> · distinct ${kn.distinct.toFixed(1)} · nearest: ${kn.nearest[0]}s (${Math.round(kn.nearest[1] * 100)}% apart)<br>` : ''}
       ${mark('size', `size ${tr.size ?? '?'}`)} · ${mark('gut', `gut ${tr.gut ?? '?'}`)} · ${mark('legs', `legs ${tr.legs ?? '?'}`)} · fat ${tr.fat !== undefined ? Math.round(tr.fat * 100) + '%' : '?'} · ${mark('wind', `stamina ${tr.wind ?? '?'}`)} · ${mark('armor', `armour ${tr.armor ?? '?'}`)} · ${mark('toxin', `toxin ${tr.toxin ?? '?'}`)} · ${mark('litter', `litter ${tr.litter ?? '?'}`)} · ${mark('mature', `maturity ×${tr.mature ?? '?'}`)} · ${mark('browse', `browse ${tr.browse ?? '?'}`)} · ${mark('gape', `gape ×${tr.gape ?? '?'}`)} · ${mark('resist', `resistance ${tr.resist ?? '?'}`)} · ${mark('eyes', `eyes ${tr.eyes ?? '?'}`)}${tr.browsers ? ` (${tr.browsers} browsing)` : ''}${tr.decomp !== undefined ? ` · ${mark('decomp', `decomposer ${tr.decomp}`)} · ${mark('swim', `swim ${tr.swim ?? 0}`)} · ${mark('parasitism', `parasite ${tr.parasitism}`)} · ${mark('coat', `coat ${tr.coat}`)} · ${mark('water', `water thrift ${tr.water}`)}` : ''} · thrift ${tr.thrift ?? '?'} · plasticity ${tr.plastic ?? '?'}${tr.turning ? ` (${tr.turning} turning)` : ''} · trophic level ${tr.tl ?? '?'}${sp.driftRoot !== undefined && sp.root && sp.root !== sp.name ? ` · from the ${sp.root}s: code ${Math.round(sp.driftRoot * 100)}%, body ${Math.round((sp.bodyRoot ?? 0) * 100)}% (since its split: code ${Math.round((sp.drift ?? 0) * 100)}%)` : ` · code drifted ${Math.round((sp.drift ?? 0) * 100)}%${sp.bodyRoot !== undefined ? `, body ${Math.round(sp.bodyRoot * 100)}%` : ''}`}<br>
-      mated ${st.mated ?? 0} · budded ${st.budded ?? 0} · ${deeds} · starved ${st.starved ?? 0}</small></summary>
-      <pre>${esc(sp.code ?? '')}</pre></details>`;
-  }).join('');
-  const dead = species.filter(s => s.extinct !== null && !s.variant), faded = species.filter(s => s.extinct !== null && s.variant), held = species.filter(s => s.waiting);
-  $('extinct').innerHTML = (held.length ? `held by the god: ${held.map(s => `${s.name} <span class="dim">${s.lineage}</span>`).join(' ')}<br>` : '') + (dead.length ? `extinct (${dead.length}): ` + dead.slice(-24).reverse().map(s => `<s>${s.name}</s> <span class="dim">${s.lineage ?? ''}</span>`).join(' ') : '')
-    + (faded.length ? `<br>variants that faded (${faded.length}): ` + faded.slice(-12).reverse().map(s => `<s>${s.name}</s>`).join(' ') : '');
+      mated ${st.mated ?? 0} · budded ${st.budded ?? 0} · ${deeds} · starved ${st.starved ?? 0}<br>
+      ${drift.code !== undefined && drift.body !== undefined ? `drifted ${Math.round(drift.code * 100)}% in code and ${Math.round(drift.body * 100)}% in body from its line's founder` : 'founder drift: ' + (drift.code !== undefined ? `code ${Math.round(drift.code * 100)}%` : 'code unrecorded') + ' · ' + (drift.body !== undefined ? `body ${Math.round(drift.body * 100)}%` : 'body unrecorded')}</div>
+      <pre>${esc(sp.code ?? '')}</pre></details>`];
+  }));
+  list.innerHTML=head+nicheGrid(living)+lensChips()+eggRows.join('')+(lifeLens==='Family'?ordered.map(({sp})=>rows.get(sp.name)).join(''):ECO_ROLES.filter(r=>living.some(sp=>ecoRole(sp)===r)).map(r=>`<div class="roleheading">${rolePlural(r)}</div>`+ordered.filter(({sp})=>ecoRole(sp)===r).map(({sp})=>rows.get(sp.name)).join('')).join(''));
+  const dead=species.filter(s=>s.extinct!==null).slice().sort((a,b)=>b.extinct-a.extinct||species.indexOf(b)-species.indexOf(a));
+  $('extinct').innerHTML=dead.slice(0,extinctExpanded?dead.length:12).map(s=>`<s title="${esc(String(s.lineage??'')).replace(/"/g,'&quot;')}">${esc(s.name)}</s>`).join(' ')
+    +(!extinctExpanded&&dead.length>12?` <button type="button" aria-expanded="false">+${dead.length-12} more</button>`:'');
 }
 
 function renderEvents() {
   if (!meta) return setTimeout(renderEvents, 100);
-  $('events').innerHTML = events.slice(-40).reverse()
-    .map(e => `<li><span>s${Math.floor(e.t / meta.SEASON_TICKS) + 1}</span>${esc(e.text)}</li>`).join('');
+  const groups = [], names = species.map(sp => sp.name).sort((a, b) => b.length - a.length);
+  for (const e of events) {
+    const found = [], text = e.text.replace(/\b[\w-]+\b/g, word => {
+      const name = names.find(n => word === n || word === n + 's');
+      if (!name) return word;
+      found.push(name); return word === name ? '<species>' : '<species>s';
+    });
+    const season = Math.floor(e.t / meta.SEASON_TICKS) + 1, last = groups.at(-1);
+    if (found.length && last?.season === season && last.pattern === text) { last.count++; last.names.push(...found); }
+    else groups.push({ season, pattern: text, text: e.text, names: found, count: 1 });
+  }
+  $('events').innerHTML = groups.slice(-40).reverse().map(g => {
+    const pattern = g.pattern.replace(/^A <species> is /i, '').replace(/^The <species>s? /i, '').replace(/<species>s?/g, '').trim().replace(/^[a-z]/, c => c.toLowerCase());
+    const label = /^born strange:/i.test(pattern) ? 'born strange' : pattern;
+    return `<li${g.count > 1 ? ` title="${esc(g.text).replace(/"/g, '&quot;')}"` : ''}><span>s${g.season}</span>${g.count > 1 ? `${esc(label)} ×${g.count} (${esc([...new Set(g.names)].join(', '))})` : esc(g.text)}</li>`;
+  }).join('');
 }
 
 // Every species as a stacked band, so branching and extinction show as rivers splitting and drying up.
@@ -1228,42 +1682,17 @@ function renderRanges() {
 document.addEventListener('click', e => {
   const r = e.target.closest?.('[data-range]')?.dataset.range;
   if (!r) return;
-  range = r;
+  range = r;chartHover=null;highlight=null;hideEcoTip();
   try { localStorage.setItem('range', r); } catch {}
   renderRanges();
   drawChart();
 });
 renderRanges();
 
-// One line per species: how far its code numbers have drifted from the code it was written with.
-function drawDrift() {
-  const history = shownHistory();
-  if (!meta || history.length < 2) return;
-  const c = $('drift'), dpr = devicePixelRatio || 1;
-  c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
-  const cg = c.getContext('2d'), w = c.width, h = c.height;
-  const t0 = history[0].t, t1 = history.at(-1).t, x = i => (history[i].t - t0) / (t1 - t0 || 1) * w;
-  // From the founder when measured (code solid, body dashed); older history has only drift since the species' own start.
-  const val = (t, key) => key === 'code' ? (t.driftRoot ?? t.drift) : t.bodyRoot;
-  const max = Math.max(0.1, ...history.flatMap(e => Object.values(e.traits ?? {}).flatMap(t => [val(t, 'code') ?? 0, val(t, 'body') ?? 0])));
-  const seen = new Set(); for (const e of history) for (const k in e.traits ?? {}) seen.add(k);
-  for (const sp of species.filter(sp => seen.has(sp.name))) for (const key of ['code', 'body']) {
-    cg.strokeStyle = `hsl(${sp.hue} 60% 55%)`; cg.lineWidth = 1.4 * dpr;
-    cg.setLineDash(key === 'body' ? [4 * dpr, 3 * dpr] : []);
-    cg.beginPath();
-    let on = false;
-    history.forEach((e, i) => {
-      const t = e.traits?.[sp.name], d = t && val(t, key);
-      if (d === undefined || d === null) { on = false; return; }
-      const y = h - d / max * h * 0.92;
-      if (on) cg.lineTo(x(i), y); else cg.moveTo(x(i), y);
-      on = true;
-    });
-    cg.stroke();
-  }
-  cg.setLineDash([]);
-  cg.fillStyle = css('--ink'); cg.font = `${10 * dpr}px ui-monospace, monospace`;
-  cg.fillText(`${Math.round(max * 100)}%`, 2, 11 * dpr);
+// Same founder measures as the former Evolution chart, using the latest recorded point.
+function founderDrift(name) {
+  const t = history.at(-1)?.traits?.[name] ?? traits[name] ?? {};
+  return { code: t.driftRoot ?? t.drift, body: t.bodyRoot };
 }
 
 // When a species' members no longer all live the same way, show the split: a bar of bodies by gut
@@ -1287,11 +1716,32 @@ function dietBreakdown(tr) {
     + `<span title="gut: plants only ≤ 0.25 · omnivore 0.25–0.75 · meat only ≥ 0.75">guts: ${g} plants only · ${m} omnivore · ${f} meat only</span><br>lately eating: ${parts}<br>`;
 }
 
+let chartBands=null,chartHover=null;
+function historyGeometry(points,all){
+ const names=all.filter(sp=>points.some(e=>e.pops[sp.name]>0)).map(sp=>sp.name),max=Math.max(1,...points.map(e=>Object.values(e.pops).reduce((a,b)=>a+b,0)));
+ return {points,names,max};
+}
+function historyHit(data,u,v){
+ if(!data||u<0||u>1||v<0||v>1||data.points.length<2)return null;
+ const {points,names,max}=data,t=points[0].t+u*(points.at(-1).t-points[0].t);let lo=0,hi=points.length-1;
+ while(hi-lo>1){const m=(lo+hi)>>1;if(points[m].t<=t)lo=m;else hi=m;}
+ const a=points[lo],b=points[hi],f=(t-a.t)/(b.t-a.t||1),height=(1-v)*max;let base=0;
+ for(const name of names){const n=(a.pops[name]??0)*(1-f)+(b.pops[name]??0)*f;if(n>0&&height>=base&&height<=base+n)return {name,n:Math.round(n),t};base+=n;}return null;
+}
+function inspectHistory(e){
+ const r=$('chart').getBoundingClientRect(),hit=historyHit(chartBands,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);chartHover=hit;highlight=hit?.name??null;
+ if(hit)showEcoTip(e,`${hit.name}s · ${hit.n} bodies · season ${Math.floor(hit.t/meta.SEASON_TICKS)+1}`);else hideEcoTip();drawChart();
+}
+$('chart').addEventListener('pointermove',inspectHistory);
+$('chart').addEventListener('click',inspectHistory);
+$('chart').addEventListener('pointerleave',()=>{chartHover=null;highlight=null;hideEcoTip();drawChart();});
+new ResizeObserver(()=>drawChart()).observe($('chart'));
+
 function drawChart() {
-  drawDrift();
   const history = shownHistory();
   $('span').textContent = history.length > 1 ? `days ${Math.floor(history[0].t / meta.TICKS_PER_DAY) + 1}–${Math.floor(history.at(-1).t / meta.TICKS_PER_DAY) + 1}` : '';
-  if (!meta || history.length < 2 || !species.length) return;
+  chartBands=null;if (!meta || history.length < 2 || !species.length) return;
+  chartBands=historyGeometry(history,species);
   const c = $('chart'), dpr = devicePixelRatio || 1;
   c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
   const cg = c.getContext('2d'), w = c.width, h = c.height;
@@ -1301,13 +1751,15 @@ function drawChart() {
   const base = new Float32Array(history.length);
   const seen = new Set(); for (const e of history) for (const k in e.pops) if (e.pops[k]) seen.add(k);
   for (const sp of species.filter(sp => seen.has(sp.name))) {
+    cg.globalAlpha=chartHover&&chartHover.name!==sp.name ? .5 : 1;
     cg.fillStyle = `hsl(${sp.hue} 55% ${(traits[sp.name]?.tl ?? 2) >= 2.5 ? 55 : 42}%)`;
     cg.beginPath();
     history.forEach((e, i) => cg.lineTo(x(i), h - (base[i] + (e.pops[sp.name] ?? 0)) / max * h));
     for (let i = history.length - 1; i >= 0; i--) cg.lineTo(x(i), h - base[i] / max * h);
-    cg.fill();
+    cg.closePath();cg.fill();if(chartHover?.name===sp.name){cg.strokeStyle=css('--hi');cg.lineWidth=dpr;cg.stroke();}
     history.forEach((e, i) => { base[i] += e.pops[sp.name] ?? 0; });
   }
+  cg.globalAlpha=1;
   const maxPlants = Math.max(...history.map(e => e.plants), 1);
   cg.strokeStyle = css('--plantline'); cg.lineWidth = dpr;
   cg.beginPath();
