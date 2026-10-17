@@ -44,6 +44,21 @@ An implemented benefit does not establish an observed evolutionary advantage. A 
 
 ## Scientific care
 
+### Concepts behind the world
+
+Luis requested a dedicated conceptual entrance, not only a reference to implemented fields. **His topic examples are not an exhaustive or mandatory syllabus.** Begin by interviewing the active Claude steward about concepts Luis actually discussed, questioned, or chose to explore, then corroborate the account with surviving decisions, proposals, reports, and source history. The interview is requested through `AGENTS.md` and tracked as P23. Possible organizing families include:
+
+| Concept family | Questions to connect to this world |
+| --- | --- |
+| Biology, ecology, and evolution | Variation, inheritance, selection, niches, food webs, population turnover, and the model's species definitions. |
+| Physiology and life history | Digestion, defence, sensing, maturation, lifespan, reserve storage, and the costs of different body settings. |
+| Energy and resource accounting | Intake, transformation, expenditure, reproduction, death, cycling, and where the accounting is deliberately not conserved. |
+| Physics and movement | Force/velocity limits, modeled mass, collisions, gravity-like slope effects, water flow, and uncalibrated simulation units. |
+| Geology and surface processes | Rock layers, differential erosion, sediment, deposition, alluvium, mineral availability, quakes, and which proposed processes are actually built. |
+| Orography, geography, and climate | Relief, ridges, plateaus, channels, wrapping boundaries, barriers, local temperature/moisture, and geographic distributions. |
+
+Each section should distinguish **the real-world concept**, **how Luis engaged with it**, **the implemented analogue**, **simplifications and omissions**, and **dated evidence or tests**. Label whether an engagement claim comes from a recorded Luis choice/question, Claude's attributed account, or Codex's reconstruction. An implemented feature alone is not evidence of an explicit conversation. Include other concepts that the interview reveals and leave unsubstantiated topics out. Link those concepts to the trait, environment, species, and history pages so readers can move between an idea and its concrete consequences. Start from the existing energy, climate, movement, and selection explanations rather than duplicating them. Scientific claims need appropriate sources; a metaphor does not turn the simulation into a validated scientific model. Build this gradually without adding world features, background measurement, or a service obligation.
+
 Explain selection and variation using appropriate scientific sources when making external claims. Then state precisely which parts this simulation implements, simplifies, or replaces with designed mechanisms. Do not borrow the authority of biological terminology for an unverified simulation result.
 
 Distinguish a rule's intended effect, a measured association, an experiment on a copy, and a causal conclusion. Include null findings and competing explanations. Short tests can validate behavior without establishing long-term evolutionary outcomes.

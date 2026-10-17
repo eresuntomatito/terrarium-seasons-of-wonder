@@ -6,9 +6,9 @@ A behaviour can signal willingness to mate and choose an energy-gift share. A bi
 
 ## Maturity and eligibility
 
-`fertile` requires age strictly greater than both the maturation threshold and 75% of juvenile growth time, no remaining birth cooldown, and a body not marked broken. The default growth time is 1,200 ticks, so the growth-based threshold is 900 ticks even though the base maturation parameter is 600. The inherited `mature` setting changes the maturation threshold; the climate rollout can lengthen it through the creature's water-thrift setting.
+`fertile` requires age strictly greater than both the maturation threshold and 75% of the juvenile growth parameter, no remaining birth cooldown, and a body not marked broken. The growth parameter is 1,200, so the growth-based age threshold is 900 even though the base maturation parameter is 600. **Individual age counts modeled heartbeats, not simulation ticks:** the main step increments it by pulse. The inherited `mature` setting changes the maturation threshold; the climate rollout can lengthen it through the creature's water-thrift setting.
 
-Later maturation also raises energy capacity and lifespan through explicit multipliers. It therefore has several designed effects, not just a delay. Whether those effects increase descendants in a particular population remains an empirical question. These tick counts are simulated time, not wall-clock seconds.
+Later maturation also raises energy capacity and lifespan through explicit multipliers. It therefore has several designed effects, not just a delay. Whether those effects increase descendants in a particular population remains an empirical question. Do not convert age-counter thresholds directly into wall-clock seconds or ticks without the body's pulse history.
 
 ## Finding a partner
 
@@ -20,7 +20,7 @@ Waiting relaxes choosiness, but does not remove all compatibility and isolation 
 
 With a partner, each contributes its selected share of current energy. If the combined gift is below `0.3`, breeding returns without a birth. The `protein` rollout can modify provisioning according to the initiating parent's recent meat share; this is an explicit rule, not a full chemical protein budget.
 
-The litter count is the rounded inherited litter setting, limited by how many children the gift can provision at the configured minimum. A bigger litter setting does not create free additional energy. The gift is divided among the children; each child's allocation is then split between usable energy and body-held energy. Parents receive a 300-tick cooldown after a successful mating.
+The litter count is the rounded inherited litter setting, limited by how many children the gift can provision at the configured minimum. A bigger litter setting does not create free additional energy. The gift is divided among the children; each child's allocation is then split between usable energy and body-held energy. Parents receive a cooldown of 300 after a successful mating, decremented by their pulse rather than one unit per simulation tick.
 
 The inherited settings and behaviour parameters then follow the paths described in the [trait inventory](README.md). The reproductive selection ledger records the mind-giving parent as a representative per child, not both parents symmetrically; see [selection and variation](../selection-and-variation.md).
 

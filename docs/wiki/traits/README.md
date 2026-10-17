@@ -11,7 +11,7 @@ A creature is not just its species description. Its inherited settings, the body
 | `sizeGene`, `bornGut`, `gapeGene` | Heritable size, [digestive tendency](digestion.md), and mouth setting. Birth variation produces a body that can differ from these values; digestion also has an explicit partial acquired-shift inheritance path. |
 | `legs`, `wind` | [Movement setting and sprint endurance](movement-and-sight.md), distinct from actual speed and remaining stamina. |
 | `plastic` | Propensity for the implemented hunger-related digestive conversion. |
-| `thrift` | Fat-storage strategy; distinct from the fat currently carried. |
+| `thrift` | [Fat-storage strategy](energy-and-fat.md); distinct from the fat currently carried. |
 | `armor`, `toxin` | Defence capacities; ordinary bodies also need dietary supplies to express them. See [armour](armour.md) and [toxin](toxin.md). |
 | `resist` | Toxin resistance; the unique giant's feeding rules can also increase it during life. |
 | `litter`, `mature` | [Reproductive allocation and maturation](reproduction.md). Actual litter size also depends on the energy gift. |

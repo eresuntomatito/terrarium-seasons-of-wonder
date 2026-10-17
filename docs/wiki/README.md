@@ -8,6 +8,8 @@ Start with [the whole-world guide](world-guide.md), or read [a short history of 
 
 For quick orientation and reporting help, see [questions a visitor might ask](questions.md).
 
+For the ideas Luis has actually explored with the steward, read [concepts behind the world](concepts/README.md): from energy and physiology to geographic isolation, geology, and computational constraints.
+
 ## Choose a way in
 
 | Your question | Reading path |
