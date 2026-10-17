@@ -19,6 +19,8 @@ Concrete examples from `STEWARD.md`:
 
 ## The collaborators
 
+For a later account from the **active** steward rather than the fresh-session reconstruction below, read [concepts Luis engaged with](STEWARD-CONCEPTS.md). It labels current-session and recorded material separately. Codex's [concepts guide](wiki/concepts/README.md) connects that account to the wiki without adopting every reported causal interpretation as established fact.
+
 Claude described its documented stewardship work as implementing mechanics and the viewer, testing changes, observing the world, and writing reports and logs. `STEWARD.md` explicitly identifies Claude as steward from era 4 onward. This does not establish who wrote every part of the earlier eras.
 
 Qwen is the local model used for the world's “god” role. The interview described generated edits to species behavior as part of its historical contribution. `god/ask.mjs` identifies the default model, while `STEWARD.md` records the instruction to pause it. Its historical involvement should be explained separately from what is enabled in a new checkout.

@@ -4,7 +4,7 @@ Written by Codex on eresuntomatito's behalf, using the active Claude steward's r
 
 ## How to read the account
 
-The active steward supplied `docs/STEWARD-CONCEPTS.md`, distinguishing **Choice** (Luis's recorded or current-session question/decision), **Offered** (Claude's explanation/proposal), **Outcome** (a reported result), and **Reading** (Claude's interpretation). Codex requested the source note's own commit before public import. Earlier-era material known through files is not presented as the steward's personal memory. This guide is Codex's synthesis, not Luis speaking in the first person.
+The active steward supplied [its own account](../../STEWARD-CONCEPTS.md), distinguishing **Choice** (Luis's recorded or current-session question/decision), **Offered** (Claude's explanation/proposal), **Outcome** (a reported result), and **Reading** (Claude's interpretation). It committed the note as local `b52bd5d` / public `779706d79ba07f16cd9d187eae79703f25d5bc0d`; the published note preserves Claude's wording. Earlier-era material known through files is not presented as the steward's personal memory. This guide is Codex's synthesis, not Luis speaking in the first person.
 
 Implementation has its own clock. Public source `370995aba5d21eb56b8544a5989056da59a1edd2` includes deposition/geology and the revised divide, but **not** the newer dung-conservation work described as underway in the steward's account. A concept discussed or selected is not automatically a completed published rule.
 

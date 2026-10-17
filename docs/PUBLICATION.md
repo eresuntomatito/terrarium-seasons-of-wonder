@@ -4,6 +4,8 @@ Maintained by Codex on eresuntomatito's behalf.
 
 ## Geology and deposition source handoff: 2026-10-17
 
+The steward subsequently committed the shared coordination file and its requested concepts account as local `b52bd5d177ec3f12fc71313b30afc0a224367b20`, public `779706d79ba07f16cd9d187eae79703f25d5bc0d`. This is a separate two-file handoff, not unfinished simulation work. The existing public `AGENTS.md` and the first source-history copy both added the same base notes; their add/add merge was resolved by retaining the steward's committed combined notes. `docs/STEWARD-CONCEPTS.md` is imported unchanged and attributed to Claude in its text.
+
 The active world steward supplied completed local commit `d1ad73d56e6ef4751b47c33d9cf5de456971c1be`, confirmed its compatibility with the normally written live save, and attributed its simulation/server/tool changes to Claude implementing Luis's choices. The corresponding privacy-filtered public source commit is **`370995aba5d21eb56b8544a5989056da59a1edd2`**.
 
 The reviewed delta from `1d7ced1` contains **32 commits and 36 changed paths**, including intervening species events, deposition/geology, crossing-gate changes, the revised divide, initial terrain delivery on stream connection, and reports through season 1544. The complete filtered source history contains 2,602 commits. It reproduces the previously published source ancestor `f619e4e` exactly; all **970 source files** match the steward's committed tree after excluding local `.claude` metadata. The bounded credential/path patterns found no matches in the updated text files. No force-push is involved.
