@@ -27,6 +27,14 @@ Luis says Codex was used earlier as well. Neither this interview nor Codex's lim
 
 Later evidence, recorded by Codex after the interview: viewer commit `a19479c` (public counterpart `141618f`) explicitly records Codex's work from the viewer review session. This adds evidence for that review; attribution of the earlier eras remains open. It does not turn this fresh-session interview into the active steward's recollection.
 
+### Attribution follow-up: 2026-10-17
+
+Codex searched the filtered public history's commit messages for Codex references and reviewed the tracked steward/report references. The positive source remains the [viewer commit](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/commit/141618ff221a22205232ad9ced1efbac282ac5c8), alongside the [season-1365 report](../reports/status/2026-10-16_s1365.md) recording the separate viewer review and coordination. This is bounded evidence for a particular session, not a complete project-wide authorship audit.
+
+The tracked `STEWARD.md` explicitly begins with Claude's stewardship from era 4 onward and describes Claude's ecosystem/viewer work and Qwen's smaller local roles. Those statements do not establish who implemented eras 1–3, nor does a commit made under Luis's Git identity prove that he wrote its code. No percentage allocation of code authorship is supported.
+
+**Remaining evidence request, not a blocker to the rest of the wiki:** Luis or the active steward could identify an early milestone, relevant commit, or a short publishable account of what the earlier Codex session did. Private session transcripts are not required and should not be published by default. Until then, credit Codex's verified publication/documentation and viewer-review work, and keep Luis's statement that Codex was involved earlier visibly unresolved rather than rewriting it as absence.
+
 ## Stories worth following up
 
 Claude highlighted the extinction that preceded the genesis era, hunters emerging from a dung-eating lineage, the loss of the kraken hatchling, and water forming its own paths. Existing entry points include:

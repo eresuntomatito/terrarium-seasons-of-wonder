@@ -25,6 +25,6 @@ The [season-1326 synthesis](../../reports/status/2026-10-16_s1326-whitepaper-wha
 
 A reported correlation is a clue to investigate. A short headless test can show whether a mechanism runs or a world collapses quickly; it does not establish a stable evolutionary outcome. When a page has no relevant measurement, say so.
 
-The broader wiki will add a scientifically sourced explanation of selection and variation and compare it with these particular implementations. Until then, the linked pages make narrow claims supported by the code and reports they identify.
+The [selection and variation page](selection-and-variation.md) connects these implementations to scientific concepts and explains the selection ledger's limits. It does not establish a causal ranking of traits in this world.
 
 Continue with [armour](traits/armour.md), [mineral supply](environments/minerals-and-reef.md), or the [navenna account](species/navenna.md).

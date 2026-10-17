@@ -39,7 +39,7 @@ At both checked revisions, a fresh `World(null)` starts with **150 wanderers**. 
 
 Most later mechanics depend on saved rollout state. A fresh world initially schedules only `kin`, `home`, and `niche`; it does not automatically reproduce the live world's climate, mountain and river rollout, food changes, or descendants. The screenshots in this repository show a world with that accumulated history. This difference is part of the current implementation, not a setup error.
 
-The updated source includes the four-section terrain, climbing, and apex mechanisms. Their presence in code does not automatically activate them in a fresh save. In the continuing world, the steward enabled the four-section rollout at season 1396 and it rises over ten seasons; the README's season-1400 photograph shows that transition partway through.
+The updated source includes the four-section terrain, climbing, and apex mechanisms. Their presence in code does not automatically activate them in a fresh save. In the continuing world, the steward enabled the four-section rollout at season 1396 and it rises over ten seasons; the README's season-1445 photograph shows the fully risen terrain. Its live-world provenance is recorded separately from source verification.
 
 The simulation targets 30 ticks per second. One simulated day is 1,800 ticks and one season 5,400 ticks: nominally one and three minutes. Actual wall time increases if the machine cannot keep up. Closing the browser does not stop the Node process; stopping the process or sleeping the computer pauses its progress.
 

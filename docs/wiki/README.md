@@ -4,6 +4,8 @@
 
 The world is more than a collection of rules. A trait depends on the body carrying it, what that body can find, the other creatures around it, and the history of the place. These pages connect those levels and say what the evidence does and does not establish.
 
+For a narrative entrance, read [a short history of questions and turning points](history.md).
+
 ## Begin with a shell
 
 - [Trait inventory](traits/README.md): inherited settings, acquired state, and the properties calculated from both.
@@ -11,7 +13,9 @@ The world is more than a collection of rules. A trait depends on the body carryi
 - [Minerals and reef](environments/minerals-and-reef.md): how feeding and place can support that protection.
 - [The four lands](environments/four-lands.md): terrain barriers, probabilistic crossings, and what a crossing count actually records.
 - [The navennas](species/navenna.md): a dated account of a shelled lineage, with a small ancestry diagram and an atlas entry.
+- [Species atlas](species/atlas.md): a dated mosali density map, with aggregate counts and geographic limitations.
 - [Reading the evidence](evidence.md): how to distinguish an implemented mechanism, an observed pattern, and a selection claim.
+- [Selection and variation](selection-and-variation.md): sources of novelty, what reproductive evidence means, and the limits of the selection ledger.
 
 These pages form the first connected section. Behavior, the full trait reference, climate, other species, variation, and selection theory will grow into the wider [wiki plan](../WIKI-PLAN.md). They are not all documented yet.
 

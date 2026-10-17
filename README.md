@@ -2,9 +2,9 @@
 
 *A world for its own sake.*
 
-![The redesigned terrarium at season 1400: green lowlands, rising papercut ridges, water, coral reef, and axolotl-like creatures](docs/assets/terrarium-four-lands-s1400.png)
+![The terrarium at season 1445: green lowlands, fully risen papercut ridges, water, coral reef, and axolotl-like creatures](docs/assets/terrarium-four-lands-s1445.png)
 
-*Season 1400: the four-land transformation is underway, with the new viewer artwork. Selected from six natural live observations for its greener appearance; [photograph details](docs/assets/README.md).*
+*Season 1445: the four-land terrain has fully risen. Selected from six settled live-view observations for its greener appearance; [photograph details](docs/assets/README.md).*
 
 This project exists for the pleasure of building something and watching what happens. [eresuntomatito](https://github.com/eresuntomatito) shapes the rules and conditions of a terrarium; the creatures and landscape develop within them. Curiosity is its reason for being.
 
