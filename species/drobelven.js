@@ -1,3 +1,4 @@
+// † extinct in season 1499.
 // drobelven (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.4.5.3.3.2): drifted apart from the liralis (P.2.8.15.5.3.31.3.4.8.1.2.2.1.1.4.7.1.6.4.5.3.3) in season 1427; named by the world.
 // † extinct in season 561.
 // ↺ returned in season 560.
