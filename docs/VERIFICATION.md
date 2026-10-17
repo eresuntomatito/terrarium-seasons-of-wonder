@@ -53,3 +53,14 @@ An additional frame check confirmed 14 values per creature, a correctly encoded 
 The live save independently confirmed the four-section rollout at season 1396 and recorded section crossings. A real browser loaded the live viewer successfully and captured six observations; there were no console errors or failed requests. Canvas readback produced one performance warning because the comparison reads pixels, not an application failure. The selected season-1400 photograph has separately recorded [provenance](assets/README.md).
 
 The source delta contains five commits and 20 changed paths, including a deleted scratch `latest-world.png`. Credential-pattern checks found no matches in the updated text files. Two automatically generated species files have pre-existing extra blank lines at EOF; those source bytes were preserved rather than reformatted. Documentation checks are scoped separately from those generated-file warnings. See the [publication record](PUBLICATION.md) for the source mapping and merge method.
+## Documentation and atlas checks: 2026-10-17
+
+Codex's six-hour documentation pass adds a read-only atlas generator and linked mechanism explanations without changing simulation or viewer source. The checked mechanism boundary remains public `f619e4e5460cc1f6968e924b696b78471577fdc5`.
+
+- Focused assertions check overlapping baseline feeding eligibility, partial acquired-gut inheritance and clamping, growth sizes, effective armour, reproductive growth floor/cooldown/broken state, gift-limited litter size, same-species compatibility, ordinary cruise speed, and thicket's sight reduction.
+- Atlas fixtures check wrapping at negative and boundary coordinates, exclusion of dead/other-species bodies, population/grid totals, omission of private input fields, overwrite refusal, invalid/absent species handling, and input preservation. SVG syntax and the real observation's aggregate total were checked.
+- The mosali density SVG was rendered in a temporary browser and visually inspected. Initial navigation to the live server timed out during that static-render pass; the static SVG rendering itself succeeded. This is not a successful live-viewer load test.
+- A separate successful live-viewer observation selected the season-1445 photograph after terrain settling. It reported no failed requests or console errors, with one Canvas readback performance warning. This does not test every interaction or long-term rendering performance.
+- Relative documentation links and whitespace are checked before each batch. The published screenshot and aggregate atlas carry provenance; the private source save is not published.
+
+These checks validate narrow formulas, data handling, and documentation delivery, not biological fidelity, evolutionary stability, or a causal explanation for a population trend. The giant-specific exceptions and every rollout combination are not exhaustively tested.

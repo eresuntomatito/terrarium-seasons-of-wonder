@@ -38,6 +38,12 @@ Luis requested a backlog review every 15 minutes for six hours. Codex began at *
 | 10 | Oct 17 01:31 | P06: added a six-turning-point history linked to dated reports, including failed/unapplied stomach work, hunting turnover, terrain intervention, and the apex that did not appear. Kept observation, intervention, and interpretation distinct. |
 | 11 | Oct 17 01:46 | P07: searched public commit-message and tracked steward/report evidence. Added an attribution follow-up with the verified viewer contribution and a minimal evidence request for eras 1–3; no code-authorship percentages or private transcripts inferred. |
 | 12 | Oct 17 02:01 | Reviewed the second publication batch. Atlas fixture checks cover wrapping, dead/other-species filtering, totals, omission of private fields, overwrite refusal, invalid names, and unchanged inputs. All 129 local documentation links and nine focused source assertions pass. |
+| 13 | Oct 17 02:16 | Added reproduction: maturity versus growth floor, willingness versus compatibility, gift/litter limits, cooldown, and costly budding. Second batch published as `89d4fd5`; atlas visually reviewed (initial localhost navigation timed out, static SVG rendering succeeded). |
+| 14 | Oct 17 02:31 | P12: added the mosali account, sourced three-generation ancestry, historical decomposer context, and a season-1448 body sample distinguishing inherited and effective armour. Explicitly avoided interpreting the two dates as a controlled selection comparison. |
+| 15 | Oct 17 02:46 | Added decomposer ability: proximity-based dung feeding versus a finite carrion bite, costs and eligibility. Corrected the inventory's overly narrow carrion-only description and connected the mechanism to mosali without inventing causal evidence. |
+| 16 | Oct 17 03:01 | Added movement and sight: speed limits versus achieved motion, endurance versus reserve, context-dependent vision, bounded sensing, and different age/maturity boundaries. |
+| 17 | Oct 17 03:16 | Added the whole-world guide following a life, patch of ground, route, and lineage, with a table separating model meanings from unsupported biological/physical assumptions. New steward report files observed in the working tree and left untouched/unpublished. |
+| 18 | Oct 17 03:31 | Validated the third wiki batch: 176 local links, 19 focused source assertions, atlas fixtures, and recorded browser/test limitations. Prepared the whole-world guide and reproduction/movement/decomposer/mosali pages for publication. |
 
 ## Backlog
 
@@ -62,7 +68,7 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P15 | After publication | Engage with issues and suggestions | Ongoing | First public queue check at 2026-10-16 21:28 UTC found no open issues or pull requests. Continue during active passes under `COMMUNITY.md`. |
 | P16 | Now | Refresh the README photograph after the intended world redesign | Done | Confirmed the live rollout at season 1396, selected the greenest of six frames at season 1400 (approximately 44% through the rise), published in `3ad21b6`, and verified the public image and README by hash. |
 | P17 | Now | Synchronize the completed world redesign into the public source | Done | Published the reviewed five-commit source delta in merge `3ad21b6`, preserving public history and no-reply identities. Isolated checks pass; all 943 source files match the steward's tree, and twelve public HTTP checks pass. |
-| P18 | Now | Photograph the completed four-land layout | Captured; ready to publish | Season-1445 settled capture confirms rise 1.0 and natural greenery. README, running-guide caption, and provenance updated; include in the next documentation-only publication. |
+| P18 | Now | Photograph the completed four-land layout | Done | Season-1445 settled capture confirms rise 1.0 and natural greenery. README, running-guide caption, and provenance published in `89d4fd5`. |
 
 ## Open questions
 
@@ -96,4 +102,4 @@ Uncertainty is work to track, not a reason to stop the entire agenda.
 
 **Viewer handoff:** the steward lifted the review's hands-off rule but will resume viewer work only when Luis asks. Known items remain bright/blocky water, temporarily flat-looking terraces after loading, subtle elder appearance, and loud toxin stripes. Record these as known limitations and route requested implementation work to the steward; this publication pass did not alter them.
 
-**Validation so far:** isolated startup/headless/mechanism checks passed; the new documentation links and README PNG were checked; 72 existing report links resolve in the source archive; imported source tree matches the reviewed tree excluding local metadata; Git object checks passed; public metadata and six unauthenticated content checks passed. Whitespace checks pass. Browser rendering, model generation, and long-term ecology remain unverified.
+**Validation so far:** isolated startup/headless/mechanism checks passed at recorded source boundaries; documentation links, atlas fixtures, and focused formula assertions pass; imported source matched the reviewed tree excluding local metadata. The settled live photograph and static atlas were visually inspected, with browser limitations recorded in `VERIFICATION.md`. Public metadata and representative unauthenticated file hashes were checked. Model generation, every viewer interaction, and long-term ecological outcomes remain unverified.
