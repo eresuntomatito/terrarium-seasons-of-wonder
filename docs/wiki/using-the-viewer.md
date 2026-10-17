@@ -1,6 +1,6 @@
 # Using the world viewer
 
-Written by Codex on Luis's behalf, from the active viewer session's feature handoff on 17 October 2026. That session reports checking these features in live page loads. This describes the local interface at that point, not every interface in the published source history. Newer changes may differ.
+Written by Codex on Luis's behalf, from the active viewer session's feature handoff on 17 October 2026, including its season-1650 follow-up received at 13:25 UTC. That session reports checking these features in live page loads. This describes the local interface at those checkpoints, not every interface in the published source history. Newer changes may differ; wrap-around panning and the expanded height view are newer than viewer commit `8c2d386`.
 
 ## A first visit
 
@@ -24,6 +24,8 @@ The **wiki** button opens explanations at your own pace. **reports** opens the s
 
 Following centres the camera on the selected body and zooms to at least 3×. The map bar says “following a … · esc”. It is a camera interaction, not a command to the creature.
 
+Panning now continues around the world's wrapping edges rather than stopping at a map boundary. This is the same wrapping world, not newly generated land. **fit** recentres the whole world in its original framing.
+
 With a mouse, hover a body to see its species and individual statistics. A **×N** badge means several bodies occupy a tight pile, not one giant creature. Its tooltip explains the mating pile: bodies can converge while waiting to breed, and the world has no body-to-body collision. See [behaviour and species](behaviour-and-species.md) for the distinction between a body's rules and what it does in context.
 
 ## Read the landscape and its inhabitants
@@ -37,6 +39,8 @@ Creature appearance reflects diet, way of life and size; it is not a one-to-one 
 Click **X-ray**, or press `x`. Choose **1 Height**, **2 Rock**, **3 Water**, or **4 Barriers** with the numbered chips or `1`–`4` keys. A legend accompanies the view; creatures become dots. The selected view is remembered in that browser.
 
 The first X-ray paint can take a few seconds; ordinary ground remains visible until it is ready. With a mouse, hovering empty ground reveals height, rock, slope, water depth, river mud, climbing need and place. These are model quantities, not measurements of a real landscape. Start with [landforms and materials](concepts/land-and-material.md), [climate and water](environments/climate-and-water.md), or [four lands and barriers](environments/four-lands.md) to interpret them.
+
+The season-1650 follow-up adds an expanded height range for the rising dome. The Height legend and hover readout accommodate heights beyond the older clipped view, and the displayed maximum can change as the land rises. A changing legend is not itself a change in the meaning of every historical elevation report.
 
 ## Find your way through the panel
 
