@@ -7,7 +7,7 @@ const w = JSON.parse(fs.readFileSync('data/world.json', 'utf8'));
 const S = 5400, C = w.creatures.filter(c => !c.dead && c.species !== 'kraken');
 const TRAITS = { size: c => c.sizeGene ?? c.size, gut: c => c.bornGut ?? c.gut, litter: c => c.litter ?? 1, legs: c => c.legs ?? 1, wind: c => c.wind ?? 0.5,
   armor: c => c.armor ?? 0, mature: c => c.mature ?? 1, browse: c => c.browse ?? 0, eyes: c => c.eyes ?? 0.5, gape: c => c.gapeGene ?? c.gape ?? 0.5,
-  resist: c => c.resist ?? 0.3, decomp: c => c.decomp ?? 0.03, parasitism: c => c.parasitism ?? 0.03, fright: c => c.genes?.[1] ?? 0.5, fat: c => c.fat ?? 0 };
+  resist: c => c.resist ?? 0.3, decomp: c => c.decomp ?? 0.03, parasitism: c => c.parasitism ?? 0.03, fright: c => c.genes?.[1] ?? 0.5, fat: c => c.fat ?? 0, toxin: c => c.toxin ?? 0 };
 const mean = (a, f) => a.length ? a.reduce((s, c) => s + f(c), 0) / a.length : null;
 const living = Object.fromEntries(Object.entries(TRAITS).map(([k, f]) => [k, +mean(C, f).toFixed(4)]));
 const sd = Object.fromEntries(Object.entries(TRAITS).map(([k, f]) => { const m = living[k]; return [k, +Math.sqrt(mean(C, c => (f(c) - m) ** 2)).toFixed(4)]; }));

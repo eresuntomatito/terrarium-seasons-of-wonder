@@ -29,11 +29,11 @@ console.log(`  bodies: fuel ${B0.e.toFixed(0)} → ${B1.e.toFixed(0)}, fat ${B0.
 console.log(`  carcasses ${f(C0)} → ${f(C1)}`);
 console.log(`\nFLOWS over the window`);
 console.log(`  SUN → plants (net growth after withering)      ${f(L.growth)}`);
-console.log(`  plants → grazers' mouths (raw, before the gut) ${f(L.grazedRaw)}   → digested as 'plant' ${f(L.income.plant ?? 0)}  (gut, quality, lean grass, other ways of life)`);
+console.log(`  plants → grazers' mouths (raw, before the gut) ${f(L.grazedRaw)}   → digested as 'plant' ${f(L.income.plant ?? 0)}  (gut, quality, lean grass, other ways of life; 'plant' income also counts water plants and lichen, not in this grass figure)`);
 for (const [k, v] of Object.entries(L.income).sort((a, b) => b[1] - a[1])) console.log(`  income: ${k.padEnd(8)} ${f(v)}  ${(v / income * 100).toFixed(1)}%${k === 'dung' ? (w.rolled('honestdung') && w.dungGift() === 0 ? '   (honest: from what grazers left undigested)' : '   ← (partly) created, not taken from any store') : ''}`);
 console.log(`  income total                                   ${f(income)}`);
 console.log(`  bodies → living costs (metabolism, moving, climbing, cold, births, fat-making)  ${f(upkeep)}`);
 console.log(`  bodies → death: starved ${f(L.deathBody.starved)}, old ${f(L.deathBody.old)}, eaten ${f(meat)} (${L.kills} kills), other ${f(L.deathBody.other)}`);
 console.log(`  kills: meat ${f(meat)} → eaten as flesh ${f(L.income.flesh ?? 0)}, scraps to carcasses ${f(meat * P.scraps)}, lost ${f(meat * (1 - P.scraps) - (L.income.flesh ?? 0))}`);
 console.log(`  carcasses: in ${f(toCorpses)}, out ${f(corpseOut)} = eaten as carrion (digested ${f(carrion)}) + rot and crumble to soil + digestion loss`);
-console.log(`\nSHARES: of the sun's net growth, ${(L.grazedRaw / Math.max(1, L.growth) * 100).toFixed(0)}% was grazed; of body income, ${((L.income.dung ?? 0) / income * 100).toFixed(0)}% came from nothing (dung); of all deaths' energy, ${(((L.income.flesh ?? 0) + carrion) / Math.max(1, deaths) * 100).toFixed(1)}% came back into bodies (flesh + carrion).`);
+console.log(`\nSHARES: of the sun's net growth, ${(L.grazedRaw / Math.max(1, L.growth) * 100).toFixed(0)}% was grazed; of body income, ${((L.income.dung ?? 0) / income * 100).toFixed(0)}% was dung (${w.rolled('honestdung') && w.dungGift() === 0 ? 'honest' : 'partly a free gift'}); of all deaths' energy, ${(((L.income.flesh ?? 0) + carrion) / Math.max(1, deaths) * 100).toFixed(1)}% came back into bodies (flesh + carrion).`);
