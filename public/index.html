@@ -122,7 +122,7 @@
 <main><canvas id="world"></canvas><div id="zoom"><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit" title="recenter: whole world, original framing (0)">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
 <aside>
   <div><div id="head"><h1>The Terrarium</h1><nav id="tools"><a id="wikilink" href="/reports.html?section=wiki" title="the world's wiki: guides, concepts, species and history">wiki</a><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="theme" title="theme: auto, light, dark">auto</button></nav></div><div class="dim" id="clock">connecting…</div><div id="weatherwrap"><div id="weather" tabindex="0" aria-controls="climatebox" aria-expanded="false">Waiting for the weather.</div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div></div><div id="god"></div></div>
-  <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart"></canvas></section>
+  <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart" aria-describedby="ecotip"></canvas></section>
   <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
   <section><h2>Chronicle</h2><ul id="events"></ul></section>
   <footer><a href="/miniature.html">god in miniature</a></footer>
@@ -1137,7 +1137,7 @@ on('god', s => {
   const waiting = s.queue?.length ? ` (waiting: ${s.queue.join(', ')})` : '';
   $('god').textContent = s.state === 'thinking' ? `the god is reaching into the ${s.parent}s…${waiting}` : '';
 });
-on('past', p => { ({ history, events, stats, records, traits } = p);rememberEcoRoles(history);renderSpecies(true); renderEvents(); drawChart(); });
+on('past', p => { ({ history, events, stats, records, traits } = p);rememberEcoRoles(history);for(const h of history)rememberTraitMeans(h.t,h.traits??{});rememberTraitMeans(history.at(-1)?.t??tick,traits??{});renderSpecies(true); renderEvents(); drawChart(); });
 on('terrain', paintTerrain);
 // The river (orography step 2): water depth per cell (+128 frozen) and snow on the heights, painted into a small canvas.
 const waterCanvas = document.createElement('canvas'), wtg = waterCanvas.getContext('2d');
@@ -1240,7 +1240,7 @@ function toast(text) {
   el.addEventListener('mouseleave', () => { el.classList.remove('held'); el.classList.add('leaving'); timer = setTimeout(() => el.remove(), 1200); });
 }
 on('history', ({ h, stats: s, records: r, traits: tr }) => {
-  history.push(h); stats = s; records = r; traits = tr || {};rememberEcoRoles([h]); refreshCreatureSprites();
+  history.push(h); stats = s; records = r; traits = tr || {};rememberEcoRoles([h]);rememberTraitMeans(h.t,traits); refreshCreatureSprites();
   if (history.length > 4000) history.shift();
   drawChart();
 });
@@ -1250,7 +1250,7 @@ $('species').addEventListener('mouseover', e => {
 });
 $('species').addEventListener('mousemove',e=>{if(e.target.closest('[data-niche]'))positionEcoTip(e);});
 $('species').addEventListener('mouseleave',()=>{highlight=null;hideEcoTip();});
-$('species').addEventListener('click',e=>{const b=e.target.closest('[data-lens]');if(!b||b.disabled)return;lifeLens=b.dataset.lens;try{localStorage.setItem('lifeLens',lifeLens);}catch{}highlight=null;hideEcoTip();renderSpecies(true);});
+$('species').addEventListener('click',e=>{const b=e.target.closest('[data-lens]');if(!b||b.disabled)return;lifeLens=b.dataset.lens;try{localStorage.setItem('lifeLens',lifeLens);}catch{}highlight=null;chartHover=null;hideEcoTip();renderSpecies(true);drawChart();});
 es.onerror = () => { $('clock').textContent = 'the glass is dark (server stopped?)'; };
 
 function unpack(c) {
@@ -2348,8 +2348,59 @@ function nicheGrid(living){
   }).join('');
  }).join('')+'</div>'+absentRoles(living);
 }
-let lifeLens='Way of life';try{const v=localStorage.getItem('lifeLens');if(['Way of life','Family'].includes(v))lifeLens=v;}catch{}
-function lensChips(){return '<div class="lenses" aria-label="Life lens">'+['Way of life','Family','Place','Change'].map(l=>`<button type="button" data-lens="${l}" ${['Place','Change'].includes(l)?'disabled title="coming soon"':`aria-pressed="${lifeLens===l}"`} class="${lifeLens===l?'on':''}">${l}</button>`).join('')+'</div>';}
+let lifeLens='Way of life';try{const v=localStorage.getItem('lifeLens');if(['Way of life','Family','Place','Change'].includes(v))lifeLens=v;}catch{}
+function lensChips(){return '<div class="lenses" aria-label="Life lens">'+['Way of life','Family','Place','Change'].map(l=>`<button type="button" data-lens="${l}" aria-pressed="${lifeLens===l}" class="${lifeLens===l?'on':''}">${l}</button>`).join('')+'</div>';}
+// Place membership uses the same official section map and short labels as the niche grid.
+function speciesPlaces(bodies,all,regionOf){
+ const out=new Map();
+ for(const c of bodies){const sp=all[c.s];if(!sp)continue;let a=out.get(sp.name);if(!a){a={total:0,counts:new Map()};out.set(sp.name,a);}const p=regionOf(c.x,c.y);a.total++;a.counts.set(p,(a.counts.get(p)??0)+1);}
+ for(const a of out.values()){
+  a.members=[...a.counts].map(([place,n])=>({place,n,share:n/a.total})).sort((a,b)=>b.n-a.n||a.place-b.place);
+  a.main=a.members[0].place;a.endemic=a.members[0].share>=.9;
+  a.members=a.members.filter(m=>m.share>=.1);
+ }
+ return out;
+}
+function placeRowNote(member,endemic){return `<span class="dim"> · ${Math.round(member.share*100)}% here${endemic?' · endemic':''}</span>`;}
+function populationChange(sp,now,points,at,seasonTicks,currentSeason){
+ const target=at-5*seasonTicks;
+ const past=points.filter(e=>e.t<=at&&e.pops?.[sp.name]!==undefined).reduce((best,e)=>!best||Math.abs(e.t-target)<Math.abs(best.t-target)?e:best,null);
+ // Short histories cannot establish a five-season rise or fall.
+ const pct=past&&past.pops[sp.name]>0&&Math.abs(past.t-target)<=seasonTicks*.5?(now/past.pops[sp.name]-1)*100:null;
+ const fresh=Number.isFinite(sp.born)&&sp.born<=currentSeason&&currentSeason-sp.born<10;
+ const group=fresh?'new':pct!==null&&pct>=20-1e-9?'rising':pct!==null&&pct<=-20+1e-9?'falling':'steady';
+ const reason=fresh?`new s${sp.born}${sp.parent?` · from the ${sp.parent}s`:''}`:pct!==null?`${pct>=0?'+':'−'}${Math.round(Math.abs(pct))}% in 5 seasons`:'five-season trend unavailable';
+ return {group,pct,reason};
+}
+function changeGroups(family,n,points,at,seasonTicks,currentSeason){
+ const groups=['new','rising','falling','steady'].map(name=>({name,entries:[]}));
+ for(const entry of family){const change=populationChange(entry.sp,n[entry.sp.name]??0,points,at,seasonTicks,currentSeason);groups.find(g=>g.name===change.group).entries.push({...entry,change});}
+ for(const g of groups)if(g.name!=='steady')g.entries.sort((a,b)=>g.name==='new'?b.sp.born-a.sp.born:g.name==='rising'?b.change.pct-a.change.pct:a.change.pct-b.change.pct);
+ return groups;
+}
+const traitMeanHistory=new Map();
+function rememberTraitMeans(at,values,store=traitMeanHistory){
+ if(!Number.isFinite(at))return;
+ for(const [name,tr]of Object.entries(values)){
+  const means=Object.fromEntries([...KIN_TRAITS.map(([k])=>k),'fat','thrift','plastic'].filter(k=>Number.isFinite(tr[k])).map(k=>[k,tr[k]]));
+  if(!Object.keys(means).length)continue;
+  let samples=store.get(name)??[];
+  if(samples.at(-1)?.t>at)samples=[]; // a different timeline must not borrow future samples
+  if(samples.at(-1)?.t===at)samples.pop();
+  samples.push({t:at,means});if(samples.length>60)samples.splice(0,samples.length-60);store.set(name,samples);
+ }
+}
+function traitShifts(living,at,seasonTicks,store=traitMeanHistory){
+ return living.flatMap(sp=>{
+  const samples=(store.get(sp.name)??[]).filter(e=>e.t>=at-10*seasonTicks&&e.t<=at),last=samples.at(-1);
+  if(samples.length<2)return [];
+  const shifts=Object.entries(last.means).flatMap(([key,to])=>{
+   const first=samples.find(s=>Number.isFinite(s.means[key]));
+   return first&&first.t<last.t&&Math.abs(to-first.means[key])>=.1-1e-9?[{key,from:first.means[key],to,delta:Math.abs(to-first.means[key])}]:[];
+  }).sort((a,b)=>b.delta-a.delta);
+  return shifts.length?[{sp,...shifts[0]}]:[];
+ }).sort((a,b)=>b.delta-a.delta||a.sp.name.localeCompare(b.sp.name)).slice(0,3);
+}
 function positionEcoTip(e){const t=$('ecotip');t.style.left=Math.max(8,Math.min(innerWidth-t.offsetWidth-8,e.clientX+12))+'px';t.style.top=Math.max(8,Math.min(innerHeight-t.offsetHeight-8,e.clientY+12))+'px';}
 function showEcoTip(e,text){const t=$('ecotip');t.textContent=text;t.hidden=false;positionEcoTip(e);}
 function hideEcoTip(){$('ecotip').hidden=true;}
@@ -2434,7 +2485,10 @@ function renderSpecies(force) {
   const head = `<div class="total">${total.toLocaleString('en')} creatures alive${cap ? ` · room for ${cap.toLocaleString('en')}` : ''} · ${living.length} species</div>`;
   const kin = kinship(living);
   const family=familyOrder(living,species),maxPop=Math.max(1,...Object.values(n));
-  const ordered=lifeLens==='Family'?family:ECO_ROLES.flatMap(r=>family.filter(({sp})=>ecoRole(sp)===r));
+  const ordered=family;
+  const memberships=lifeLens==='Place'?speciesPlaces(cur?.values()??[],species,placeIndex):null;
+  const changes=lifeLens==='Change'?changeGroups(family,n,history,tick,meta.SEASON_TICKS,season):[];
+  const reasons=new Map(changes.filter(g=>g.name!=='steady').flatMap(g=>g.entries.map(e=>[e.sp.name,e.change.reason])));
   const rows=new Map(ordered.map(({sp,depth,parent})=>{ 
     const st = stats[sp.name] ?? {};
     const kn = kin[sp.name], z = kn?.z ?? {};
@@ -2446,6 +2500,7 @@ function renderSpecies(force) {
     const deeds = `kills ${st.kills ?? 0} · eaten ${st.eaten ?? 0}`;
     const story = speciesStory(sp, z, n[sp.name] ?? 0);
     if(!(n[sp.name]>0)&&eggTimes.has(sp.name)){const secs=eggTimes.get(sp.name);story.text=`only eggs, hatching in ${Math.floor(secs/60)}:${String(secs%60).padStart(2,'0')}`;story.arrow='';}
+    if(reasons.has(sp.name))story.text=`${reasons.get(sp.name)} · ${story.text}`;
     const drift = founderDrift(sp.name);
     const food = Object.entries(tr.food ?? {}).sort((a, b) => b[1] - a[1])[0]?.[0];
     const progress = Math.max(0, (records[sp.name]?.generation ?? 0) - (sp.lastBranchGen ?? 0));
@@ -2462,7 +2517,26 @@ function renderSpecies(force) {
       ${drift.code !== undefined && drift.body !== undefined ? `drifted ${Math.round(drift.code * 100)}% in code and ${Math.round(drift.body * 100)}% in body from its line's founder` : 'founder drift: ' + (drift.code !== undefined ? `code ${Math.round(drift.code * 100)}%` : 'code unrecorded') + ' · ' + (drift.body !== undefined ? `body ${Math.round(drift.body * 100)}%` : 'body unrecorded')}</div>
       <pre>${esc(sp.code ?? '')}</pre></details>`];
   }));
-  list.innerHTML=head+nicheGrid(living)+lensChips()+eggRows.join('')+(lifeLens==='Family'?ordered.map(({sp})=>rows.get(sp.name)).join(''):ECO_ROLES.filter(r=>living.some(sp=>ecoRole(sp)===r)).map(r=>`<div class="roleheading">${rolePlural(r)}</div>`+ordered.filter(({sp})=>ecoRole(sp)===r).map(({sp})=>rows.get(sp.name)).join('')).join(''));
+  let body='';
+  if(lifeLens==='Family')body=ordered.map(({sp})=>rows.get(sp.name)).join('');
+  else if(lifeLens==='Place'){
+   const empty=[];
+   body=nicheColumns(places.names).map(p=>{
+    const entries=ordered.flatMap(e=>{const a=memberships.get(e.sp.name),member=a?.members.find(m=>m.place===p.index);return member?[{...e,member,endemic:a.endemic}]:[];});
+    let bodies=0;const roles=new Map(),present=new Set();
+    for(const [name,a]of memberships){const count=a.counts.get(p.index)??0;if(!count)continue;bodies+=count;present.add(name);const sp=species.find(s=>s.name===name),r=ecoRole(sp);roles.set(r,(roles.get(r)??0)+count);}
+    if(!bodies){empty.push(p.short);return '';}
+    const mainRole=[...roles].sort((a,b)=>b[1]-a[1])[0]?.[0];
+    return `<div class="roleheading">${esc(p.short)}</div><div class="nicheabsence">${bodies} bodies · ${present.size} species · ${mainRole?esc(rolePlural(mainRole)):'no main way of life'}</div>`+entries.map(({sp,member,endemic})=>rows.get(sp.name).replace('</span></span>','</span>'+placeRowNote(member,endemic)+'</span>')).join('');
+   }).join('');
+   body+=ordered.filter(({sp})=>!memberships.has(sp.name)).map(({sp})=>rows.get(sp.name)).join('');
+   if(empty.length)body+=`<div class="nicheabsence">empty now: ${esc(empty.join(', '))}</div>`;
+  }else if(lifeLens==='Change'){
+   body=changes.filter(g=>g.entries.length||g.name==='steady').map(g=>`<div class="roleheading">${g.name}</div>`+g.entries.map(({sp})=>rows.get(sp.name)).join('')).join('');
+   const shifts=traitShifts(living,tick,meta.SEASON_TICKS);
+   body+='<div class="roleheading">changing traits</div>'+ (shifts.length?shifts.map(s=>`<div class="nicheabsence">${esc(s.sp.name)}s: ${esc(s.key)} ${s.from.toFixed(2)} → ${s.to.toFixed(2)}</div>`).join(''):'<div class="nicheabsence">no shifts ≥ 0.1 observed in the last 10 seasons</div>');
+  }else body=ECO_ROLES.filter(r=>living.some(sp=>ecoRole(sp)===r)).map(r=>`<div class="roleheading">${rolePlural(r)}</div>`+ordered.filter(({sp})=>ecoRole(sp)===r).map(({sp})=>rows.get(sp.name)).join('')).join('');
+  list.innerHTML=head+nicheGrid(living)+lensChips()+eggRows.join('')+body;
   const dead=species.filter(s=>s.extinct!==null).slice().sort((a,b)=>b.extinct-a.extinct||species.indexOf(b)-species.indexOf(a));
   $('extinct').innerHTML=dead.slice(0,extinctExpanded?dead.length:12).map(s=>`<s title="${esc(String(s.lineage??'')).replace(/"/g,'&quot;')}">${esc(s.name)}</s>`).join(' ')
     +(!extinctExpanded&&dead.length>12?` <button type="button" aria-expanded="false">+${dead.length-12} more</button>`:'');
@@ -2540,20 +2614,35 @@ function dietBreakdown(tr) {
 }
 
 let chartBands=null,chartHover=null;
-function historyGeometry(points,all){
- const names=all.filter(sp=>points.some(e=>e.pops[sp.name]>0)).map(sp=>sp.name),max=Math.max(1,...points.map(e=>Object.values(e.pops).reduce((a,b)=>a+b,0)));
- return {points,names,max};
+function historyGeometry(points,all,lens=lifeLens,memberships=null){
+ const present=all.filter(sp=>points.some(e=>e.pops[sp.name]>0)),groups=new Map();let ordered=present;
+ if(lens==='Family'){
+  ordered=familyOrder(present,all).map(e=>e.sp);
+  for(const sp of ordered){let root=sp,seen=new Set([sp.name]);while(root.parent){const p=all.find(s=>s.name===root.parent);if(!p||seen.has(p.name))break;seen.add(p.name);root=p;}groups.set(sp.name,`${root.name}s family`);}
+ }else if(lens==='Way of life'){
+  const roleIndex=sp=>{const i=ECO_ROLES.indexOf(ecoRole(sp));return i<0?ECO_ROLES.length:i;};
+  ordered=present.slice().sort((a,b)=>roleIndex(a)-roleIndex(b));
+  for(const sp of ordered)groups.set(sp.name,ecoRole(sp)?rolePlural(ecoRole(sp)):'unknown way of life');
+ }else if(lens==='Place'){
+  memberships??=speciesPlaces(cur?.values()??[],all,placeIndex);
+  const columns=nicheColumns(places.names),rank=new Map(columns.map((p,i)=>[p.index,i]));
+  const main=sp=>memberships.get(sp.name)?.main;
+  ordered=present.slice().sort((a,b)=>(rank.get(main(a))??columns.length)-(rank.get(main(b))??columns.length));
+  for(const sp of ordered)groups.set(sp.name,main(sp)===undefined?'place unrecorded':shortPlaceName(places.names[main(sp)]));
+ }
+ const names=ordered.map(sp=>sp.name),max=Math.max(1,...points.map(e=>Object.values(e.pops).reduce((a,b)=>a+b,0)));
+ return {points,names,max,groups};
 }
 function historyHit(data,u,v){
  if(!data||u<0||u>1||v<0||v>1||data.points.length<2)return null;
  const {points,names,max}=data,t=points[0].t+u*(points.at(-1).t-points[0].t);let lo=0,hi=points.length-1;
  while(hi-lo>1){const m=(lo+hi)>>1;if(points[m].t<=t)lo=m;else hi=m;}
  const a=points[lo],b=points[hi],f=(t-a.t)/(b.t-a.t||1),height=(1-v)*max;let base=0;
- for(const name of names){const n=(a.pops[name]??0)*(1-f)+(b.pops[name]??0)*f;if(n>0&&height>=base&&height<=base+n)return {name,n:Math.round(n),t};base+=n;}return null;
+ for(const name of names){const n=(a.pops[name]??0)*(1-f)+(b.pops[name]??0)*f;if(n>0&&height>=base&&height<=base+n)return {name,n:Math.round(n),t,group:data.groups?.get(name)};base+=n;}return null;
 }
 function inspectHistory(e){
  const r=$('chart').getBoundingClientRect(),hit=historyHit(chartBands,(e.clientX-r.left)/r.width,(e.clientY-r.top)/r.height);chartHover=hit;highlight=hit?.name??null;
- if(hit)showEcoTip(e,`${hit.name}s · ${hit.n} bodies · season ${Math.floor(hit.t/meta.SEASON_TICKS)+1}`);else hideEcoTip();drawChart();
+ if(hit)showEcoTip(e,`${hit.group?hit.group+' · ':''}${hit.name}s · ${hit.n} bodies · s${Math.floor(hit.t/meta.SEASON_TICKS)+1}`);else hideEcoTip();drawChart();
 }
 $('chart').addEventListener('pointermove',inspectHistory);
 $('chart').addEventListener('click',inspectHistory);
@@ -2569,17 +2658,20 @@ function drawChart() {
   c.width = c.clientWidth * dpr; c.height = c.clientHeight * dpr;
   const cg = c.getContext('2d'), w = c.width, h = c.height;
   const t0 = history[0].t, t1 = history.at(-1).t, x = i => (history[i].t - t0) / (t1 - t0 || 1) * w;
-  const total = e => Object.values(e.pops).reduce((a, b) => a + b, 0);
-  const max = Math.max(...history.map(total), 1);
+  // Painting and hover use the same lens order and population scale.
+  const {max} = chartBands;
   const base = new Float32Array(history.length);
-  const seen = new Set(); for (const e of history) for (const k in e.pops) if (e.pops[k]) seen.add(k);
-  for (const sp of species.filter(sp => seen.has(sp.name))) {
+  const byName=new Map(species.map(sp=>[sp.name,sp]));let previousGroup=null;
+  for (const name of chartBands.names) {
+    const sp=byName.get(name),group=chartBands.groups.get(name);
+    const separator=previousGroup!==null&&group!==previousGroup;previousGroup=group??null;
     cg.globalAlpha=chartHover&&chartHover.name!==sp.name ? .5 : 1;
     cg.fillStyle = `hsl(${sp.hue} 55% ${(traits[sp.name]?.tl ?? 2) >= 2.5 ? 55 : 42}%)`;
     cg.beginPath();
     history.forEach((e, i) => cg.lineTo(x(i), h - (base[i] + (e.pops[sp.name] ?? 0)) / max * h));
     for (let i = history.length - 1; i >= 0; i--) cg.lineTo(x(i), h - base[i] / max * h);
     cg.closePath();cg.fill();if(chartHover?.name===sp.name){cg.strokeStyle=css('--hi');cg.lineWidth=dpr;cg.stroke();}
+    if(separator){cg.globalAlpha=.8;cg.strokeStyle=css('--panel');cg.lineWidth=dpr;cg.beginPath();history.forEach((e,i)=>cg.lineTo(x(i),h-base[i]/max*h));cg.stroke();}
     history.forEach((e, i) => { base[i] += e.pops[sp.name] ?? 0; });
   }
   cg.globalAlpha=1;
