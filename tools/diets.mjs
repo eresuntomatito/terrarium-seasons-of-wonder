@@ -4,10 +4,10 @@
 import fs from 'fs';
 const w = JSON.parse(fs.readFileSync(process.argv[2] ?? 'data/world.json', 'utf8'));
 const C = w.creatures.filter(c => !c.dead && c.species !== 'kraken' && c.recent?.ate > 0.05);
-const parts = c => { const r = c.recent, a = r.ate, meat = r.meat ?? 0, carrion = r.carrion ?? 0, browse = r.browse ?? 0, dung = r.dung ?? 0, host = r.host ?? 0;
-  return { grass: Math.max(0, a - meat - browse - dung - host) / a, browse: browse / a, dung: dung / a, carrion: carrion / a, flesh: Math.max(0, meat - carrion) / a, host: host / a }; };
+const parts = c => { const r = c.recent, a = r.ate, meat = r.meat ?? 0, carrion = r.carrion ?? 0, browse = r.browse ?? 0, dung = r.dung ?? 0, host = r.host ?? 0, insect = r.insect ?? 0;
+  return { grass: Math.max(0, a - meat - browse - dung - host - insect) / a, browse: browse / a, dung: dung / a, carrion: carrion / a, flesh: Math.max(0, meat - carrion) / a, host: host / a, insect: insect / a }; };
 const by = {}; for (const c of C) (by[c.species] ??= []).push(parts(c));
-const pct = v => (v * 100).toFixed(0).padStart(3) + '%', K = ['grass', 'browse', 'dung', 'carrion', 'flesh', 'host'];
+const pct = v => (v * 100).toFixed(0).padStart(3) + '%', K = ['grass', 'browse', 'dung', 'carrion', 'flesh', 'host', 'insect'];
 const mean = a => Object.fromEntries(K.map(k => [k, a.reduce((s, p) => s + p[k], 0) / a.length]));
 console.log('| Species | Bodies | ' + K.join(' | ') + ' |'); console.log('|---|---|' + K.map(() => '---').join('|') + '|');
 for (const [s, a] of Object.entries(by).sort((x, y) => y[1].length - x[1].length)) { const m = mean(a); console.log(`| ${s} | ${a.length} | ` + K.map(k => pct(m[k])).join(' | ') + ' |'); }

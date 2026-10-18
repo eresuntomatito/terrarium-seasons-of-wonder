@@ -62,6 +62,33 @@ Reef shaping (Luis, day ~841): desire paths (traffic of bodies size ≥3, by mas
 Kraken lineage (Luis, day 940): normal lifespan (60k beats); when it dies of OLD AGE it lays an egg that hatches a young kraken one season later (inherits genes and code numbers with drift, generation +1). If it starves, no egg: the line ends. Don't extend its life.
 
 ## OPEN THREADS — HANDOFF (written s1375, Oct 16 ~23:50, for the next session; read right after RESUMING below)
+0. **NEWEST (Oct 18 ~08:20, s1925; read first):**
+   - **Live since the last handoff:**
+     - **TREES** (step 3a, `rollout.trees` 1838; proposal reports/status/2026-10-17_s1794-trees-insects-proposal.md §6): three kinds by rock, succession from thicket, dung seeds, cover = canopy, shade, roots, floods, FIRE in drought (bodies flee and burn), fruit/nuts/cones, the `bite` gene. Tuned at s1899: climate no longer kills twice.
+     - **SPECIATE2** (`rollout.speciate2` 1847; Luis s1829): no great divide; splits need body rms ≥ random-split null + 0.5 SD; 15–40 founders; one season of grace (kin species interbreed and don't hunt each other); under 15 → blend back.
+     - **BIG RIVER** (`rollout.bigriver` 1863; Luis s1837): the seam river widened and deepened, with springs and gorges.
+   - **The world:** ONE species (quilikes) since s1853. No species born under speciate2. Swimmers > 0.2 rose to 30. Trees never matured: seed supply is the limit (thicket ~100 cells). A "seed rain" option is offered to Luis, not built.
+   - **Luis's order for what's next:**
+     1. finish the energy and food steps: 3b = flowers, insects, decomposers on carcasses, insect-eaters, the snap skill, the insectivore label; then the step 4 proposal;
+     2. make sure trees work;
+     3. THEN a cost of being a predator.
+   - **Restarts:** `zsh tools/restart.sh [keys…]` (allowed in settings, with git add/commit).
+   - **Reports:** last s1897, next due s1927.
+   - **Commits:** last steward commit 354b88d (Oct 18 03:10). The tree fix, river code and reports s1861/s1897 are uncommitted, due ~15:10.
+   - **Viewer:** trees, fire and creatures for every way of life are drawn (0659a19).
+   - **RELEASE PACING (Luis, Oct 18 ~08:45, for 8 h, to ~16:45):** keep moving on the agreed roadmap without asking. Work in 15-min windows: build → go live at the START of a window → the next window monitors, then updates this calendar and the backlog. ~60% of capacity: one Sonnet helper at a time, test runs niced and ≤ 8 seasons.
+   - **TOP OF BACKLOG: SCALE (Luis, Oct 18 10:05).** The viewer confirmed (s1950): bodies now drawn deer-sized (0.45 × size; a 7 m crown ≈ 11 units → 1 unit ≈ 0.65 m), and a canopy cell becomes a stand of 2–4 crowns (viewer). FOR LUIS: (a) the world's body footprint (size ~5–6 ≈ a whole cell: spacing, mating and pile distances, sight ~10 bodies) vs the drawn size: shrink the world's footprint, or the viewer draws closer to it; (b) speed/home ranges. Findings:
+     - a tree (one 8 px cell) is only 1.6× a body (~5 px), so read a canopy cell as a stand of trees (a viewer question);
+     - bodies cross the map ~35× per lifetime (median 1.3 px/tick), which means total gene flow, no local adaptation, and no speciate2 split. Options for Luis: slower cruising, home ranges (bodies return toward a birthplace) or a bigger map;
+     - river 6–12 bodies wide and sight ~12 bodies: OK.
+   - **RELEASE CALENDAR:**
+     - 09:45 GO LIVE: step 3b (`rollout.insects`; reviewed: energy closes, 0.2 ms/tick, insects faint at honest energy, snap dormant) → 10:00 monitor;
+     - USAGE (Luis, Oct 18 09:50): weekly 84% (resets 22:00), session 45% (resets 10:10). No new Sonnet builds until 22:00; lean check-ins. Codex handoff ready: STEWARD-HANDOFF.md.
+     - 10:15 GO LIVE: room by niche (`rollout.nicheroom`; nicheExtra 0 after the first test; decomposers 3% of bodies → 23% of births vs 14% old) → 10:30 monitor;
+     - then: the step 4 proposal (for Luis);
+     - then: swim/climb in the selection ledger (tool);
+     - BOTTOM (Luis s1934): thicket finds a place in today's rules (shrubland on soil, so it no longer needs the reef). Push it forward only if needed: trigger = thicket < ~40 cells, or trees losing their last seed source.
+     - decided: room by mass kept; room by niche building (steward).
 1. **Four sections: LIVE** (Luis' answers s1389, see FOUR SECTIONS below): rollout.sections 1396, rising over 10 seasons to s1406. Watch records.sections (crossings, turned back) and the section counts; known: the lowland rivers never freeze in today's climate (ice pass only on the heights), the west lowland is higher and colder and emptied in the headless full run.
 2. **Apex rules (growon, crush, rareroom, apexniche) live since s1371; CHECKPOINT WRITTEN (s1381): reports/status/2026-10-16_s1381-apex-checkpoint.md — discuss its options with Luis. (Original instruction kept for reference:)** write reports/status/2026-10-16_s1381-apex-checkpoint.md (what the four rules did in 10 seasons: sizes/growth, guts, shells vs crushing, rare-room effect, any apex niche or split, side effects on population and species; then 2–4 options), add it to the README table, tell Luis. Readout: `node tools/apex.mjs`. Last seen (s1375): 195 bodies; growth strong (thuzulis 7.24 → 8.31, largest 11.0) but the biggest are grazers (gut ≈ 0); max gut 0.21; no hunters/apex by diet. The 10-minute apex monitor was a session cron — re-create it if wanted, or just check at s1381.
 3. **Viewer review: DONE and committed (s1396)** per the viewer session's handoff (papercut terrain, coral reef, axolotl creatures, zoom, tooltip, life stages via frame stride 14). Hands-off lifted. Open viewer items (Luis' call): water blocky and bright in wet spells; terraces flat for ~10 s after load (heights could be sent on connect); elder look subtle, toxin stripes loud; sprite rebuilds could be tightened.
