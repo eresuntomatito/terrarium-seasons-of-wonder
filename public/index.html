@@ -210,13 +210,14 @@ function groundTip(){
  const height=heightAt,h=height(i),slope=Math.max(...[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>Math.abs(h-height(((y+dy+meta.GH)%meta.GH)*meta.GW+(x+dx+meta.GW)%meta.GW))))/meta.CELL,need=worldInputs.need?worldInputs.need[i]/255:Math.min(1,slope*25),mud=(worldInputs.alluv?.[i]??0)/255;
  tip.innerHTML=`${esc(placeOf(w.x,w.y))}<br>height ${h.toFixed(2)} · ${worldInputs.geo?rockNames[worldInputs.geo[i]]:'rock unknown'}<br>slope ${slope.toFixed(3)} · water ${waterDepth(worldInputs.water,i,worldInputs.wScale).toFixed(2)} (${waterClass(waterDepth(worldInputs.water,i,worldInputs.wScale))})${waterDepth(worldInputs.water,i,worldInputs.wScale)>=swimDepth?` · needs swim ${Math.max(0,(waterDepth(worldInputs.water,i,worldInputs.wScale)/(swimDepth/1.225)-1)/1.5).toFixed(1)} for a typical body`:''}${mud>0?`<br>river mud ${mud.toFixed(2)}`:''}<br>climb need ${need.toFixed(2)}${worldInputs.need?'':' (approx.)'}`;
  if(worldInputs.canopy?.[i]>13)tip.innerHTML+=`<br>wood: ${['','fruit','nut','conifer'][worldInputs.kind?.[i]]??'tree'}, ${(worldInputs.canopy[i]/255).toFixed(1)} canopy`;
+ if(worldInputs.insectDensity||worldInputs.bloom)tip.innerHTML+=`<br>insects ${((worldInputs.insectDensity?.[i]??0)/255).toFixed(1)} · flowers ${((worldInputs.bloom?.[i]??0)/255).toFixed(1)}`;
  tip.hidden=false;placeTip();
 }
 setInterval(refreshTip, 200);
 canvas.addEventListener('pointerleave', hideTip);
 const wrap = (v, period) => ((v % period) + period) % period;
 const wrappedDelta = (from, to, period) => wrap(to - from + period / 2, period) - period / 2;
-function clampCamera(c) { c.z = Math.max(1, Math.min(6, c.z)); }
+function clampCamera(c) { c.z = Math.max(1, Math.min(16, c.z)); }
 function normalizeCamera() {
   for (const [axis, point, period] of [['cx','x',meta.W],['cy','y',meta.H]]) {
     const shift = Math.floor(camera[axis] / period) * period;
@@ -241,7 +242,7 @@ function worldPoint(q) { return { x: camera.cx + (q.u - 0.5) * meta.W / camera.z
 function zoomTo(z, q = { u: 0.5, v: 0.5 }, at = null) {
   if (!meta) return;
   following = null;
-  const w = at || worldPoint(q); anchor = { ...w, ...q }; target.z = Math.max(1, Math.min(6, z));
+  const w = at || worldPoint(q); anchor = { ...w, ...q }; target.z = Math.max(1, Math.min(16, z));
   target.cx = w.x - (q.u - 0.5) * meta.W / target.z; target.cy = w.y - (q.v - 0.5) * meta.H / target.z; clampCamera(target); cameraCursor();
 }
 function fitWorld() { if (!meta) return; following = null; anchor = null; Object.assign(target, { z: 1, cx: meta.W / 2, cy: meta.H / 2 }); cameraCursor(); }
@@ -270,7 +271,7 @@ function releasePointer(e) {
   if (!pointers.has(e.pointerId)) return;
   if (e.type === 'pointerup' && pointers.size === 1 && gesture && !gesture.drag && !gesture.pinch) {
     const hit = creatureAt(worldPoint(canvasPoint(e)));
-    if (hit && cur?.has(hit.id)) { following = hit.id; anchor = null; target.z = Math.max(3, target.z); target.cx = hit.x; target.cy = hit.y; clampCamera(target); }
+    if (hit && cur?.has(hit.id)) { following = hit.id; anchor = null; target.z = Math.max(target.z, 8); target.cx = hit.x; target.cy = hit.y; clampCamera(target); }
   }
   pointers.delete(e.pointerId); if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
   if (pointers.size) { const p = [...pointers.values()][0], q = canvasPoint({ clientX: p.x, clientY: p.y }); gesture = { x: p.x, y: p.y, q, at: worldPoint(q), drag: true }; } else gesture = null;
@@ -331,12 +332,60 @@ function updateSwimDepth(bodies,now=performance.now()){
 }
 
 
-const treeQuery=new URLSearchParams(location.search),mockTrees=treeQuery.get('mock')==='trees';
+const treeQuery=new URLSearchParams(location.search),mockModes=new Set((treeQuery.get('mock')??'').split(',')),mockTrees=mockModes.has('trees'),mockInsects=mockModes.has('insects');
 let treeScene=Math.max(1,Math.min(6,Number(treeQuery.get('scene'))||1)),treeMockDirty=mockTrees,applyingTreeMock=false,scorch=null,scorchAt=performance.now(),treeMockSignature='',fireCrowns=[];
 let treeMoisture=null;
 const treeLiveInputs={},treeNames=['canopy','kind','leaf','food','burning'];
 let treeBadge=null;
-if(mockTrees){treeBadge=document.createElement('div');treeBadge.style.cssText='position:fixed;left:12px;bottom:12px;z-index:10;padding:5px 8px;background:#242921de;color:#eee;font:11px monospace;pointer-events:none';document.body.append(treeBadge);}
+if(mockTrees||mockInsects){treeBadge=document.createElement('div');treeBadge.style.cssText='position:fixed;left:12px;bottom:12px;z-index:10;padding:5px 8px;background:#242921de;color:#eee;font:11px monospace;pointer-events:none';document.body.append(treeBadge);}
+if(mockInsects)treeBadge.textContent='mock: insects';
+// Homes and priorities use the same periodic grain as the ground. No random state per frame.
+let insectHomes=[];
+function acceptInsects(v){
+ if(!meta)return;const n=meta.GW*meta.GH,decode=a=>typeof a==='string'?Uint8Array.from(atob(a),c=>c.charCodeAt(0)):a;
+ const density=decode(v?.density),bloom=decode(v?.bloom);
+ if(density&&density.length!==n||bloom&&bloom.length!==n)return;
+ worldInputs.insectDensity=density??null;
+ if(worldKeys.bloom!==(v?.bloom??null))worldInput('bloom',v?.bloom??null,bloom??null);
+ insectHomes=[];if(!density)return;
+ for(let i=0;i<n;i++){const d=density[i]/255;if(d<=.08)continue;const x=i%meta.GW*meta.CELL,y=Math.floor(i/meta.GW)*meta.CELL;
+  const count=Math.min(6,Math.floor(d*6+treeHash(x+73,y+41,meta)));
+  for(let j=0;j<count;j++){const h=treeHash(x+j*29+17,y+j*37+11,meta),v=treeHash(x+j*43+71,y+j*13+53,meta);
+   insectHomes.push({x:x+h*meta.CELL,y:y+v*meta.CELL,px:0,py:0,wing:false,phase:h*Math.PI*2,r:1.5+2.5*v,speed:.7+h,gold:(bloom?.[i]??0)>20,rank:treeHash(x+j*67+101,y+j*59+83,meta)});
+  }
+ }
+ if(insectHomes.length>1500){insectHomes.sort((a,b)=>a.rank-b.rank);const cutoff=insectHomes[1500].rank;insectHomes=insectHomes.filter(h=>h.rank<cutoff);}
+}
+function applyInsectMock(){
+ if(!mockInsects||!meta||!worldInputs.terrain)return;
+ const n=meta.GW*meta.GH,density=new Uint8Array(n),bloom=new Uint8Array(n),spots=[];
+ for(let j=0;j<Math.min(corpses.length,32);j+=4)spots.push([corpses[j],corpses[j+1]]);
+ if(!spots.length)for(let j=0;j<5;j++)spots.push([treeHash(j*31+7,11,meta)*meta.W,treeHash(19,j*43+3,meta)*meta.H]);
+ for(let i=0;i<n;i++){const x=(i%meta.GW+.5)*meta.CELL,y=(Math.floor(i/meta.GW)+.5)*meta.CELL,h=treeHash(x,y,meta),dry=waterDepth(worldInputs.water,i,worldInputs.wScale)<.012,snow=(worldInputs.snow?.[i]??0)>20;
+  const fruit=worldInputs.kind?.[i]===1&&worldInputs.canopy?.[i]>=128,meadow=(worldInputs.terrain[i*3+1]/255)>.45&&(!worldInputs.elev&&!worldInputs.elev2&&!worldInputs.elev3||heightAt(i)<.6);
+  bloom[i]=dry&&!snow&&(fruit||meadow)?Math.round((.25+.75*h)*255):0;
+  let d=.085+.025*h+bloom[i]/255*.18;for(const [sx,sy] of spots){const dist=Math.hypot(wrappedDelta(x,sx,meta.W),wrappedDelta(y,sy,meta.H));d+=.85*Math.max(0,1-dist/28);}
+  density[i]=Math.round(Math.min(1,d)*255);
+ }
+ acceptInsects({density,bloom});
+ treeBadge.textContent=mockTrees?`mock: trees, insects · scene ${treeScene} (1–6 keys switch)`:'mock: insects';
+}
+// One frame-wide budget counts visible torus copies as well as original homes.
+function drawInsects(now,tiles,view,ux,uy){
+ if(showXray||!insectHomes.length)return 0;
+ const dark=new Path2D(),gold=new Path2D(),wing=new Path2D(),wings=camera.z>=2.5;
+ for(const h of insectHomes){h.px=wrap(h.x+Math.sin(now*.001*h.speed+h.phase)*h.r,meta.W);h.py=wrap(h.y+Math.cos(now*.001*h.speed*.83+h.phase)*h.r,meta.H);h.wing=wings&&Math.sin(now*.025+h.phase)>0;}
+ let count=0;
+ copies:for(const {ox,oy} of tiles)for(const p of insectHomes){
+  const x=p.px+ox,y=p.py+oy;if(x<view.left||x>=view.right||y<view.top||y>=view.bottom)continue;
+  const px=view.left+Math.floor((x-view.left)/ux)*ux,py=view.top+Math.floor((y-view.top)/uy)*uy;
+  (p.gold?gold:dark).rect(px,py,ux,uy);if(p.wing)wing.rect(px+ux,py-uy,ux,uy);
+  if(++count>=1500)break copies;
+ }
+ // Three batched fills avoid thousands of Canvas submissions and style switches.
+ g.save();g.fillStyle='rgba(40,36,30,.45)';g.fill(dark);g.fillStyle='rgba(230,200,90,.6)';g.fill(gold);
+ if(wings){g.fillStyle='rgba(240,232,200,.45)';g.fill(wing);}g.restore();return count;
+}
 function acceptTrees(t){if(!meta)return;const n=meta.GW*meta.GH,old=worldInputs.canopy,burn=worldInputs.burning;scorch??=new Float32Array(n);
  let scorchChanged=false;const decoded={};for(const k of treeNames){const v=t?.[k];decoded[k]=typeof v==='string'?Uint8Array.from(atob(v),c=>c.charCodeAt(0)):v??new Uint8Array(n);}
  for(let i=0;i<n;i++)if(decoded.burning[i]>0||burn?.[i]>0&&old?.[i]-decoded.canopy[i]>32){if(scorch[i]!==1)scorchChanged=true;scorch[i]=1;}
@@ -354,7 +403,7 @@ function applyTreeMock(){if(!mockTrees||!meta||!worldInputs.geo||!worldInputs.te
  if(treeScene===6){scorch[i]=.85;if(h>.24){t.canopy[i]=0;t.kind[i]=0;}}
  }
  acceptTrees(t);worldInput('terrain','tree-mock:'+signature,terrain);worldInput('snow','tree-mock:'+signature,snow);worldInput('dryness',treeScene===3||treeScene===5?1:0,treeScene===3||treeScene===5?1:0);treeBadge.textContent=`mock: trees · scene ${treeScene} (1–6 keys switch)`;
- }finally{applyingTreeMock=false;}}
+ }finally{applyingTreeMock=false;}if(mockInsects)applyInsectMock();}
 function drawTreeFire(now){for(const t of fireCrowns){const intensity=worldInputs.burning[t.i]/255;if(!intensity)continue;{const x=t.x,y=t.y;
  g.save();g.globalCompositeOperation='lighter';g.fillStyle=`rgba(240,65,12,${intensity*.16})`;g.beginPath();g.arc(x,y,t.r+2,0,Math.PI*2);g.fill();g.globalCompositeOperation='source-over';
  for(let j=0;j<5;j++){const phase=Math.floor(now/80),u=treeHash(t.x+j*17+phase,t.y,meta),v=treeHash(t.x,t.y+j*13+phase,meta);g.fillStyle=j%2?'#ffce50':'#ef6f24';g.globalAlpha=intensity;g.fillRect(Math.floor(x+(u-.5)*t.r*1.5),Math.floor(y+(v-.5)*t.r*1.4),1,2);}
@@ -449,7 +498,7 @@ function paintLand({elev,elev2,elev3,elev3Range=[-1,2.5],geo,has2:height2,has3:h
 }
 // Hypsometric snow palette, indexed by terrace k + 2 (including below sea level).
 const snowWhites=Array.from({length:15},(_,i)=>{const k=i-2,t=Math.max(0,Math.min(1,(k-2)/2)),u=Math.max(0,Math.min(1,(k-5)/2));return k>=10?[244,247,252]:[228+12*t+10*u,230+12*t+9*u,222+14*t+16*u];});
-function paintGround({terrain,water,wScale,snow,hedge,alluv,scorch,canopy,kind,swimDepth=.073}){
+function paintGround({terrain,water,wScale,snow,hedge,alluv,scorch,canopy,kind,bloom,swimDepth=.073}){
  const open=.6*swimDepth;
  const n=GW*GH,plant=new Uint8Array(n),moisture=new Uint8Array(n),depth=new Float64Array(n),ice=new Uint8Array(n);
  for(let i=0;i<n;i++){plant[i]=terrain[i*3];moisture[i]=terrain[i*3+1];depth[i]=waterDepth(water,i,wScale);ice[i]=water[i]>=128?255:0;}
@@ -538,7 +587,17 @@ function paintGround({terrain,water,wScale,snow,hedge,alluv,scorch,canopy,kind,s
   }
   const grain=1+(hash(wx,wy)*2-1)*.03,o=i*4;im.data[o]=col[0]*grain;im.data[o+1]=col[1]*grain;im.data[o+2]=col[2]*grain;im.data[o+3]=255;
  }
- g.putImageData(im,0,0);return c.transferToImageBitmap();
+ g.putImageData(im,0,0);
+ if(!bloom?.some(v=>v))return c.transferToImageBitmap();
+ // Full-resolution petals sit on the existing two-world-pixel ground texture.
+ const flowers=new OffscreenCanvas(W,H),fg=flowers.getContext('2d');fg.imageSmoothingEnabled=false;fg.drawImage(c,0,0,W,H);
+ const palette=['rgb(240,232,200)','rgb(238,204,84)','rgb(196,170,224)','rgb(236,140,120)'];
+ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+  const ci=Math.floor(y/CELL)*GW+Math.floor(x/CELL),i=Math.floor(y/2)*FW+Math.floor(x/2),b=bloom[ci]/255;
+  if(!b||canopy?.[ci]>=128||crownCover[i]||bush[i]||F.depth[i]>=.012||smooth(F.snow,x,y)>.08||hash(x+47,y+31)>=b/12)continue;
+  fg.fillStyle=palette[Math.floor(treeHash(Math.floor(x/CELL)*CELL,Math.floor(y/CELL)*CELL,{W,H})*4)];fg.fillRect(x,y,1,1);
+ }
+ return flowers.transferToImageBitmap();
 }
 // Shared, input-keyed fields survive view switches. No decoding or pixel closures here.
 function prepareXray(d){
@@ -769,6 +828,9 @@ function paintTrees(d){
  for(let j=0;j<inside.length;j++){const dot=inside[j],x=dot[0],y=dot[1],cap=dot[3],h=(snow>0&&cap||dry>.3)?treeHash(t.x+x,t.y+y,d.meta):1;pixel(t.x+x,t.y+y,cap&&h<snow?[240,244,246]:dry>.3&&h<dry*.08?[124,96,57]:colors[dot[2]]);}
  const bit=t.k===1?1:t.k===2?2:4,count=t.k===1?2+Math.floor(t.seed*3):t.k===2?2+Math.floor(t.seed*2):2;
  if(food&bit)for(let j=0;j<count&&spots.length;j++){const [x,y]=spots[Math.floor((t.seed+j*.381966)%1*spots.length)];pixel(t.x+x,t.y+y,t.k===1?(j%2?[236,150,60]:[214,82,58]):t.k===2?[140,98,58]:[112,78,52]);}
+ if(t.k===1&&t.a>=.5&&snow<.08){const bloom=(d.bloom?.[t.i]??0)/255;
+  for(const [x,y] of inside)if(treeHash(t.x+x+43,t.y+y+71,d.meta)<bloom*.18)pixel(t.x+x,t.y+y,treeHash(t.x+x+17,t.y+y+19,d.meta)<.5?[248,236,240]:[240,180,200]);
+ }
  }
  g.putImageData(im,0,0);return c.transferToImageBitmap();
 }
@@ -849,7 +911,7 @@ function drawSummits(tiles,ux,uy,css){
 }
 function heightAt(i){const E=worldInputs.elev3??worldInputs.elev2??worldInputs.elev,range=worldInputs.elev3?(climateNow?.relief?.elev3Range??[-1,2.5]):worldInputs.elev2?[-1,1.5]:[0,1];return E[i]/255*(range[1]-range[0])+range[0];}
 const worldInputs={},worldKeys={},worldVersions={},worldPending={},worldLast={ground:-Infinity,coral:-Infinity};
-function worldInput(key,value,bytes){if(mockTrees&&!applyingTreeMock&&['terrain','snow','geo','elev','elev2','elev3'].includes(key)){treeLiveInputs[key]={value,bytes};treeMockDirty=true;}if(worldKeys[key]===value)return;worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=bytes;if(showXray)worldPending.xray=true;if(key==='elev'||key==='elev2'||key==='elev3'||key==='geo')worldPending.land=true;if(key==='terrain'){let moistureChanged=!treeMoisture||treeMoisture.length*3!==bytes.length;if(!moistureChanged)for(let i=0;i<treeMoisture.length;i++)if(treeMoisture[i]!==bytes[i*3+1]){moistureChanged=true;break;}if(moistureChanged){treeMoisture=Uint8Array.from({length:Math.floor(bytes.length/3)},(_,i)=>bytes[i*3+1]);worldPending.trees=true;}}if(['canopy','kind','leaf','food','snow','dryness','scorch'].includes(key))worldPending.trees=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
+function worldInput(key,value,bytes){if(mockTrees&&!applyingTreeMock&&['terrain','snow','geo','elev','elev2','elev3'].includes(key)){treeLiveInputs[key]={value,bytes};treeMockDirty=true;}if(worldKeys[key]===value)return;worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=bytes;if(showXray)worldPending.xray=true;if(key==='elev'||key==='elev2'||key==='elev3'||key==='geo')worldPending.land=true;if(key==='terrain'){let moistureChanged=!treeMoisture||treeMoisture.length*3!==bytes.length;if(!moistureChanged)for(let i=0;i<treeMoisture.length;i++)if(treeMoisture[i]!==bytes[i*3+1]){moistureChanged=true;break;}if(moistureChanged){treeMoisture=Uint8Array.from({length:Math.floor(bytes.length/3)},(_,i)=>bytes[i*3+1]);worldPending.trees=true;}}if(['canopy','kind','leaf','food','snow','dryness','scorch','bloom'].includes(key))worldPending.trees=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
 function pumpWorld(){
  clearTimeout(worldTimer);if(worldBusy||!meta||!worldWorker)return;
  const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000,trees:4000,xray:2000};let wait=Infinity;
@@ -858,7 +920,7 @@ function pumpWorld(){
   const left=(worldLast[layer]??-Infinity)+delays[layer]-now;if(left>0){wait=Math.min(wait,left);continue;}
   const d={layer,swimDepth,wScale:worldInputs.wScale??1/600,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH},has2:!!worldInputs.elev2,has3:!!worldInputs.elev3,elev3Range:climateNow?.relief?.elev3Range??[-1,2.5],hasGeo:!!worldInputs.geo},transfer=[],n=meta.GW*meta.GH;
   const copy=(key)=>{const a=(worldInputs[key]??new Uint8Array(n)).slice();d[key]=a;transfer.push(a.buffer);};
-  if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,d.wScale,d.swimDepth,...d.elev3Range,...['elev','elev2','elev3','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','elev3','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','elev3','geo'])copy(key);else if(layer==='coral')copy('rock');else if(layer==='trees'){d.dryness=worldInputs.dryness??0;for(const key of ['canopy','kind','leaf','food','snow','terrain','scorch'])copy(key);}else for(const key of ['terrain','water','snow','hedge','alluv','scorch','canopy','kind'])copy(key);
+  if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,d.wScale,d.swimDepth,...d.elev3Range,...['elev','elev2','elev3','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','elev3','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','elev3','geo'])copy(key);else if(layer==='coral')copy('rock');else if(layer==='trees'){d.dryness=worldInputs.dryness??0;for(const key of ['canopy','kind','leaf','food','snow','terrain','scorch','bloom'])copy(key);}else for(const key of ['terrain','water','snow','hedge','alluv','scorch','canopy','kind','bloom'])copy(key);
   delete worldPending[layer];worldBusy=true;worldLast[layer]=now;worldWorker.postMessage(d,transfer);return;
  }
  if(wait<Infinity)worldTimer=setTimeout(pumpWorld,wait);
@@ -1038,10 +1100,11 @@ function unpack(c) {
 
 // Bare soil goes from dusty sand (dry) to dark mud (wet), a little darker where rich; plants go from dry gold to wet green.
 // Reef: warm grey stone, solid where dense (≥ 0.6 blocks), faint where it is only starting or wearing away.
-function paintReef({ map, thicket, climate: c, trees = null }) {
+function paintReef({ map, thicket, climate: c, trees = null, insects = null }) {
   if (!meta) return;
   climate = c;
   if(!mockTrees)acceptTrees(trees);
+  if(mockInsects){if(mockTrees)applyTreeMock();applyInsectMock();}else acceptInsects(insects);
   worldInput('dryness', mockTrees&&treeScene===3?1:Math.max(0,1-c), mockTrees&&treeScene===3?1:Math.max(0,1-c));
   const bytes = Uint8Array.from(atob(map), ch => ch.charCodeAt(0)), img = rg.createImageData(meta.GW, meta.GH);
   const brush = thicket ? Uint8Array.from(atob(thicket), ch => ch.charCodeAt(0)) : null;
@@ -1086,6 +1149,8 @@ function paintTerrain(b64) {
   }
   tg.putImageData(img, 0, 0);
 }
+
+const CREATURE_LENGTH = 0.45; // drawn body length per unit of world body size; 0.45 ≈ a deer-sized grazer beside a 7 m tree
 
 // Body plans, drawn facing +x. Grazers are rounded, hunters spiky.
 function body(g, shape, s) {
@@ -1156,6 +1221,7 @@ function paintCreature(s,energy,stage='adult'){
  const {hue,light}=lineageColour(s.lineage),L=40+energy*28+(light-54)+family.shade*.35;
  const fill=shade(hue,r==='decomposer'?22:48,L,1-.08*gloss),rim=shade(hue,40,L-24);
  const climb=clamp(live.climb??s.climb??0)>=.1?clamp(live.climb??s.climb):0,bite=clamp(live.bite??s.bite??0)>=.1?clamp(live.bite??s.bite):0;
+ const snap=clamp(live.snap??s.snap??0)>=.1?clamp(live.snap??s.snap):0;
  const leg=clamp(s.legs??1,.2,2),swim=clamp(((live.swim||0)-.05)/.45),gut=clamp(s.gut??live.gut??.55),armor=clamp(s.armor||0);
  let a=size*1.65*family.elong,b=size*(.76+.3*fat),head=size*.78*family.head,hx=a*.87;
  if(r==='mixed'){a*=1.03;b*=.88;hx=a*.87+(a+head*.92-a*.87)*.4;head*=.9;}
@@ -1270,36 +1336,135 @@ function paintCreature(s,energy,stage='adult'){
  }
  if(r==='omnivore')for(const side of [-1,1])paint(path(p=>{p.moveTo(hx+head*.6,side*head*.48);p.lineTo(hx+head*1.08,side*head*.6);p.lineTo(hx+head*.72,side*head*.22);p.closePath();}),'#f1e6c9');
  if(r==='insectivore'){
-  line(hx+head*1.8,0,hx+head*2.14,head*.06,size*.07,'#dc8d9c');
+  line(hx+head*1.8,0,hx+head*2.14+size*.8*snap,head*.06,size*.07,'#dc8d9c');
   for(const side of [-1,1])for(let i=0;i<3;i++)line(hx+head*(1.15+i*.15),side*head*.12,hx+head*(1.05+i*.27),side*head*(.5+i*.12),size*.027,rim);
  }
  if(r==='scavenger')paint(path(p=>{p.moveTo(hx+head*.65,-head*.3);p.quadraticCurveTo(hx+head*1.6,-head*.25,hx+head*1.16,head*.43);p.lineTo(hx+head*.9,head*.09);p.lineTo(hx+head*.65,head*.3);p.closePath();}),shade(hue,30,L-15));
  if(r==='parasite'){
   if(!young&&armor>.3){g.save();if(elder)g.globalAlpha*=.7;const radius=size*(.8+armor*.45),cx=-a*.1;g.fillStyle=shade(hue,32,L+14);g.strokeStyle=rim;g.lineWidth=.35;g.beginPath();g.arc(cx,0,radius,0,7);g.fill();g.stroke();g.beginPath();for(let i=0;i<160;i++){const t=i/159*Math.PI*5,rad=radius*(.06+.84*i/159),x=cx+Math.cos(t)*rad,y=Math.sin(t)*rad;if(!i)g.moveTo(x,y);else g.lineTo(x,y);}g.lineWidth=size*.075;g.stroke();g.restore();}
   g.fillStyle=shade(hue,50,L-28);g.beginPath();g.arc(hx+head*.55,0,head*.64,0,7);g.fill();g.strokeStyle=shade(hue,35,L+22);g.lineWidth=head*.2;g.stroke();
- }else{const eyeR=size*.09*(.6+clamp(live.eyes||0)*1.8)*(r==='insectivore'?1.5:1);for(const side of [-1,1]){g.fillStyle='#252c27';g.beginPath();g.arc(hx+head*.35,side*head*.49,eyeR,0,7);g.fill();}}
+ }else{const eyeR=size*.09*(.6+clamp(live.eyes||0)*1.8)*(r==='insectivore'?1.5:1)*(1+.3*snap);for(const side of [-1,1]){g.fillStyle='#252c27';g.beginPath();g.arc(hx+head*.35,side*head*.49,eyeR,0,7);g.fill();}}
+ if(snap&&r!=='insectivore'){const mouth=hx+head*(r==='browser'?1.35:r==='mixed'?.98:r==='scavenger'?1.16:r==='parasite'?.95:r==='hunter'||r==='apex'?1+size*1.3*gut*.85/head:r==='grazer'?.85:1);line(mouth,0,mouth+size*.8*snap,head*.06,size*.055,'#dc8d9c');}
  return cv;
 }
+// East-facing pixel masks. O rim, B body, H head, E eye, T tail/fin,
+// M family marking; D segment shade, K horn/tooth, P tongue. Dots are transparent.
+const MICRO_MASKS = {
+ S: {
+  grazer:     ['.OOOO..','TBBBHEH','OBBBHHH','.OBBHO.','.O..O..'],
+  browser:    ['....OHH','.OOOHEH','TBBBOHH','.OBO...','..O.O..'],
+  mixed:      ['...OHH.','..BBHEH','TBBBHHH','..OBOO.','..O.O..'],
+  omnivore:   ['..OOO..','.OBBHE.','OBBBHHK','TOBBHO.','..OOO..'],
+  hunter:     ['.......','..BBHEO','TBBBHHK','.O..OHK','..O.O..'],
+  apex:       ['.O.O.O.','OBBBHEO','TBBBHHK','OBBOHHK','.O.O.O.'],
+  scavenger:  ['.OOO...','OBBBHEK','OBBBHHK','.OBBO.K','T.O.O..'],
+  decomposer: ['.......','.ODOBO.','TBDBDHE','.BODOB.','O.O.O..'],
+  parasite:   ['.......','.......','TBDTBHE','...O...','.......'],
+  insectivore:['.......','..OOHE.','TBBBHHP','.OB.O..','.O...O.']
+ },
+ M: {
+  grazer:     ['............','..OOOOOO....','.OBBBBBBOHH.','TBBBBBBBHEHH','.OBBBBBBHHHH','..OBBBBBOHH.','..OB..OB....','..O...O.....'],
+  browser:    ['........OHH.','.......OHHEH','..OOOOOHHHHH','.OBBBBBHHOO.','TBBBBBBO....','..OBBBO.....','...O..O.....','...O..O.....'],
+  mixed:      ['............','....OOOOHH..','..OBBBBHHHEH','TBBBBBBBHHHH','.OBBBBBBHHH.','...OBBOOO...','...O..O.....','..O....O....'],
+  omnivore:   ['............','...OOOOO....','..OBBBBBHEO.','.OBBBBBBHHHK','OBBBBBBBHHHH','TOBBBBBBHKO.','..OBBBOOO...','...OO.OO....'],
+  hunter:     ['............','............','..OOOOBBHEOO','.OBBBBBBHHHK','TBBBBBBBOHHH','..OOBOOO.HHK','...O..O.....','..O....O....'],
+  apex:       ['..O.O.O.O...','.OBBBBBBO...','OBBBBBBBHEOO','TBBBBBBBHHHK','OBBBBBBBHHHH','.OBBOBBOHHHK','..O.O.O.O...','.O......O...'],
+  scavenger:  ['...OOOO.....','..OBBBBO....','.OBBBBBBHEK.','OBBBBBBBHHHK','OBBBBBBBHOK.','.OBBBBBO..K.','T..O..O.....','...O...O....'],
+  decomposer: ['............','..ODOBOBO...','..BDBDBDBHO.','TBDBDBDBDHEH','.OBDBDBDBHO.','..BOBOBOD...','O.O.O.O.O...','............'],
+  parasite:   ['............','............','............','TBDTBBDTBHEH','...O..T.....','............','............','............'],
+  insectivore:['............','............','.....OOHHE..','..OBBBBHHHHP','TBBBBBBO....','..OBBOBO....','..O....O....','.O......O...']
+ }
+};
+const MICRO_GENES={toxin:.2,armor:.3,coat:.3,swim:.2,climb:.2,bite:.2,snap:.2};
+function microGene(s,k){const live=s.microLive||s.live||{};return +(live[k]??s[k]??0);}
+function microMask(s,tier,stage='adult'){
+ const family=inherited(s.lineage),r=role(s),rows=MICRO_MASKS[tier][r].map(row=>[...row]);
+ const h=rows.length,w=rows[0].length,put=(x,y,v)=>{rows[y][x]=v;};
+ const body=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(rows[y][x]==='B')body.push([x,y]);
+ const mark=(n,v)=>{const q=body[Math.min(body.length-1,n)];if(q)put(...q,v);};
+ if(family.pattern%3===1){mark(0,'M');mark(Math.floor(body.length*.7),'M');}
+ if(family.pattern%3===2){mark(1,'M');mark(2,'M');}
+ if(microGene(s,'coat')>=.3)for(let y=0;y<h;y++)for(let x=0;x<w;x++)if(rows[y][x]==='O'&&(x+y*w)%3===0)put(x,y,'F');
+ if(microGene(s,'armor')>=.3){
+  const back=[];for(let y=0;y<h;y++)for(let x=0;x<w-2;x++)if(['O','F'].includes(rows[y][x]))back.push([x,y]);
+  for(const q of back.slice(0,2))put(...q,'A');
+  if(r==='parasite'){const x=Math.floor(w*.45),y=Math.floor(h/2);for(const [dx,dy] of [[0,-1],[-1,0],[0,0],[1,0],[0,1]])put(x+dx,y+dy,dx===0&&dy===0?'D':'A');}
+ }
+ if(microGene(s,'swim')>=.2){put(1,0,'T');put(1,h-1,'T');}
+ if(microGene(s,'climb')>=.2){put(2,h-1,'C');put(w-3,h-1,'C');}
+ if(microGene(s,'bite')>=.2){const y=Math.floor(h/2),q=[[w-1,y],[w-2,y],[w-2,y+1]].find(([x,y])=>rows[y][x]!=='K'&&rows[y][x]!=='E');if(q)put(...q,'K');}
+ if(microGene(s,'snap')>=.2)put(w-1,Math.min(h-1,Math.floor(h/2)+1),'P');
+ if(microGene(s,'toxin')>=.2){const plain=body.filter(([x,y])=>rows[y][x]==='B').concat(rows.flatMap((row,y)=>row.flatMap((v,x)=>v==='D'?[[x,y]]:[])));for(const q of [plain[0],plain[Math.floor(plain.length*.7)]].filter(Boolean))put(...q,'X');}
+ if(stage==='juvenile'&&tier==='S'){
+  // Compress the trunk more than the face: two of five columns belong to the head.
+  const xs=[0,2,3,w-2,w-1],ys=[0,1,Math.floor(h/2),h-1];
+  return ys.map(y=>xs.map(x=>rows[y][x]).join(''));
+ }
+ return rows.map(row=>row.join(''));
+}
+function microPalette(s,energy,stage){
+ const family=inherited(s.lineage),{hue,light}=lineageColour(s.lineage),young=stage==='juvenile',elder=stage==='elder';
+ const L=40+energy*28+(light-54)+family.shade*.35,shade=(h,sat,l)=>color(h,sat*(young?.75:elder?.6:1),l+(young?12:elder?-6:0));
+ return {O:shade(hue,40,L-24),B:shade(hue,role(s)==='decomposer'?22:48,L),H:shade(hue,40,L+10),E:'#252c27',T:shade(hue+12,55,L+5),M:shade(hue+family.tint,45,L+16),D:shade(hue,30,L-12),K:'#f1e6c9',P:'#dc8d9c',A:shade(hue,30,L+22),F:shade(hue,35,L-8),C:shade(hue,30,L-28),X:shade(hue+150,100,60)};
+}
+function buildMicroTemplate(s,tier,energy,stage){
+ const rows=microMask(s,tier,stage),h=rows.length,w=rows[0].length,palette=microPalette(s,energy,stage);
+ // Inverse nearest-pixel sampling, never canvas smooth rotation. Eight atlas cells.
+ const side=Math.ceil(Math.hypot(w,h))+2,cv=document.createElement('canvas');cv.width=side*8;cv.height=side;
+ const pg=cv.getContext('2d');pg.imageSmoothingEnabled=false;
+ for(let heading=0;heading<8;heading++){
+  const a=heading*Math.PI/4,c=Math.cos(a),sn=Math.sin(a);
+  for(let y=0;y<side;y++)for(let x=0;x<side;x++){
+   const dx=x+.5-side/2,dy=y+.5-side/2,xx=Math.floor(c*dx+sn*dy+w/2),yy=Math.floor(-sn*dx+c*dy+h/2),slot=rows[yy]?.[xx];
+   if(palette[slot]){pg.fillStyle=palette[slot];pg.fillRect(heading*side+x,y,1,1);}
+  }
+ }
+ return {canvas:cv,side,w,h,headings:8,rows};
+}
+function buildMicroVariants(s){
+ return ['adult','juvenile','elder'].flatMap(stage=>[.15,.5,.9].map(energy=>({
+  S:buildMicroTemplate(s,'S',energy,stage),M:buildMicroTemplate(s,'M',energy,stage)
+ })));
+}
+function drawMicro(pg,micro,L,angle){
+ const heading=((Math.round(angle/(Math.PI/4))%8)+8)%8,transform=pg.getTransform();
+ // Screen axes: snap the destination bounds to device pixels; nearest-neighbour scaling only.
+ const dpr=devicePixelRatio||1;
+ const width=Math.max(1,Math.round(micro.side*L/micro.w*dpr)),x=Math.round(transform.e-width/2),y=Math.round(transform.f-width/2);
+ pg.save();pg.setTransform(1,0,0,1,0,0);pg.imageSmoothingEnabled=false;
+ pg.drawImage(micro.canvas,heading*micro.side,0,micro.side,micro.side,x,y,width,width);pg.restore();
+}
+function microFor(look,c,L){const stage=lifeStage(c),energy=c.e<.325?0:c.e<.7?1:2;return look?.micro?.[(stage==='adult'?0:stage==='juvenile'?3:6)+energy]?.[L<10?'S':'M'];}
+
 // Sprites change only when the rounded species traits change.
 const creatureSprites=new Map();
-const CREATURE_SCALE = 0.5; // sprites drawn at this share of their reference size, so a body covers about the room the world gives it
+// Apply the measured grazer reduction to giants without changing their proportions.
+const GIANT_SCALE = CREATURE_LENGTH / (17.7 / 6.3);
+function creatureScale(sprite, size) { return CREATURE_LENGTH * size / sprite.w; }
+function creatureLOD(length,stage='adult') { const L=Math.max(stage==='juvenile'?5:7,length);return {L,spriteAlpha:clamp((L-18)/6),dotRadius:2.5}; }
+function creatureScreenLength(length, angle, ux, uy) { return length * Math.hypot(Math.cos(angle) / ux, Math.sin(angle) / uy); }
+function creatureHitRadius(radius, ux, uy) { return Math.max(radius, 6 * Math.max(ux, uy)); }
+function drawCreatureDot(pg, hue, radius) {
+ pg.fillStyle=`hsl(${hue} 70% 50%)`;pg.strokeStyle='rgba(20,18,12,.85)';pg.lineWidth=1;
+ pg.beginPath();pg.arc(0,0,radius,0,Math.PI*2);pg.fill();pg.stroke();
+}
 let creatureSpriteTimer=null;
-const spriteTraits=['gut','legs','armor','toxin','coat','swim','climb','bite','eyes','fat','decomp','parasitism','browse'];
+const spriteTraits=['gut','legs','armor','toxin','coat','swim','climb','bite','eyes','fat','decomp','parasitism','browse','snap'];
 function refreshCreatureSprites(){
  if(creatureSpriteTimer!==null){clearTimeout(creatureSpriteTimer);creatureSpriteTimer=null;}
- const living=species.filter(sp=>sp.extinct===null&&!sp.waiting&&!sp.unique),listed=new Set(living.map(sp=>sp.name));
+ const living=species.filter(sp=>sp.extinct===null&&!sp.waiting),listed=new Set(living.map(sp=>sp.name));
  let built=0;
  for(const name of creatureSprites.keys())if(!listed.has(name)){creatureSprites.delete(name);portraits.delete(name);}
  for(const sp of living){
   const tr=traits[sp.name],old=creatureSprites.get(sp.name);if(!tr&&old)continue;
-  const live=tr||{},rounded=spriteTraits.map(k=>live[k]===undefined?null:(['climb','bite'].includes(k)&&live[k]<.1?0:Math.round(live[k]*10)/10)),food=Object.entries(live.food||{}).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,Math.round(v*10)/10]);
-  const key=JSON.stringify([sp.name,sp.lineage,live.label||'',live.role||'',rounded,food]);if(old?.key===key)continue;
+  const live=tr||{},rounded=spriteTraits.map(k=>live[k]===undefined?null:(['climb','bite','snap'].includes(k)&&live[k]<.1?0:Math.round(live[k]*10)/10)),food=Object.entries(live.food||{}).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,Math.round(v*10)/10]);
+  const key=JSON.stringify([sp.name,sp.lineage,live.label||'',live.role||'',rounded,food,Object.entries(MICRO_GENES).map(([k,t])=>microGene({live},k)>=t)]);if(old?.key===key)continue;
   if(built>=2){if(creatureSpriteTimer===null)creatureSpriteTimer=setTimeout(refreshCreatureSprites,50);break;}
   built++;
   const values=Object.fromEntries(spriteTraits.filter((k,i)=>rounded[i]!==null).map(k=>[k,rounded[spriteTraits.indexOf(k)]]));
-  const s={...values,name:sp.name,lineage:sp.lineage,label:live.label||live.role||'',food:Object.fromEntries(food),size:6,live:values},variants=[];
-  const buildStart=performance.now();variants.push(...buildCreatureVariants(s));
-  creatureSprites.set(sp.name,{key,variants,fat:values.fat??.4,buildMs:performance.now()-buildStart});portraits.delete(sp.name);
+  const s={...values,name:sp.name,lineage:sp.lineage,label:live.label||live.role||'',food:Object.fromEntries(food),size:6,live:values,microLive:live},variants=[];
+  const buildStart=performance.now();const full=buildCreatureVariants(s);variants.push(...full);
+  creatureSprites.set(sp.name,{key,variants,micro:full.micro,fat:values.fat??.4,buildMs:performance.now()-buildStart});portraits.delete(sp.name);
   const img=[...$('species').querySelectorAll('details')].find(d=>d.dataset.name===sp.name)?.querySelector('img.portrait');if(img)img.src=portraitOf(sp);
  }
 }
@@ -1338,13 +1503,40 @@ function buildCreatureVariants(s){
   variants.push({canvas:atlas,sx,sy,sw:w,sh:h,x:(x0-width/2)/U,y:(y0-height/2)/U,w:w/U,h:h/U});
  }
  pg.putImageData(image,0,0);
+ variants.micro=buildMicroVariants(s);
  return variants;
 }
 
 function stampCreature(pg,sprite){pg.drawImage(sprite.canvas,sprite.sx,sprite.sy,sprite.sw,sprite.sh,sprite.x,sprite.y,sprite.w,sprite.h);}
 
+function verifyMicroSprites(){
+ const failures=[],roles=Object.keys(MICRO_MASKS.S),timings=[];let minS=Infinity,minM=Infinity,accentChecks=0,rotationChecks=0;
+ const sample=(r,live={})=>({lineage:'P.214.0.0',label:r,live,...live});
+ for(const tier of ['S','M'])for(let i=0;i<roles.length;i++)for(let j=i+1;j<roles.length;j++){
+  const a=MICRO_MASKS[tier][roles[i]].join(''),b=MICRO_MASKS[tier][roles[j]].join('');
+  // Check silhouette occupancy as well as palette-slot distance: colour cannot rescue identical outlines.
+  const delta=[...a].reduce((n,v,k)=>n+((v==='.')!==(b[k]==='.')),0);
+  if(tier==='S')minS=Math.min(minS,delta);else minM=Math.min(minM,delta);
+  if(delta<(tier==='S'?6:12))failures.push(`${tier} ${roles[i]}/${roles[j]}: ${delta} silhouette pixels`);
+ }
+ for(const r of roles){
+  for(const tier of ['S','M']){const rows=MICRO_MASKS[tier][r];if(rows.length!==(tier==='S'?5:8)||rows.some(row=>row.length!==(tier==='S'?7:12)))failures.push(`${r} ${tier} dimensions`);}
+  const young=microMask(sample(r),'S','juvenile');if(young.length!==4||young.some(row=>row.length!==5))failures.push(`${r} juvenile dimensions`);
+  const start=performance.now(),variants=buildMicroVariants(sample(r));
+  timings.push({role:r,microMs:+(performance.now()-start).toFixed(2)});
+  for(const variant of variants)for(const tier of ['S','M']){rotationChecks++;if(variant[tier].headings!==8||variant[tier].canvas.width!==variant[tier].side*8)failures.push(`${r} ${tier} rotations`);}
+  for(const tier of ['S','M'])for(const [gene,threshold] of Object.entries(MICRO_GENES)){
+   const base=JSON.stringify(microMask(sample(r),tier)),below=JSON.stringify(microMask(sample(r,{[gene]:threshold-.001}),tier)),at=JSON.stringify(microMask(sample(r,{[gene]:threshold}),tier));accentChecks+=2;
+   if(base!==below)failures.push(`${r} ${tier} ${gene} below threshold`);
+   if(base===at)failures.push(`${r} ${tier} ${gene} missing at threshold`);
+  }
+ }
+ const report={minS,minM,accentChecks,rotationChecks,timings,failures};console.info('Micro-sprite review',JSON.stringify(report));return report;
+}
+
 // Review mode is entirely opt-in; no fixtures or pixel checks run during normal viewing.
 if(new URLSearchParams(location.search).get('mock')==='creatures'){
+ const galleryScale=.5;
  const roles=['grazer','browser','mixed','omnivore','hunter','apex','scavenger','decomposer','parasite','insectivore'];
  const columns=[['Base',{}],['+swim 0.6',{swim:.6}],['+climb 0.6',{climb:.6}],['+bite 0.6',{bite:.6}],['Armour 0.6 + toxin 0.5',{armor:.6,toxin:.5}],['Coat 0.6',{coat:.6}],['Young',{},'juvenile'],['Elder',{},'elder']];
  // Fixed roots chosen through lineageColour, spaced around the colour wheel.
@@ -1356,28 +1548,53 @@ if(new URLSearchParams(location.search).get('mock')==='creatures'){
  const panel=document.createElement('section');panel.id='creature-gallery';panel.setAttribute('aria-label','Creature review gallery');
  panel.style.cssText='position:absolute;inset:8px;z-index:30;overflow:auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);padding:12px;box-sizing:border-box;overscroll-behavior:contain';
  const bar=document.createElement('div');bar.style.cssText='position:sticky;left:0;display:flex;gap:12px;align-items:center;max-width:calc(100vw - 60px)';
- const title=document.createElement('strong');title.textContent='Creature family · map size / 3× detail';
+ const title=document.createElement('strong');title.textContent='Creature family · map size · zoom 8× · art detail';
  const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Close creature gallery');close.style.cssText='margin-left:auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);font-size:20px;cursor:pointer';close.onclick=()=>panel.remove();bar.append(title,close);
  const summary=document.createElement('p');summary.id='creature-checks';summary.textContent='Checking roles, silhouettes, gene thresholds and sprite build times…';summary.style.cssText='position:sticky;left:0;max-width:680px;font-size:11px';
  const table=document.createElement('table');table.style.cssText='border-collapse:collapse;font-size:11px;text-align:center';
- const header=table.createTHead().insertRow();for(const label of ['Way of life',...columns.map(c=>c[0])]){const th=document.createElement('th');th.textContent=label;th.scope='col';th.style.cssText='padding:8px;min-width:112px;border-bottom:1px solid var(--line)';header.append(th);}
- const tbody=table.createTBody();
+ const header=table.createTHead().insertRow();for(const label of ['Way of life','Map size (zoom 1×)','Zoom 8×','tier S (7 px)','tier M (12 px)',...columns.map(c=>c[0])]){const th=document.createElement('th');th.textContent=label;th.scope='col';th.style.cssText='padding:8px;min-width:112px;border-bottom:1px solid var(--line)';header.append(th);}
+ const tbody=table.createTBody(),mapPreviews=[];
  roles.forEach((r,i)=>{
   const row=tbody.insertRow(),label=document.createElement('th');label.scope='row';label.textContent=r==='mixed'?'Mixed feeder':r[0].toUpperCase()+r.slice(1);label.style.cssText='position:sticky;left:0;background:var(--panel);padding:8px;text-align:left';row.append(label);
+  const mapSprite=buildCreatureVariants(sample(r,i))[4];
+  for(const zoom of [1,8]){
+   const cell=row.insertCell(),cv=document.createElement('canvas');cv.style.cssText='width:120px;height:80px';cv.setAttribute('aria-label',`${r}, size 6, map zoom ${zoom}×`);cell.append(cv);mapPreviews.push({cv,sprite:mapSprite,micro:buildMicroVariants(sample(r,i)),zoom,hue:lineageColour(sampleLineages[i]).hue});
+  }
+  for(const [tier,L] of [['S',7],['M',12]]){
+   const cell=row.insertCell(),cv=document.createElement('canvas'),dpr=devicePixelRatio||1;
+   cv.width=Math.round(120*dpr);cv.height=Math.round(100*dpr);cv.style.cssText='width:120px;height:100px;image-rendering:pixelated';
+   cv.setAttribute('aria-label',`${r}, tier ${tier}, 1:1 and 4× nearest-neighbour`);
+   const pg=cv.getContext('2d'),micro=buildMicroTemplate(sample(r,i),tier,.5,'adult');pg.imageSmoothingEnabled=false;
+   for(const [y,k] of [[20,1],[60,4]]){pg.save();pg.translate(Math.round(60*dpr),Math.round(y*dpr));drawMicro(pg,micro,L*k,0);pg.restore();}
+   cell.append(cv);
+  }
   for(const [,extra,stage] of columns){
    const cell=row.insertCell(),cv=document.createElement('canvas'),dpr=Math.min(2,devicePixelRatio||1);cv.width=120*dpr;cv.height=112*dpr;cv.style.cssText='width:120px;height:112px';cv.setAttribute('aria-label',`${r}, ${stage||'adult'}, ${JSON.stringify(extra)}, map size and three times detail`);
    const g=cv.getContext('2d');g.scale(dpr,dpr);const base=paintCreature(sample(r,i,extra),.5,stage);
-   for(const [y,k] of [[20,1],[75,3]]){g.save();g.translate(60,y);g.scale(CREATURE_SCALE*k,CREATURE_SCALE*k);g.drawImage(base,-30,-16,60,32);g.restore();}
+   for(const [y,k] of [[20,1],[75,3]]){g.save();g.translate(60,y);g.scale(galleryScale*k,galleryScale*k);g.drawImage(base,-30,-16,60,32);g.restore();}
    cell.style.cssText='padding:3px;border-bottom:1px solid var(--line)';cell.append(cv);
   }
  });
  panel.append(bar,summary,table);canvas.parentElement.append(panel);
- // The same reference size and CREATURE_SCALE used by the live sprite stamper.
- const pixels=(s,small=false)=>{const base=paintCreature(s,.5);if(!small)return base.getContext('2d').getImageData(0,0,base.width,base.height).data;const c=document.createElement('canvas');c.width=64;c.height=40;const g=c.getContext('2d');g.translate(32,20);g.scale(CREATURE_SCALE,CREATURE_SCALE);g.drawImage(base,-30,-16,60,32);return c.getContext('2d').getImageData(0,0,64,40).data;};
+ let previewKey='';
+ function paintMapPreviews(){
+  if(!panel.isConnected)return;
+  if(meta){const rect=canvas.getBoundingClientRect(),dpr=devicePixelRatio||1,key=[rect.width,rect.height,meta.W,meta.H,dpr].join(':');
+   if(key!==previewKey){previewKey=key;for(const {cv,sprite,micro,zoom,hue} of mapPreviews){
+    cv.width=120*dpr;cv.height=80*dpr;const pg=cv.getContext('2d'),sx=(rect.width-2*canvas.clientLeft)/meta.W*zoom,sy=(rect.height-2*canvas.clientTop)/meta.H*zoom,lod=creatureLOD(CREATURE_LENGTH*6*sx),L=lod.L;
+    pg.scale(dpr,dpr);pg.translate(60,30);
+    if(lod.spriteAlpha<1){pg.globalAlpha=1-lod.spriteAlpha;drawMicro(pg,micro[1][L<10?'S':'M'],L,0);}
+    pg.save();pg.globalAlpha=lod.spriteAlpha;const scale=creatureScale(sprite,6);pg.scale(sx*scale,sy*scale);pg.translate(-sprite.x-sprite.w/2,-sprite.y-sprite.h/2);stampCreature(pg,sprite);pg.restore();
+    pg.globalAlpha=1;pg.fillStyle=getComputedStyle(panel).color;pg.font='10px monospace';pg.textAlign='center';pg.fillText(`${(CREATURE_LENGTH*6).toFixed(2)} wu · ${L.toFixed(1)} px`,0,36);
+   }}
+  }requestAnimationFrame(paintMapPreviews);
+ }requestAnimationFrame(paintMapPreviews);
+ // Art-detail silhouette comparisons retain their independent gallery scale.
+ const pixels=(s,small=false)=>{const base=paintCreature(s,.5);if(!small)return base.getContext('2d').getImageData(0,0,base.width,base.height).data;const c=document.createElement('canvas');c.width=64;c.height=40;const g=c.getContext('2d');g.translate(32,20);g.scale(galleryScale,galleryScale);g.drawImage(base,-30,-16,60,32);return c.getContext('2d').getImageData(0,0,64,40).data;};
  const equal=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
  // Defer costly review checks until after the gallery has painted; still no world writes.
  setTimeout(()=>{
-  const failures=[],check=(ok,label)=>{if(!ok)failures.push(label);};let roleChecks=0,overlayChecks=0;
+  const microReview=verifyMicroSprites();const failures=[...microReview.failures],check=(ok,label)=>{if(!ok)failures.push(label);};let roleChecks=0,overlayChecks=0;
   for(const r of roles)for(const key of ['label','role']){check(role({[key]:r==='mixed'?'mixed feeder':r})===r,`${key}: ${r}`);roleChecks++;}
   const mixes=[['grazer',{grass:.8}],['browser',{browse:.8}],['mixed',{grass:.3,browse:.3}],['omnivore',{grass:.25,flesh:.15,carrion:.1}],['omnivore',{browse:.25,carrion:.25}],['omnivore',{fruit:.1,nut:.1,cone:.05,flesh:.25}],['hunter',{flesh:.8}],['scavenger',{carrion:.8}],['decomposer',{dung:.8}],['parasite',{host:.8}],['insectivore',{insects:.8}],['grazer',{}]];
   for(const [r,food] of mixes){check(role({food})===r,`food: ${r}`);roleChecks++;}
@@ -1396,8 +1613,8 @@ if(new URLSearchParams(location.search).get('mock')==='creatures'){
   roles.forEach((r,i)=>{const samples=[];for(let n=0;n<3;n++){const start=performance.now();buildCreatureVariants(sample(r,i));samples.push(performance.now()-start);}samples.sort((a,b)=>a-b);timings.push({role:r,ms:+samples[1].toFixed(2)});});
   const heavy=[];for(let n=0;n<3;n++){const start=performance.now();buildCreatureVariants(sample('apex',0,{coat:.6,swim:.6,climb:.6,bite:.6,armor:.6,toxin:.5}));heavy.push(performance.now()-start);}heavy.sort((a,b)=>a-b);const heavyMs=+heavy[1].toFixed(2);
   const timingTargetMet=timings.every(t=>t.ms<=25)&&heavyMs<=25;
-  const report={timingTargetMet,coldMs,roleChecks,silhouettePairs:pairs,maxIoU:+maxIoU.toFixed(4),closest,alphaThreshold:128,overlayChecks,timings,heavyMs,failures};
-  summary.dataset.result=JSON.stringify(report);summary.textContent=`${failures.length?'FAIL: '+failures.join('; '):'PASS'} · ${roleChecks} role checks · ${pairs} silhouette pairs, largest overlap ${(maxIoU*100).toFixed(1)}% (${closest}) · ${overlayChecks} gene checks. Full sprite builds (median of 3, ms): ${timings.map(t=>`${t.role} ${t.ms}`).join(' · ')}. First measured build: ${coldMs} ms; all-overlay apex median: ${heavyMs} ms. Target ≤25 ms/species: ${timingTargetMet?'met':'exceeded on this device'}.`;
+  const report={microReview,timingTargetMet,coldMs,roleChecks,silhouettePairs:pairs,maxIoU:+maxIoU.toFixed(4),closest,alphaThreshold:128,overlayChecks,timings,heavyMs,failures};
+  summary.dataset.result=JSON.stringify(report);summary.textContent=`${failures.length?'FAIL: '+failures.join('; '):'PASS'} · micro masks S ≥${microReview.minS}, M ≥${microReview.minM} pixels; ${microReview.rotationChecks} eight-heading builds; ${microReview.accentChecks} threshold checks · ${roleChecks} role checks · ${pairs} silhouette pairs, largest overlap ${(maxIoU*100).toFixed(1)}% (${closest}) · ${overlayChecks} gene checks. Species builds (full + micro, median of 3, ms): ${timings.map(t=>`${t.role} ${t.ms}`).join(' · ')}. First measured build: ${coldMs} ms; all-overlay apex median: ${heavyMs} ms. Target ≤25 ms/species: ${timingTargetMet?'met':'exceeded on this device'}.`;
   console.info('Creature review',JSON.stringify(report));
  },0);
 }
@@ -1423,13 +1640,13 @@ const lerpAngle = (a, b, t) => { let d = b - a; while (d > Math.PI) d -= 2 * Mat
 
 // Connected neighbours, using world-space drawn sizes and a per-frame spatial grid.
 function clusterBodies(bodies) {
-  const cell = Math.max(1, ...bodies.map(b => b.size * .5)), grid = new Map(), parent=bodies.map((_,i)=>i);
+  const cell = Math.max(2, ...bodies.map(b => b.size * .5)), grid = new Map(), parent=bodies.map((_,i)=>i);
   const nx=Math.max(1,Math.floor(meta.W/cell)),ny=Math.max(1,Math.floor(meta.H/cell)),cw=meta.W/nx,ch=meta.H/ny;
   const root = i => { while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];} return i; };
   bodies.forEach((b,i) => {
     const gx=Math.floor(wrap(b.x,meta.W)/cw),gy=Math.floor(wrap(b.y,meta.H)/ch);
     for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)for(const j of grid.get(`${wrap(gx+dx,nx)},${wrap(gy+dy,ny)}`)??[]){
-      const a=bodies[j],r=(a.size+b.size)*.25;
+      const a=bodies[j],r=Math.max(2,(a.size+b.size)*.25);
       if(wrappedDelta(a.x,b.x,meta.W)**2+wrappedDelta(a.y,b.y,meta.H)**2<=r*r)parent[root(i)]=root(j);
     }
     const key=`${gx},${gy}`;if(!grid.has(key))grid.set(key,[]);grid.get(key).push(i);
@@ -1474,12 +1691,12 @@ function draw() {
   for(const [id,c] of cur){
     const sp=species[c.s];if(!sp)continue;const p=prev?.get(id);
     const x=p?lerpWrap(p.x,c.x,t,meta.W):wrap(c.x,meta.W),y=p?lerpWrap(p.y,c.y,t,meta.H):wrap(c.y,meta.H);
-    let s=Math.max(4,c.z);
+    let s=sp.unique?Math.max(4,c.z)*GIANT_SCALE:c.z;
     if(sp.unique&&sp.mark==='pulse')s*=1+.22*Math.sin(now*.006+id);
-    s*=1+.07*Math.max(0,Math.sin(now*.009*(c.p??1)+id))**6;
+    if(sp.unique)s*=1+.07*Math.max(0,Math.sin(now*.009*(c.p??1)+id))**6;
     let a=p?lerpAngle(p.a,c.a,t):c.a;
     if(!sp.unique){const heading=headings.get(id)??c.a,d=lerpAngle(heading,c.targetHeading??c.a,1)-heading;a=heading+Math.max(-.0035*dtMs,Math.min(.0035*dtMs,d));headings.set(id,a);}
-    bodies.push({id,x,y,s,a,size:!sp.unique&&creatureSprites.has(sp.name)?s*CREATURE_SCALE*1.4:s});
+    bodies.push({id,x,y,s,a,size:sp.unique?s*(sp.shape==='serpent'?8.5:sp.shape==='kraken'?4.5:2.6)*(c.l??1):CREATURE_LENGTH*s});
   }
   const piles=clusterBodies(bodies).filter(p=>p.members.length>=5), hiddenBodies=new Set();
   if(camera.z<=2)for(const p of piles){const keep=new Set(p.nearest.map(b=>b.id));for(const b of p.members)if(!keep.has(b.id))hiddenBodies.add(b.id);}
@@ -1506,7 +1723,7 @@ function draw() {
     const dotUnit=meta.W*(devicePixelRatio||1)/canvas.width,r=2.5*dotUnit;
     for(const {ox,oy} of objectTiles){g.save();g.translate(ox,oy);
       for(const {id,x,y} of bodies){const c=cur.get(id),sp=species[c.s];if(x<view.left-ox-r||x>view.right-ox+r||y<view.top-oy-r||y>view.bottom-oy+r)continue;
-        g.globalAlpha=highlight&&!bodyHighlighted(c,sp) ? .12 : 1;g.fillStyle=`hsl(${sp.hue} 70% 50%)`;g.strokeStyle='rgba(20,18,12,.85)';g.lineWidth=dotUnit;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();g.stroke();drawn.push({x:x+ox,y:y+oy,s:r,hitRadius:r+dotUnit/2,id});
+        g.globalAlpha=highlight&&!bodyHighlighted(c,sp) ? .12 : 1;g.fillStyle=`hsl(${sp.hue} 70% 50%)`;g.strokeStyle='rgba(20,18,12,.85)';g.lineWidth=dotUnit;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();g.stroke();drawn.push({x:x+ox,y:y+oy,s:r,hitRadius:creatureHitRadius(r+dotUnit/2,ux,uy),id});
       }g.restore();
     }drawSummits(objectTiles,ux,uy,css);return;
   }
@@ -1523,6 +1740,7 @@ function draw() {
 
   if(treesBitmap){g.imageSmoothingEnabled=false;g.drawImage(treesBitmap,0,0,meta.W,meta.H);}
   g.restore();}
+  drawInsects(now,tiles,view,ux,uy);
   for(const {ox,oy} of objectTiles){g.save();g.translate(ox,oy);
     drawTreeFire(now);
     const left=view.left-ox,top=view.top-oy,right=view.right-ox,bottom=view.bottom-oy;
@@ -1548,22 +1766,27 @@ function draw() {
   }
 
   // Prepared once above; drawing a tile never advances headings or trails.
-  for (const {id,x,y,s:preparedSize,a} of bodies) {
+  for (const {id,x,y,s:preparedSize,a,size:drawnLength} of bodies) {
     const c=cur.get(id),sp=species[c.s];
     if(hiddenBodies.has(id))continue;
     let s=preparedSize;
-    if (sp.unique && sp.shape === 'serpent') {
+    const lod=creatureLOD(creatureScreenLength(drawnLength,a,ux,uy),lifeStage(c)),L=lod.L;
+    if (lod.spriteAlpha>0 && sp.unique && sp.shape === 'serpent') {
       // The body trails behind the head along the exact path it took (like the snake game), seven of its sizes long.
       const t = trails.get(id) ?? [], want = s * 7;
       let len = 0, px = x, py = y;
-      g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : 1;
+      g.globalAlpha = (highlight && !bodyHighlighted(c,sp) ? 0.12 : 1)*lod.spriteAlpha;
       for (let j = t.length - 1; j >= 0 && len < want; j--) {
-        const dx=wrappedDelta(px,t[j].x,meta.W),dy=wrappedDelta(py,t[j].y,meta.H),tx=px+dx,ty=py+dy;
-        len += Math.hypot(dx, dy);
+        const dx=wrappedDelta(px,t[j].x,meta.W),dy=wrappedDelta(py,t[j].y,meta.H),distance=Math.hypot(dx,dy),fraction=distance?Math.min(1,(want-len)/distance):0,tx=px+dx*fraction,ty=py+dy*fraction;
+        len += distance*fraction;
         const k = 1 - len / want;
         g.fillStyle = `hsl(${c.h} 55% ${34 + 18 * k}%)`;
-        const rr = Math.max(1.2, s * 0.4 * (0.3 + 0.7 * k)); // segments, slimmer than the head
-        g.beginPath(); g.roundRect(tx - rr, ty - rr, rr * 2, rr * 2, rr * 0.6); g.fill();
+        // Fill between stored samples too: reduced segments must not become a dotted tail.
+        const steps=Math.max(1,Math.ceil(distance*fraction/Math.max(.25*GIANT_SCALE,s*.15)));
+        for(let step=1;step<=steps;step++){
+          const u=step/steps,fade=1-(len-distance*fraction*(1-u))/want,rr=Math.max(1.2*GIANT_SCALE,s*.4*(.3+.7*fade)),xx=px+(tx-px)*u,yy=py+(ty-py)*u;
+          g.beginPath();g.roundRect(xx-rr,yy-rr,rr*2,rr*2,rr*.6);g.fill();
+        }
         px = tx; py = ty;
       }
       g.globalAlpha = 1;
@@ -1573,21 +1796,30 @@ function draw() {
     if (x < left - margin || x > right + margin || y < top - margin || y > bottom + margin) continue;
     const ci = cellOf(x, y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7) || (worldInputs.canopy?.[ci]>=128);
     g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : hid ? 0.5 : 1;
-    const spriteDrawn=!sp.unique&&creatureSprites.has(sp.name),bodySize=spriteDrawn?s*CREATURE_SCALE*1.4:s;
+    const spriteDrawn=!sp.unique&&creatureSprites.has(sp.name),bodySize=drawnLength/2;
+    const baseAlpha=g.globalAlpha;
+    drawn.push({x:x+ox,y:y+oy,s:bodySize,id,hitRadius:creatureHitRadius(Math.max(bodySize,lod.dotRadius*Math.max(ux,uy)),ux,uy)});
+    // Screen-space dots and rings stay round and retain their CSS-pixel sizes at any DPR.
+    g.save();g.translate(x,y);g.scale(ux,uy);
+    if(lod.spriteAlpha<1){g.globalAlpha=baseAlpha*(1-lod.spriteAlpha);const micro=microFor(creatureSprites.get(sp.name),c,L);if(micro)drawMicro(g,micro,L,a);else drawCreatureDot(g,sp.hue,lod.dotRadius);}
+    if(c.b&2){g.globalAlpha=baseAlpha;g.strokeStyle=`hsla(${c.h} 80% 75% / ${(.18+.42*lod.spriteAlpha).toFixed(2)})`;g.lineWidth=1;g.beginPath();g.arc(0,0,Math.max(3,L*.55,(1-lod.spriteAlpha)*(lod.dotRadius+1.5)),0,Math.PI*2);g.stroke();}
+    g.restore();
+    if(lod.spriteAlpha===0){g.globalAlpha=1;continue;}
+    g.globalAlpha=baseAlpha*lod.spriteAlpha;
     if (!(c.b & 32)) { g.fillStyle = 'rgba(10,8,5,.28)'; g.beginPath(); g.ellipse(x + bodySize * 0.3, y + bodySize * 0.4, bodySize * 0.95, bodySize * 0.6, a, 0, Math.PI * 2); g.fill(); } // a contact shadow, away from the light
     g.save(); g.translate(x, y); g.rotate(a);
-    g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : hid ? 0.5 : 1;
+    g.globalAlpha = baseAlpha*lod.spriteAlpha;
     if(spriteDrawn){
-      if(c.b&4){g.strokeStyle=`hsla(${c.h} 60% 80% / .55)`;g.lineWidth=.8;g.beginPath();for(const o of [-.45,.45]){g.moveTo(-s*.9,o*s);g.lineTo(-s*2.4,o*s);}g.stroke();}
+      if(lod.spriteAlpha===1&&(c.b&4)){g.strokeStyle=`hsla(${c.h} 60% 80% / .55)`;g.lineWidth=.8;g.beginPath();for(const o of [-.45,.45]){g.moveTo(-bodySize*.9,o*bodySize);g.lineTo(-bodySize*2.4,o*bodySize);}g.stroke();}
       const look=creatureSprites.get(sp.name),lv=lightData?(lightData[ci*4]-128)/90:0;
       if(look){const energy=c.e<.325?0:c.e<.7?1:2,light=lv<-.25?0:lv>.25?2:1,stage=lifeStage(c),index=stage==='adult'?(c.b&1?0:c.b&32?8:energy*3+light):(stage==='juvenile'?9:12)+energy;
-        g.save();g.globalAlpha*=c.b&1?.7:c.b&32?.5:1;g.scale(s/6*CREATURE_SCALE,s/6*CREATURE_SCALE*(1+.35*((c.f??look.fat)-look.fat)));stampCreature(g,look.variants[index]);g.restore();}
-      drawn.push({x:x+ox,y:y+oy,s,id,hitRadius:Math.max(6,bodySize)});
+        g.save();g.globalAlpha*=c.b&1?.7:c.b&32?.5:1;const sprite=look.variants[index],scale=creatureScale(sprite,c.z);g.scale(scale,scale*(1+.35*((c.f??look.fat)-look.fat)));stampCreature(g,sprite);g.restore();}
     }else{
+    if(!sp.unique)s=drawnLength/((sp.shape==='serpent'?1.5:sp.shape==='spindle'?2.6:sp.shape==='blob'?1.8:2)*(c.l??1));
     if (sp.mark === 'glow') { g.fillStyle = `hsla(${c.h} 85% 60% / .1)`; g.beginPath(); g.arc(0, 0, s * 1.25, 0, Math.PI * 2); g.fill(); }
     if (sp.mark === 'trail') { g.strokeStyle = `hsla(${c.h} 70% 65% / .45)`; g.lineWidth = 1.2; g.beginPath(); g.moveTo(-s * 0.6, 0); g.lineTo(-s * 2.8, 0); g.stroke(); }
     // A sprint leaves speed lines; legs stretch the body along its heading (long and thin = fast, short and round = slow).
-    if (c.b & 4) { g.strokeStyle = `hsla(${c.h} 60% 80% / .55)`; g.lineWidth = 0.8; g.beginPath();
+    if (lod.spriteAlpha===1 && (c.b & 4)) { g.strokeStyle = `hsla(${c.h} 60% 80% / .55)`; g.lineWidth = 0.8; g.beginPath();
       for (const o of [-0.45, 0.45]) { g.moveTo(-s * 0.9, o * s); g.lineTo(-s * 2.4, o * s); } g.stroke(); }
     const look = lookOf(sp);
     g.fillStyle = c.b & 1 ? '#4a4a4a' : `hsl(${c.h} ${look.s}% ${40 + Math.min(1, c.e) * 28 + look.l}%)`;
@@ -1599,9 +1831,9 @@ function draw() {
       g.stroke(); }
     if (sp.shape === 'kraken') {
       // Desperate (shoving through reef toward prey): a flickering red halo of jagged spikes, and thrashing tentacles.
-      const frantic = c.b & 8, asleep = c.b & 32;
+      const frantic = lod.spriteAlpha===1 && (c.b & 8), asleep = c.b & 32;
       if (c.b & 64) { const u = (now % 900) / 900; g.strokeStyle = `hsla(10 90% 60% / ${0.8 * (1 - u)})`; g.lineWidth = 3; g.beginPath(); g.arc(0, 0, s * (1.2 + u * 3.5), 0, Math.PI * 2); g.stroke(); } // rage shockwave
-      if (asleep) g.globalAlpha = 0.45; // dormant: dim and still
+      if (asleep) g.globalAlpha *= 0.45; // dormant: dim and still
       if (frantic) {
         g.strokeStyle = `hsla(0 90% 55% / ${0.45 + 0.35 * Math.sin(now * 0.03)})`; g.lineWidth = 1.4; g.beginPath();
         for (let j = 0; j < 14; j++) { const q = j / 14 * Math.PI * 2 + now * 0.004, r = s * (j % 2 ? 0.95 : 1.35 + 0.2 * Math.sin(now * 0.05 + j)); g.lineTo(Math.cos(q) * r + s * 0.15, Math.sin(q) * r); }
@@ -1621,20 +1853,17 @@ function draw() {
       }
     }
     const legs = c.l ?? 1; g.scale(legs, (1 + 0.35 * (c.f ?? 0)) / Math.sqrt(legs)); // fat rounds the body out
-    drawn.push({ x:x+ox, y:y+oy, s, id });
     body(g, sp.shape, s);
     g.strokeStyle = 'rgba(20,18,12,.45)'; g.lineWidth = 0.5; g.stroke(); // a thin dark edge, like ink
     if (lightData && !(c.b & 32)) { const lv = (lightData[cellOf(x, y) * 4] - 128) / 90; if (Math.abs(lv) > 0.05) { g.fillStyle = lv > 0 ? `rgba(255,248,230,${0.22 * lv})` : `rgba(0,0,12,${-0.3 * lv})`; body(g, sp.shape, s); } }
     if (!(c.b & 33)) marking(g, look.pat, s, c.h); // not on the broken or the dormant
     }
-    // Marks a creature ready to mate.
-    if (c.b & 2) { g.strokeStyle = `hsla(${c.h} 80% 75% / ${spriteDrawn ? .25 : .45})`; g.lineWidth = spriteDrawn ? 0.5 : 0.8; g.beginPath(); g.arc(0, 0, spriteDrawn ? s * CREATURE_SCALE * 0.95 + 1 : s + 2.5, 0, Math.PI * 2); g.stroke(); }
     // Infested (flystrike): dark specks crawling on the body.
-    if (c.b & 16) { g.fillStyle = 'rgba(20,15,10,.85)'; for (let j = 0; j < 5; j++) { const q = j * 1.3 + now * 0.002 * (j % 2 ? 1 : -1); g.beginPath(); g.arc(Math.cos(q) * s * 0.5, Math.sin(q) * s * 0.4, Math.max(0.7, s * 0.12), 0, Math.PI * 2); g.fill(); } }
+    if (lod.spriteAlpha===1 && (c.b & 16)) { g.fillStyle = 'rgba(20,15,10,.85)'; for (let j = 0; j < 5; j++) { const q = j * 1.3 + now * 0.002 * (j % 2 ? 1 : -1); g.beginPath(); g.arc(Math.cos(q) * s * 0.5, Math.sin(q) * s * 0.4, Math.max(0.7, s * 0.12), 0, Math.PI * 2); g.fill(); } }
     g.restore();
     if (hid) { const coverSize=spriteDrawn?bodySize:s; g.strokeStyle = 'rgba(40,85,35,.8)'; g.lineWidth = 0.9; g.beginPath(); for (const o of [-0.5, 0, 0.5]) { g.moveTo(x + o * coverSize, y + coverSize * 0.6); g.lineTo(x + o * coverSize * 1.3, y - coverSize * 0.5); } g.stroke(); } // stalks in front of a hidden body
     g.globalAlpha = 1;
-    if (id === hovered) { g.save(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 0.8; g.beginPath(); g.arc(x, y, spriteDrawn ? s * CREATURE_SCALE * 1.2 + 2 : s + 3, 0, Math.PI * 2); g.stroke(); g.restore(); } // the body under the tip
+    if (id === hovered) { g.save(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 0.8; g.beginPath(); g.arc(x, y, Math.max(3*Math.max(ux,uy),bodySize+Math.max(ux,uy)), 0, Math.PI * 2); g.stroke(); g.restore(); } // the body under the tip
   }
 
   if (quakeSeen && qAge < 6) { const q = quakeSeen; g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); } // the quake's dust
