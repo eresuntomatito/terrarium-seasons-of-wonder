@@ -196,10 +196,11 @@ function refreshTip() {
   if (hoverPoint && !gesture && meta) { const peak=peakAt(worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y})));if(peak){peakTip(peak);return;} const b=badgeAt(worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y}))); if(b){hovered=null;pileTip(b);return;} }
   if (hovered === null) { if(showXray&&hoverPoint&&!gesture)groundTip();else hideTip();return; }
   const c = cur?.get(hovered), sp = c && species[c.s]; if (gesture || !sp) { hideTip(); return; }
-  const ci = cellOf(c.x, c.y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7);
+  const ci = cellOf(c.x, c.y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7) || (worldInputs.canopy?.[ci]>=128);
   const states = [[2, 'ready to mate'], [4, 'sprinting'], [8, 'shoving'], [16, 'infested'], [1, 'broken'], [32, 'asleep'], [64, 'raging']].filter(([flag]) => c.b & flag).map(([, label]) => label); if (hid) states.push('hidden in cover');
   tip.innerHTML = `<b>${esc(sp.name)} · ${esc(sp.unique ? 'giant' : traits[sp.name]?.label ?? '')} · ${lifeStage(c)==='juvenile'?'young':lifeStage(c)}</b><br>${esc(`size ${c.z.toFixed(1)} · energy ${Math.round(c.e * 100)}% · fat ${Math.round((c.f ?? 0) * 100)}%`)}<br>${esc(`legs ${(c.l ?? 1).toFixed(2)} · armour ${(c.r ?? 0).toFixed(2)}${c.g===undefined?'':` · ${Math.round(c.g*100)}% of its life`}`)}${states.length ? `<br><span class="states">${esc(states.join(' · '))}</span>` : ''}`;
   const ground=worldInputs.alluv?.[ci]>60?'river mud':worldInputs.geo?['hard rock','soft rock','limestone','sediment','hard basement'][worldInputs.geo[ci]]:null;
+  if(worldInputs.canopy?.[ci]>=128)tip.innerHTML+=`<br>under ${['','fruit','nut','conifer'][worldInputs.kind?.[ci]]??'tree'} wood`;
   if(ground)tip.innerHTML+=`<br>on ${ground}`;
   tip.innerHTML+=`<br>on the ${esc(placeOf(c.x,c.y))}`;
   tip.hidden = false; placeTip();
@@ -208,6 +209,7 @@ function groundTip(){
  if(!meta||!hoverPoint)return;const w=worldPoint(canvasPoint({clientX:hoverPoint.x,clientY:hoverPoint.y})),i=cellOf(w.x,w.y),x=i%meta.GW,y=Math.floor(i/meta.GW),E=worldInputs.elev3??worldInputs.elev2??worldInputs.elev;if(!E){hideTip();return;}
  const height=heightAt,h=height(i),slope=Math.max(...[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>Math.abs(h-height(((y+dy+meta.GH)%meta.GH)*meta.GW+(x+dx+meta.GW)%meta.GW))))/meta.CELL,need=worldInputs.need?worldInputs.need[i]/255:Math.min(1,slope*25),mud=(worldInputs.alluv?.[i]??0)/255;
  tip.innerHTML=`${esc(placeOf(w.x,w.y))}<br>height ${h.toFixed(2)} · ${worldInputs.geo?rockNames[worldInputs.geo[i]]:'rock unknown'}<br>slope ${slope.toFixed(3)} · water ${waterDepth(worldInputs.water,i,worldInputs.wScale).toFixed(2)} (${waterClass(waterDepth(worldInputs.water,i,worldInputs.wScale))})${waterDepth(worldInputs.water,i,worldInputs.wScale)>=swimDepth?` · needs swim ${Math.max(0,(waterDepth(worldInputs.water,i,worldInputs.wScale)/(swimDepth/1.225)-1)/1.5).toFixed(1)} for a typical body`:''}${mud>0?`<br>river mud ${mud.toFixed(2)}`:''}<br>climb need ${need.toFixed(2)}${worldInputs.need?'':' (approx.)'}`;
+ if(worldInputs.canopy?.[i]>13)tip.innerHTML+=`<br>wood: ${['','fruit','nut','conifer'][worldInputs.kind?.[i]]??'tree'}, ${(worldInputs.canopy[i]/255).toFixed(1)} canopy`;
  tip.hidden=false;placeTip();
 }
 setInterval(refreshTip, 200);
@@ -282,6 +284,7 @@ window.addEventListener('keydown', e => {
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomTo(target.z * 1.5); }
   else if (e.key === '-') { e.preventDefault(); zoomTo(target.z / 1.5); }
   else if (e.key.toLowerCase() === 'x') { e.preventDefault();setXray(!showXray); }
+  else if(mockTrees&&!showXray&&/^[1-6]$/.test(e.key)){e.preventDefault();treeScene=+e.key;treeMockDirty=true;applyTreeMock();}
   else if (showXray && /^[1-4]$/.test(e.key)) { e.preventDefault();setXray(true,xrayViews[+e.key-1]); }
   else if (e.key === '0') { e.preventDefault(); fitWorld(); }
 });
@@ -326,6 +329,45 @@ function updateSwimDepth(bodies,now=performance.now()){
  // Publish one stable threshold to every consumer; small EMA steps don't repaint.
  worldInput('swimDepth',swimDepth,swimDepth);updatePlaces();updateXray();
 }
+
+
+const treeQuery=new URLSearchParams(location.search),mockTrees=treeQuery.get('mock')==='trees';
+let treeScene=Math.max(1,Math.min(6,Number(treeQuery.get('scene'))||1)),treeMockDirty=mockTrees,applyingTreeMock=false,scorch=null,scorchAt=performance.now(),treeMockSignature='',fireCrowns=[];
+let treeMoisture=null;
+const treeLiveInputs={},treeNames=['canopy','kind','leaf','food','burning'];
+let treeBadge=null;
+if(mockTrees){treeBadge=document.createElement('div');treeBadge.style.cssText='position:fixed;left:12px;bottom:12px;z-index:10;padding:5px 8px;background:#242921de;color:#eee;font:11px monospace;pointer-events:none';document.body.append(treeBadge);}
+function acceptTrees(t){if(!meta)return;const n=meta.GW*meta.GH,old=worldInputs.canopy,burn=worldInputs.burning;scorch??=new Float32Array(n);
+ let scorchChanged=false;const decoded={};for(const k of treeNames){const v=t?.[k];decoded[k]=typeof v==='string'?Uint8Array.from(atob(v),c=>c.charCodeAt(0)):v??new Uint8Array(n);}
+ for(let i=0;i<n;i++)if(decoded.burning[i]>0||burn?.[i]>0&&old?.[i]-decoded.canopy[i]>32){if(scorch[i]!==1)scorchChanged=true;scorch[i]=1;}
+ for(const k of treeNames)worldInput(k,t?.[k]??'',decoded[k]);
+ if(scorchChanged||worldInputs.scorch!==scorch)worldInput('scorch',performance.now(),scorch);fireCrowns=treeCrowns({...worldInputs,meta}).filter(t=>worldInputs.burning[t.i]>0);
+}
+function applyTreeMock(){if(!mockTrees||!meta||!worldInputs.geo||!worldInputs.terrain||!treeMockDirty)return;
+ const signature=[treeScene,worldKeys.geo,worldKeys.elev3??worldKeys.elev2??worldKeys.elev,treeLiveInputs.terrain?.value,treeLiveInputs.snow?.value].join('|');treeMockDirty=false;if(signature===treeMockSignature)return;treeMockSignature=signature;applyingTreeMock=true;
+ try{const n=meta.GW*meta.GH,t=Object.fromEntries(treeNames.map(k=>[k,new Uint8Array(n)])),terrain=(treeLiveInputs.terrain?.bytes??worldInputs.terrain).slice(),snow=(treeLiveInputs.snow?.bytes??worldInputs.snow??new Uint8Array(n)).slice();scorch=new Float32Array(n);
+ for(let i=0;i<n;i++){const x=i%meta.GW,y=Math.floor(i/meta.GW),h=treeHash(x*meta.CELL,y*meta.CELL,meta),patch=(Math.sin(x*.19)+Math.cos(y*.23)+Math.sin((x+y)*.11))>-.15;if(!patch||waterDepth(worldInputs.water,i,worldInputs.wScale)>.03)continue;
+ const rock=worldInputs.geo[i],kind=heightAt(i)>.9||rock===0||rock===4?3:rock===2?2:1;if(treeScene===1&&h>.35)continue;
+ t.kind[i]=kind;t.leaf[i]=255;t.canopy[i]=Math.round((treeScene===1?.1+.3*h:treeScene===6?.1+.2*h:.5+.5*h)*255);if(treeScene!==1&&treeScene!==6)t.food[i]=1<<(kind-1);
+ if(treeScene===3||treeScene===5)terrain[i*3+1]=12;if(treeScene===4)snow[i]=210;
+ if(treeScene===5){const front=x/meta.GW;if(front<.42){t.canopy[i]=0;t.food[i]=0;scorch[i]=1;}else if(front<.53)t.burning[i]=80+Math.round(h*175);}
+ if(treeScene===6){scorch[i]=.85;if(h>.24){t.canopy[i]=0;t.kind[i]=0;}}
+ }
+ acceptTrees(t);worldInput('terrain','tree-mock:'+signature,terrain);worldInput('snow','tree-mock:'+signature,snow);worldInput('dryness',treeScene===3||treeScene===5?1:0,treeScene===3||treeScene===5?1:0);treeBadge.textContent=`mock: trees · scene ${treeScene} (1–6 keys switch)`;
+ }finally{applyingTreeMock=false;}}
+function drawTreeFire(now){for(const t of fireCrowns){const intensity=worldInputs.burning[t.i]/255;if(!intensity)continue;{const x=t.x,y=t.y;
+ g.save();g.globalCompositeOperation='lighter';g.fillStyle=`rgba(240,65,12,${intensity*.16})`;g.beginPath();g.arc(x,y,t.r+2,0,Math.PI*2);g.fill();g.globalCompositeOperation='source-over';
+ for(let j=0;j<5;j++){const phase=Math.floor(now/80),u=treeHash(t.x+j*17+phase,t.y,meta),v=treeHash(t.x,t.y+j*13+phase,meta);g.fillStyle=j%2?'#ffce50':'#ef6f24';g.globalAlpha=intensity;g.fillRect(Math.floor(x+(u-.5)*t.r*1.5),Math.floor(y+(v-.5)*t.r*1.4),1,2);}
+ for(let j=0;j<3;j++){const age=(now/2400+t.seed+j/3)%1;g.globalAlpha=(1-age)*intensity*.35;g.fillStyle='#979b98';g.beginPath();g.arc(x+age*9,y-age*16,1+age*3,0,Math.PI*2);g.fill();}g.restore();
+ }}}
+setInterval(()=>{const now=performance.now(),dt=now-scorchAt;scorchAt=now;if(mockTrees)applyTreeMock();if(!scorch||!scorch.some(v=>v>0))return;decayScorch(scorch,dt);worldInput('scorch',now,scorch);},1000);
+
+// Shared by the animation thread and worker; periodic grain matches the world's texture tile.
+function treeHash(x,y,m){x=((x%(m.W/2))+m.W/2)%(m.W/2);y=((y%(m.H/2))+m.H/2)%(m.H/2);let h=Math.imul(x+1,374761393)^Math.imul(y+1,668265263);h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/4294967295;}
+function treeCrowns(d){const m=d.meta,out=[];for(let i=0;i<m.GW*m.GH;i++){const a=(d.canopy?.[i]??0)/255,k=d.kind?.[i];if(a<=.05||!k)continue;const cx=i%m.GW*m.CELL,cy=Math.floor(i/m.GW)*m.CELL;for(let j=0;j<(a>=.7?2:1);j++)out.push({i,k,a,r:1.2+4.2*a,x:Math.floor(cx+(.12+.76*treeHash(cx+j*19,cy,m))*m.CELL),y:Math.floor(cy+(.12+.76*treeHash(cx+31,cy+j*23,m))*m.CELL),seed:treeHash(cx+7,cy+11+j,m)});}return out;}
+function treeShape(c,x,y){const r=c.r;if(c.k===3){if(c.a<.5)return y>=-r*1.4&&y<=r*.7&&Math.abs(x)<(y+r*1.4)*.48;for(let t=0;t<3;t++){const top=-r*1.6+t*r*.65,h=r*1.25;if(y>=top&&y<top+h&&Math.abs(x)<(y-top)*(.54+t*.06))return true;}return false;}const u=x/(c.k===2?1.3:1),angle=Math.atan2(y,u),lobes=5+Math.floor(c.seed*3),edge=r*(.91+.09*Math.cos(angle*lobes+c.seed*6.28));return u*u+y*y<=edge*edge;}
+function decayScorch(a,ms){const step=Math.max(0,ms)/600000;for(let i=0;i<a.length;i++)a[i]=Math.max(0,a[i]-step);}
+
 // All world painting stays off the animation thread.
 function worldPainter(){
 'use strict';
@@ -407,11 +449,21 @@ function paintLand({elev,elev2,elev3,elev3Range=[-1,2.5],geo,has2:height2,has3:h
 }
 // Hypsometric snow palette, indexed by terrace k + 2 (including below sea level).
 const snowWhites=Array.from({length:15},(_,i)=>{const k=i-2,t=Math.max(0,Math.min(1,(k-2)/2)),u=Math.max(0,Math.min(1,(k-5)/2));return k>=10?[244,247,252]:[228+12*t+10*u,230+12*t+9*u,222+14*t+16*u];});
-function paintGround({terrain,water,wScale,snow,hedge,alluv,swimDepth=.073}){
+function paintGround({terrain,water,wScale,snow,hedge,alluv,scorch,canopy,kind,swimDepth=.073}){
  const open=.6*swimDepth;
  const n=GW*GH,plant=new Uint8Array(n),moisture=new Uint8Array(n),depth=new Float64Array(n),ice=new Uint8Array(n);
  for(let i=0;i<n;i++){plant[i]=terrain[i*3];moisture[i]=terrain[i*3+1];depth[i]=waterDepth(water,i,wScale);ice[i]=water[i]>=128?255:0;}
  F.plant=field(plant);F.moisture=field(moisture);F.depth=new Float64Array(FW*FH);for(let y=0;y<FH;y++)for(let x=0;x<FW;x++)F.depth[y*FW+x]=sample(depth,x*2,y*2)*255;F.ice=field(ice);F.snow=field(snow);F.hedge=field(blur(hedge));F.alluv=field(alluv);
+ // Scorch arrives in 0–1 units; field() expects bytes before bilinear filtering.
+ F.scorch=scorch?field(Float32Array.from(scorch,v=>v*255)):null;
+ const crownCover=new Uint8Array(FW*FH);
+ for(const t of treeCrowns({meta:{W,H,CELL,GW,GH},canopy,kind})){
+  const q={...t,r:Math.round(t.r*4)/4,seed:Math.floor(t.seed*3)/3},b=Math.ceil(q.r*1.7);
+  for(let dy=-b;dy<=b;dy++)for(let dx=-b;dx<=b;dx++)if(treeShape(q,dx,dy)){
+   const px=((t.x+dx)%W+W)%W,py=((t.y+dy)%H+H)%H;
+   crownCover[Math.floor(py/2)*FW+Math.floor(px/2)]=1;
+  }
+ }
  // At field centres surface = ground height + true world depth.
  // Reuse its four neighbours directly, avoiding eight bilinear samples per wet pixel.
  const surface=new Float32Array(FW*FH);
@@ -435,10 +487,13 @@ function paintGround({terrain,water,wScale,snow,hedge,alluv,swimDepth=.073}){
   const d=F.depth[i],ice=F.ice[i];
   if(d>=.012&&d<open){
    // Films retain the terrain with sparse, irregular glints at their deeper end.
+   const groundCol=col;
    col=col.map((v,j)=>v*.86+[0,1,4][j]);
    if(d<.03){if(d>.02&&hash(wx+17,wy+43)<.035)col=[200,222,226];}
-   else if(ordered(wx,wy)<.4+.6*(d-.03)/Math.max(.001,open-.03)){
-    col=ice>.5?[211,231,233]:[132,186,194];
+   else if((bayer[(y%4)*4+x%4]+.5)/16<.4+.6*(d-.03)/Math.max(.001,open-.03)){
+    // One ordered-dither sample per field pixel; water retains the ground beneath it.
+    const waterCol=ice>.5?[211,231,233]:[132,186,194];
+    col=groundCol.map((v,j)=>v*.45+waterCol[j]*.55);
     // A one-pixel inner edge beside dry ground, with no bright shoreline.
     const edge=Math.min(at(F.depth,x-1,y),at(F.depth,x+1,y),at(F.depth,x,y-1),at(F.depth,x,y+1));
     if(edge<.012&&ordered(wx+2,wy)<.5)col=[104,150,160];
@@ -474,6 +529,13 @@ function paintGround({terrain,water,wScale,snow,hedge,alluv,swimDepth=.073}){
   }
   if(!bush[i]&&at(bush,x-1,y-1))col=col.map(v=>v*.68);
   if(bush[i]){col=[49,78,46];const bx=wx+1,by=wy+1,facing=smooth(F.hedge,bx+2,by+2)-smooth(F.hedge,bx-2,by-2);if(facing>.012&&ordered(bx,by)<.30)col=[99,128,71];if(snowCover)col=facing>.012&&ordered(bx,by)<.55?[238,242,240]:[col[0]*.92,col[1]*.96,col[2]*1.04];}
+  const burn=F.scorch?smooth(F.scorch,wx,wy):0;
+  if(!crownCover[i]&&burn>.15&&(burn>=.45||ordered(wx,wy)<(burn-.15)/.30)){
+   const h=hash(wx+17,wy+9),a=Math.min(.5,burn*.5*(.75+.5*hash(wx+31,wy+23)));
+   col=col.map((v,j)=>v*(1-a)+[58,48,42][j]*a);
+   if(h<.05)col=[160,154,146];
+   if(burn>.8&&h<.008)col=[150,60,40];
+  }
   const grain=1+(hash(wx,wy)*2-1)*.03,o=i*4;im.data[o]=col[0]*grain;im.data[o+1]=col[1]*grain;im.data[o+2]=col[2]*grain;im.data[o+3]=255;
  }
  g.putImageData(im,0,0);return c.transferToImageBitmap();
@@ -679,15 +741,47 @@ for(let y=0;y<H;y++)for(let x=0;x<W;x++){
 }
 g.putImageData(shadow,0,0);g.drawImage(material,0,0);return out.transferToImageBitmap();
 }
+
+const treeMasks=new Map();
+function paintTrees(d){
+ const c=new OffscreenCanvas(W,H),g=c.getContext('2d'),im=g.createImageData(W,H),data=im.data,cs=treeCrowns(d);
+ const pixel=(x,y,col,alpha=1,torus=false)=>{if(torus){x=(x%W+W)%W;y=(y%H+H)%H;}if(x<0||y<0||x>=W||y>=H)return;const o=(y*W+x)*4;if(alpha===1){data[o]=col[0];data[o+1]=col[1];data[o+2]=col[2];data[o+3]=255;return;}const old=data[o+3]/255,a=alpha+old*(1-alpha);for(let j=0;j<3;j++)data[o+j]=(col[j]*alpha+data[o+j]*old*(1-alpha))/a;data[o+3]=a*255;};
+ // Small reusable integer masks avoid evaluating crown geometry for every tree.
+ const masks=treeMasks,mask=t=>{const key=[t.k,Math.round(t.r*4),t.a<.5,Math.floor(t.seed*3)].join(':');if(masks.has(key))return masks.get(key);const q={...t,r:Math.round(t.r*4)/4,seed:Math.floor(t.seed*3)/3},b=Math.ceil(q.r*1.7),inside=[],outline=[],spots=[];
+ for(let y=-b;y<=b;y++)for(let x=-b;x<=b;x++){if(treeShape(q,x,y)){const nw=!treeShape(q,x-1,y-1),se=!treeShape(q,x+1,y+1),cap=q.k===3?(!treeShape(q,x,y-1)||!treeShape(q,x,y-2)):y<0&&x+y<q.r*.2;inside.push([x,y,nw?1:se?2:0,cap]);if(!nw&&!se&&!cap&&Math.abs(x)<q.r*.7&&Math.abs(y)<q.r*.65)spots.push([x,y]);}else if(q.a>=.5&&treeShape(q,x-1,y-1))outline.push([x,y]);}
+ const value={inside,outline,spots};masks.set(key,value);return value;};
+ for(const t of cs)for(const [x,y] of mask(t).inside){let px=t.x+x+3,py=t.y+y+3;if(px<0)px+=W;else if(px>=W)px-=W;if(py<0)py+=H;else if(py>=H)py-=H;const o=(py*W+px)*4;data[o]=48;data[o+1]=40;data[o+2]=33;data[o+3]=89.25+data[o+3]*.65;}
+ // A one-pixel ring follows the same crown mask, wrapping across the torus.
+ for(const t of cs)if(t.a<.5&&(d.scorch?.[t.i]??0)>.15){
+  const inside=mask(t).inside,keys=new Set(inside.map(([x,y])=>x+','+y)),ring=new Set();
+  for(const [x,y] of inside)for(const [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){
+   const key=(x+dx)+','+(y+dy);if(!keys.has(key))ring.add(key);
+  }
+  for(const key of ring){const [x,y]=key.split(',').map(Number);pixel(t.x+x,t.y+y,[96,140,80],.5,true);}
+ }
+ const copies=[];for(const t of cs)for(const dy of [-H,0,H])for(const dx of [-W,0,W])if(t.x+dx+t.r*2>=0&&t.x+dx-t.r*2<W&&t.y+dy+t.r*2>=0&&t.y+dy-t.r*2<H)copies.push({...t,x:t.x+dx,y:t.y+dy});
+ copies.sort((a,b)=>a.y-b.y||a.x-b.x);
+ const palettes={1:[[86,138,66],[134,178,96],[58,98,50]],2:[[118,136,72],[160,172,104],[84,98,54]],3:[[42,82,66],[78,122,98],[28,58,48]]};
+ for(const t of copies){const moist=(d.terrain?.[t.i*3+1]??128)/255,dry=Math.max(0,Math.min(1,Math.max(d.dryness??0,1-moist)-.35)/.65),snow=(d.snow?.[t.i]??0)/255,food=d.food?.[t.i]??0,{inside,outline,spots}=mask(t),mix=dry*(t.k===3?.15:.4);
+ const colors=palettes[t.k].map(rgb=>{let col=rgb.map((v,j)=>(v*(1-mix)+[165,133,66][j]*mix)*(t.a<.5?1.12:1));if(moist>.65){const mean=(col[0]+col[1]+col[2])/3;col=col.map(v=>(mean+(v-mean)*1.08)*.96);}return col;});
+ if(t.k===2)for(let y=0;y<2;y++)for(let x=0;x<2;x++)pixel(t.x+x,t.y+Math.ceil(t.r)+y,[92,70,52]);
+ for(const [x,y] of outline)pixel(t.x+x,t.y+y,[30,46,34]);
+ for(let j=0;j<inside.length;j++){const dot=inside[j],x=dot[0],y=dot[1],cap=dot[3],h=(snow>0&&cap||dry>.3)?treeHash(t.x+x,t.y+y,d.meta):1;pixel(t.x+x,t.y+y,cap&&h<snow?[240,244,246]:dry>.3&&h<dry*.08?[124,96,57]:colors[dot[2]]);}
+ const bit=t.k===1?1:t.k===2?2:4,count=t.k===1?2+Math.floor(t.seed*3):t.k===2?2+Math.floor(t.seed*2):2;
+ if(food&bit)for(let j=0;j<count&&spots.length;j++){const [x,y]=spots[Math.floor((t.seed+j*.381966)%1*spots.length)];pixel(t.x+x,t.y+y,t.k===1?(j%2?[236,150,60]:[214,82,58]):t.k===2?[140,98,58]:[112,78,52]);}
+ }
+ g.putImageData(im,0,0);return c.transferToImageBitmap();
+}
+
 onmessage=({data:d})=>{try{
  ({W,H,CELL,GW,GH}=d.meta);FW=Math.ceil(W/2);FH=Math.ceil(H/2);
- const start=performance.now();let bitmap=null,stats=null;if(d.layer==='xray')({bitmap,stats}=paintXray(d));else if(d.layer==='land')paintLand(d);else if(d.layer==='ground')bitmap=paintGround(d);else bitmap=paintCoral(d.rock);
+ const start=performance.now();let bitmap=null,stats=null;if(d.layer==='xray')({bitmap,stats}=paintXray(d));else if(d.layer==='land')paintLand(d);else if(d.layer==='ground')bitmap=paintGround(d);else if(d.layer==='trees')bitmap=paintTrees(d);else bitmap=paintCoral(d.rock);
  postMessage({layer:d.layer,bitmap,stats,view:d.view,revision:d.revision,paintMs:performance.now()-start},bitmap?[bitmap]:[]);
  }catch(error){postMessage({layer:d.layer,error:String(error)});}
 };
 }
 // Keep one active job and just the newest request for each layer.
-let worldWorker=null,worldBusy=false,worldTimer=0,groundBitmap=null,coralBitmap=null,xrayBitmap=null;
+let worldWorker=null,worldBusy=false,worldTimer=0,groundBitmap=null,coralBitmap=null,treesBitmap=null,xrayBitmap=null;
 // True, unblurred cell heights; stable cell order breaks ties on flat summits.
 function findSummits(E,range,m){
  const height=i=>E[i]/255*(range[1]-range[0])+range[0],point=i=>({i,x:(i%m.GW+.5)*m.CELL,y:(Math.floor(i/m.GW)+.5)*m.CELL,h:height(i)});
@@ -755,23 +849,23 @@ function drawSummits(tiles,ux,uy,css){
 }
 function heightAt(i){const E=worldInputs.elev3??worldInputs.elev2??worldInputs.elev,range=worldInputs.elev3?(climateNow?.relief?.elev3Range??[-1,2.5]):worldInputs.elev2?[-1,1.5]:[0,1];return E[i]/255*(range[1]-range[0])+range[0];}
 const worldInputs={},worldKeys={},worldVersions={},worldPending={},worldLast={ground:-Infinity,coral:-Infinity};
-function worldInput(key,value,bytes){if(worldKeys[key]===value)return;worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=bytes;if(showXray)worldPending.xray=true;if(key==='elev'||key==='elev2'||key==='elev3'||key==='geo')worldPending.land=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
+function worldInput(key,value,bytes){if(mockTrees&&!applyingTreeMock&&['terrain','snow','geo','elev','elev2','elev3'].includes(key)){treeLiveInputs[key]={value,bytes};treeMockDirty=true;}if(worldKeys[key]===value)return;worldKeys[key]=value;worldVersions[key]=(worldVersions[key]??0)+1;worldInputs[key]=bytes;if(showXray)worldPending.xray=true;if(key==='elev'||key==='elev2'||key==='elev3'||key==='geo')worldPending.land=true;if(key==='terrain'){let moistureChanged=!treeMoisture||treeMoisture.length*3!==bytes.length;if(!moistureChanged)for(let i=0;i<treeMoisture.length;i++)if(treeMoisture[i]!==bytes[i*3+1]){moistureChanged=true;break;}if(moistureChanged){treeMoisture=Uint8Array.from({length:Math.floor(bytes.length/3)},(_,i)=>bytes[i*3+1]);worldPending.trees=true;}}if(['canopy','kind','leaf','food','snow','dryness','scorch'].includes(key))worldPending.trees=true;if(key==='rock')worldPending.coral=true;else worldPending.ground=true;pumpWorld();}
 function pumpWorld(){
  clearTimeout(worldTimer);if(worldBusy||!meta||!worldWorker)return;
- const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000,xray:2000};let wait=Infinity;
- for(const layer of ['xray','land','ground','coral']){
-  if(!worldPending[layer]||showXray&&(layer==='ground'||layer==='coral')||layer==='ground'&&!ready||layer==='xray'&&(!showXray||!worldInputs.elev&&!worldInputs.elev2&&!worldInputs.elev3))continue;
+ const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000,trees:4000,xray:2000};let wait=Infinity;
+ for(const layer of ['xray','land','ground','coral','trees']){
+  if(!worldPending[layer]||showXray&&(layer==='ground'||layer==='coral'||layer==='trees')||layer==='ground'&&!ready||layer==='xray'&&(!showXray||!worldInputs.elev&&!worldInputs.elev2&&!worldInputs.elev3))continue;
   const left=(worldLast[layer]??-Infinity)+delays[layer]-now;if(left>0){wait=Math.min(wait,left);continue;}
   const d={layer,swimDepth,wScale:worldInputs.wScale??1/600,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH},has2:!!worldInputs.elev2,has3:!!worldInputs.elev3,elev3Range:climateNow?.relief?.elev3Range??[-1,2.5],hasGeo:!!worldInputs.geo},transfer=[],n=meta.GW*meta.GH;
   const copy=(key)=>{const a=(worldInputs[key]??new Uint8Array(n)).slice();d[key]=a;transfer.push(a.buffer);};
-  if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,d.wScale,d.swimDepth,...d.elev3Range,...['elev','elev2','elev3','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','elev3','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','elev3','geo'])copy(key);else if(layer==='coral')copy('rock');else for(const key of ['terrain','water','snow','hedge','alluv'])copy(key);
+  if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,d.wScale,d.swimDepth,...d.elev3Range,...['elev','elev2','elev3','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','elev3','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','elev3','geo'])copy(key);else if(layer==='coral')copy('rock');else if(layer==='trees'){d.dryness=worldInputs.dryness??0;for(const key of ['canopy','kind','leaf','food','snow','terrain','scorch'])copy(key);}else for(const key of ['terrain','water','snow','hedge','alluv','scorch','canopy','kind'])copy(key);
   delete worldPending[layer];worldBusy=true;worldLast[layer]=now;worldWorker.postMessage(d,transfer);return;
  }
  if(wait<Infinity)worldTimer=setTimeout(pumpWorld,wait);
 }
 if(typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined')try{
- const src=[waterDepth,swimBarrier].map(f=>f.toString()).join('\n')+'\n('+worldPainter.toString()+')()',url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));worldWorker=new Worker(url);URL.revokeObjectURL(url);
- worldWorker.onmessage=({data:d})=>{worldBusy=false;if(d.bitmap){if(d.layer==='xray'){if(showXray&&d.view===xrayView){xrayBitmap?.close();xrayBitmap=d.bitmap;xrayStats=d.stats;xrayPaintedRevision=d.revision;updateXray();}else d.bitmap.close();}else if(d.layer==='ground'){groundBitmap?.close();groundBitmap=d.bitmap;}else{coralBitmap?.close();coralBitmap=d.bitmap;}}if(d.error)console.error('World painter:',d.error);pumpWorld();};
+ const src=[waterDepth,swimBarrier,treeHash,treeCrowns,treeShape].map(f=>f.toString()).join('\n')+'\n('+worldPainter.toString()+')()',url=URL.createObjectURL(new Blob([src],{type:'text/javascript'}));worldWorker=new Worker(url);URL.revokeObjectURL(url);
+ worldWorker.onmessage=({data:d})=>{worldBusy=false;if(d.bitmap){if(d.layer==='xray'){if(showXray&&d.view===xrayView){xrayBitmap?.close();xrayBitmap=d.bitmap;xrayStats=d.stats;xrayPaintedRevision=d.revision;updateXray();}else d.bitmap.close();}else if(d.layer==='trees'){treesBitmap?.close();treesBitmap=d.bitmap;console.debug('Trees layer',d.paintMs.toFixed(1)+' ms');}else if(d.layer==='ground'){groundBitmap?.close();groundBitmap=d.bitmap;}else{coralBitmap?.close();coralBitmap=d.bitmap;}}if(d.error)console.error('World painter:',d.error);pumpWorld();};
  worldWorker.onerror=()=>{worldWorker.terminate();worldWorker=null;worldBusy=false;clearTimeout(worldTimer);};
 }catch(error){console.error('World painter:',error);}
 
@@ -944,9 +1038,11 @@ function unpack(c) {
 
 // Bare soil goes from dusty sand (dry) to dark mud (wet), a little darker where rich; plants go from dry gold to wet green.
 // Reef: warm grey stone, solid where dense (≥ 0.6 blocks), faint where it is only starting or wearing away.
-function paintReef({ map, thicket, climate: c }) {
+function paintReef({ map, thicket, climate: c, trees = null }) {
   if (!meta) return;
   climate = c;
+  if(!mockTrees)acceptTrees(trees);
+  worldInput('dryness', mockTrees&&treeScene===3?1:Math.max(0,1-c), mockTrees&&treeScene===3?1:Math.max(0,1-c));
   const bytes = Uint8Array.from(atob(map), ch => ch.charCodeAt(0)), img = rg.createImageData(meta.GW, meta.GH);
   const brush = thicket ? Uint8Array.from(atob(thicket), ch => ch.charCodeAt(0)) : null;
   thicketBytes = brush;
@@ -1016,6 +1112,8 @@ function body(g, shape, s) {
 
 const hash=str=>{let h=2166136261;for(const c of String(str))h=Math.imul(h^c.charCodeAt(0),16777619)>>>0;return h;};
 const rand=(seed,i)=>hash(seed+':'+i)/4294967295;
+// The same FNV sequence, with its common prefix hashed once for dense fur.
+const randSeries=seed=>{const prefix=hash(seed+':');return i=>{let h=prefix;for(const c of String(i))h=Math.imul(h^c.charCodeAt(0),16777619)>>>0;return h/4294967295;};};
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
 const color=(h,s,l,a=1)=>`hsla(${((h%360)+360)%360} ${s}% ${clamp(l,0,100)}% / ${a})`;
 function inherited(lineage){
@@ -1029,8 +1127,16 @@ function inherited(lineage){
  }return f;
 }
 function role(s){
- const label=String(s.label||'').toLowerCase();for(const r of ['grazer','browser','hunter','apex','scavenger','decomposer','parasite'])if(label.includes(r))return r;
- const f=s.food||{},pairs=[['grazer',+f.grass||0],['browser',+f.browse||0],['scavenger',+f.carrion||0],['hunter',+f.flesh||0],['parasite',+f.host||0],['decomposer',+f.dung||0]].sort((a,b)=>b[1]-a[1]);
+ const names=['grazer','browser','mixed','omnivore','hunter','apex','scavenger','decomposer','parasite','insectivore'];
+ for(const label of [s.label,s.role]){
+  const words=String(label||'').toLowerCase().replace(/[-_]/g,' ').split(/\s+/);
+  for(const r of names)if(words.includes(r))return r;
+ }
+ const f=s.food||{},grass=+f.grass||0,browse=+f.browse||0,meat=(+f.flesh||0)+(+f.carrion||0);
+ const plants=['grass','browse','fruit','nut','cone','nuts','cones','aqua','lichen'].reduce((n,k)=>n+(+f[k]||0),0);
+ if(plants>=.25&&meat>=.25)return 'omnivore';
+ if(grass>=.3&&browse>=.3)return 'mixed';
+ const pairs=[['grazer',grass],['browser',browse],['scavenger',+f.carrion||0],['hunter',+f.flesh||0],['parasite',+f.host||0],['decomposer',+f.dung||0],['insectivore',+f.insects||0]].sort((a,b)=>b[1]-a[1]);
  return pairs[0][1]>0?pairs[0][0]:((s.gut||0)>.6?'hunter':'grazer');
 }
 // Colours use the first three numeric path components, never the data hue.
@@ -1042,36 +1148,50 @@ function lineageColour(lineage){
 }
 function lifeStage(c){return c.g===undefined?'adult':!(c.b&128)?'juvenile':c.g>.85?'elder':'adult';}
 function paintCreature(s,energy,stage='adult'){
- const cv=document.createElement('canvas');cv.width=600;cv.height=320;const g=cv.getContext('2d'),U=10;
- g.translate(300,160);g.scale(U,U);
+ const cv=document.createElement('canvas'),U=3;cv.width=60*U;cv.height=32*U;const g=cv.getContext('2d');
+ g.translate(cv.width/2,cv.height/2);g.scale(U,U);
  const r=role(s),size=clamp(+s.size||6,1,16),live=s.live||{},fat=clamp(live.fat??.4),coat=clamp((live.coat||0)/.6);
  const young=stage==='juvenile',elder=stage==='elder',fur=coat*(young?.5:elder?.6:1),gloss=1-coat,family=inherited(s.lineage);
  const shade=(h,s,l,a=1)=>color(h,s*(young?.75:elder?.6:1),l+(young?12:elder?-6:0),a);
  const {hue,light}=lineageColour(s.lineage),L=40+energy*28+(light-54)+family.shade*.35;
  const fill=shade(hue,r==='decomposer'?22:48,L,1-.08*gloss),rim=shade(hue,40,L-24);
+ const climb=clamp(live.climb??s.climb??0)>=.1?clamp(live.climb??s.climb):0,bite=clamp(live.bite??s.bite??0)>=.1?clamp(live.bite??s.bite):0;
  const leg=clamp(s.legs??1,.2,2),swim=clamp(((live.swim||0)-.05)/.45),gut=clamp(s.gut??live.gut??.55),armor=clamp(s.armor||0);
  let a=size*1.65*family.elong,b=size*(.76+.3*fat),head=size*.78*family.head,hx=a*.87;
+ if(r==='mixed'){a*=1.03;b*=.88;hx=a*.87+(a+head*.92-a*.87)*.4;head*=.9;}
+ if(r==='omnivore'){a*=.78;b*=1.1;head*=1.1;hx=a*.7;}
+ if(r==='insectivore'){a*=.9;b*=.75;head*=.72;hx=a*.98;}
  if(r==='browser'){a*=1.07;b*=.67;head*=.76;hx=a+head*.92;}
  if(r==='hunter'||r==='apex'){a*=1.3;b*=.73;hx=a*.93;head*=.83;}
+ if(r==='apex'){b*=1.22;head*=1.12;}
  if(r==='scavenger'){b*=1.12;hx=a*.92;head*=1.1;}
  if(r==='parasite'){a*=1.45;b*=.53;head*=.56;hx=a*.95;}
  if(young)head*=1.35;if(elder)b*=.92;
+ // Skull breadth grows across the body, leaving the snout length intact.
+ const skull=1+.25*bite;
+ head*=skull;
  const shapes=[];
  function ellipse(x,y,rx,ry){const p=new Path2D();p.ellipse(x,y,rx,ry,0,0,Math.PI*2);shapes.push({p,x,y,rx,ry});return p;}
  function path(fn){const p=new Path2D();fn(p);return p;}
  function paint(p,col=fill){g.fillStyle=col;g.strokeStyle=rim;g.lineWidth=.25;g.fill(p);g.stroke(p);}
  function line(x,y,xx,yy,w,col){g.beginPath();g.moveTo(x,y);g.lineTo(xx,yy);g.lineWidth=w;g.lineCap='round';g.strokeStyle=col;g.stroke();}
  const larva=r==='decomposer'||r==='parasite';
- if(!larva){
+ if(!larva||climb||swim){
   const tailLength=size*(r==='scavenger'?.65:1.65)*(1+family.tail*.1)*.55*(young?.7:1);
   const tail=path(p=>{p.moveTo(-a*.65,-b*.4);p.quadraticCurveTo(-a-tailLength*.45,-b*.3,-a-tailLength,0);p.quadraticCurveTo(-a-tailLength*.45,b*.25,-a*.65,b*.4);p.closePath();});
   if(swim)paint(path(p=>{p.moveTo(-a*.7,-b*.2);p.quadraticCurveTo(-a-tailLength*.35,-size*(.4+swim*.85),-a-tailLength,0);p.quadraticCurveTo(-a-tailLength*.4,size*(.3+swim*.6),-a*.7,b*.2);p.closePath();}),shade(hue+12,55,L+12,.75));
   paint(tail);
+  if(climb){g.beginPath();g.moveTo(-a-tailLength*.65,0);g.quadraticCurveTo(-a-tailLength-size*climb,-size*climb*1.2,-a-tailLength+size*climb*.45,-size*climb*.6);g.strokeStyle=rim;g.lineWidth=size*(.1+.14*climb);g.lineCap='round';g.stroke();}
  }
  if(r!=='parasite')for(let i=0;i<(r==='decomposer'?3:2);i++)for(const side of [-1,1]){
-  const x=-a*.5+i*a*(r==='decomposer'?.5:.95),reach=size*(r==='decomposer'?.18:.48)*leg*(r==='browser'?(i?1.55:.75):1)*(young?.7:1);
+  const x=-a*.5+i*a*(r==='decomposer'?.5:.95),reach=size*(r==='decomposer'?.18:.48)*leg*(r==='browser'?(i?1.55:.75):1)*(young?.7:1)*(i?1+.15*climb:1);
+  const footX=x-size*.16*(young?.7:1),footY=side*(b+reach);
   line(x,side*b*.62,x-size*.16*(young?.7:1),side*(b+reach),size*(r==='decomposer'?.13:.28)*(young?.7:1),rim);
   line(x,side*b*.62,x-size*.16*(young?.7:1),side*(b+reach),size*(r==='decomposer'?.085:.21)*(young?.7:1),fill);
+  if(climb){
+   line(footX-size*.08,footY,footX+size*.08,footY,size*.16,shade(hue,30,L-18));
+   for(let toe=0;toe<3;toe++){const tx=footX+(toe-1)*size*.13;g.beginPath();g.moveTo(tx,footY);g.quadraticCurveTo(tx+size*.2*climb,footY+side*size*.5*climb,tx+size*.36*climb,footY+side*size*.22*climb);g.lineWidth=size*.065;g.strokeStyle=rim;g.stroke();}
+  }
  }
  if(r==='decomposer'){
   const count=5+Math.round(clamp(s.decomp??live.decomp??.5)*2);
@@ -1080,12 +1200,21 @@ function paintCreature(s,energy,stage='adult'){
   const count=9;for(let i=0;i<count;i++){const t=i/(count-1);ellipse(-a*.96+t*a*1.85,0,a*.23,b*(.22+.78*t));}
  }else ellipse(r==='scavenger'?-a*.12:0,0,a,b);
  if(r==='browser')ellipse(a*.92,0,head*1.15,head*.5);
+ if(r==='mixed')ellipse(a*.87,0,head*.95,head*.65);
  const bodyCount=shapes.length;
- if(r==='browser'){
-  const p=path(p=>{p.moveTo(hx-head,-head*.63);p.quadraticCurveTo(hx+head*.3,-head*.65,hx+head*1.35,0);p.quadraticCurveTo(hx+head*.3,head*.65,hx-head,head*.63);p.closePath();});shapes.push({p,x:hx,y:0,rx:head*1.2,ry:head*.65});
+ if(r==='browser'||r==='mixed'){
+  const taper=r==='mixed'?.98:1.35,width=r==='mixed'?.84:.65;
+  const p=path(p=>{p.moveTo(hx-head,-head*width);p.quadraticCurveTo(hx+head*.3,-head*width,hx+head*taper,0);p.quadraticCurveTo(hx+head*.3,head*width,hx-head,head*width);p.closePath();});shapes.push({p,x:hx,y:0,rx:head*1.2,ry:head*.65});
  }else if(r==='grazer'||r==='scavenger'){
   const p=path(p=>{p.moveTo(hx-head*.85,-head*.9);p.quadraticCurveTo(hx+head*.5,-head*1.22,hx+head*.85,-head*.65);p.lineTo(hx+head*.85,head*.65);p.quadraticCurveTo(hx+head*.5,head*1.22,hx-head*.85,head*.9);p.quadraticCurveTo(hx-head*1.2,0,hx-head*.85,-head*.9);p.closePath();});shapes.push({p,x:hx,y:0,rx:head,ry:head});
- }else ellipse(hx,0,head,head*.82);
+ }else ellipse(hx,0,head/skull,head*(r==='omnivore'?1:.82));
+ if(r==='omnivore')for(const side of [-1,1])ellipse(hx-head*.12,side*head*.7,head*.65,head*.48);
+ if(r==='insectivore'){
+  const snout=path(p=>{p.moveTo(hx+head*.65,-head*.24);p.lineTo(hx+head*1.8,-head*.055);p.lineTo(hx+head*1.8,head*.055);p.lineTo(hx+head*.65,head*.24);p.closePath();});
+  shapes.push({p:snout,x:hx+head*1.2,y:0,rx:head*.6,ry:head*.2});
+ }
+ // A low dorsal frill separates the broad-backed apex from a hunter.
+ if(r==='apex')for(let i=0;i<7;i++){const x=-a*.7+i*a*.21,y=-b*Math.sqrt(Math.max(0,1-(x/a)**2));paint(path(p=>{p.moveTo(x-a*.12,y+.3);p.lineTo(x-a*.025,y-size*(.3+.12*Math.sin(i*Math.PI/6)));p.lineTo(x+a*.12,y+.3);p.closePath();}),shade(hue,40,L-8));}
  // Larvae carry two tiny gill nubs per side, even on land.
  if(young)for(const side of [-1,1])for(let i=0;i<2;i++){
   const x=hx-head*.65+i*head*.45,y=side*head*.65,xx=x-head*.48*.35,yy=y+side*size*.35*(.7+i*.15);
@@ -1093,7 +1222,7 @@ function paintCreature(s,energy,stage='adult'){
   for(let j=1;j<=4;j++){const t=j/5,px=x+(xx-x)*t,py=y+(yy-y)*t;for(const dir of [-1,1])line(px,py,px+dir*size*.23*.35,py-side*size*.14*.35,size*.035,shade(hue+15,70,L+16));}
  }
  // Full gill fronds belong only to swimming animals.
- if(swim&&!larva)for(const side of [-1,1])for(let i=0;i<3;i++){
+ if(swim)for(const side of [-1,1])for(let i=0;i<3;i++){
   const x=hx-head*.72+i*head*.37,y=side*head*.65,xx=x-head*.48*swim,yy=y+side*size*swim*(.7+i*.15);
   line(x,y,xx,yy,size*.09,shade(hue+15,65,L+8));
   for(let j=1;j<=5;j++){const t=j/6,px=x+(xx-x)*t,py=y+(yy-y)*t;for(const dir of [-1,1])line(px,py,px+dir*size*.23*swim,py-side*size*.14*swim,size*.035,shade(hue+15,70,L+16));}
@@ -1116,33 +1245,46 @@ function paintCreature(s,energy,stage='adult'){
  if(elder)for(let i=0,n=3+hash(s.name+'age')%3;i<n;i++){const x=-a*.65+rand(s.name+'ageX',i)*a*1.25,y=(rand(s.name+'ageY',i)-.5)*b*.9;g.fillStyle=shade(hue,30,L-22,.65);g.beginPath();g.ellipse(x,y,size*(.1+rand(s.name+'ageR',i)*.07),size*.09,0,0,7);g.fill();}
  g.restore();
  if(fur>0){
-  // Dense curved perimeter hairs and a visibly tufted dorsal mane, no halo.
-  for(let j=0;j<shapes.length;j++){const q=shapes[j],n=Math.ceil((q.rx+q.ry)*7);
-   for(let i=0;i<n;i++){const seed=s.lineage+'hair'+j,t=(i+rand(seed,i)*.6)/n*Math.PI*2,x=q.x+q.rx*Math.cos(t),y=q.y+q.ry*Math.sin(t);
+  // Batch the same dense curved hairs by shade: four strokes per creature,
+  // instead of hundreds of canvas submissions for each energy/stage variant.
+  const hairs=[new Path2D(),new Path2D()],mane=[new Path2D(),new Path2D()],maneRand=randSeries(s.lineage+'mane'),lengthRand=randSeries(s.lineage);
+  for(let j=0;j<shapes.length;j++){const q=shapes[j],n=Math.ceil((q.rx+q.ry)*7),hairRand=randSeries(s.lineage+'hair'+j);
+   for(let i=0;i<n;i++){const t=(i+hairRand(i)*.6)/n*Math.PI*2,x=q.x+q.rx*Math.cos(t),y=q.y+q.ry*Math.sin(t);
     if(shapes.some((o,k)=>k!==j&&((x-o.x)/o.rx)**2+((y-o.y)/o.ry)**2<.92))continue;
-    const len=size*(.12+.32*rand(seed,i+300))*fur,dx=Math.cos(t),dy=Math.sin(t);g.beginPath();g.moveTo(x-dx*.3,y-dy*.3);g.quadraticCurveTo(x+dx*len-dy*len*.4,y+dy*len+dx*len*.4,x+dx*len+dy*len*.25,y+dy*len-dx*len*.25);g.strokeStyle=shade(hue,35,L+(i%3===0?16:-12),.9);g.lineWidth=size*.027;g.stroke();
+    const len=size*(.12+.32*hairRand(i+300))*fur,dx=Math.cos(t),dy=Math.sin(t),p=hairs[i%3===0?1:0];p.moveTo(x-dx*.3,y-dy*.3);p.quadraticCurveTo(x+dx*len-dy*len*.4,y+dy*len+dx*len*.4,x+dx*len+dy*len*.25,y+dy*len-dx*len*.25);
    }
   }
-  for(let i=0;i<90;i++){const x=-a*.85+rand(s.lineage+'mane',i)*a*1.6,y=(rand(s.lineage+'mane',i+100)-.5)*b*.65,len=size*(.18+.33*rand(s.lineage,i))*fur;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x-len*.4,y-len*.8,x-len,y-len*.25);g.strokeStyle=shade(hue,35,L+(i%2?17:-15),.9);g.lineWidth=size*.035;g.stroke();}
+  for(let i=0;i<2;i++){g.strokeStyle=shade(hue,35,L+(i?16:-12),.9);g.lineWidth=size*.027;g.stroke(hairs[i]);}
+  for(let i=0;i<90;i++){const x=-a*.85+maneRand(i)*a*1.6,y=(maneRand(i+100)-.5)*b*.65,len=size*(.18+.33*lengthRand(i))*fur,p=mane[i%2];p.moveTo(x,y);p.quadraticCurveTo(x-len*.4,y-len*.8,x-len,y-len*.25);}
+  for(let i=0;i<2;i++){g.strokeStyle=shade(hue,35,L+(i?17:-15),.9);g.lineWidth=size*.035;g.stroke(mane[i]);}
  }
  // Related land animals share small head fins or ears.
  if(!larva&&family.ears)for(const side of [-1,1])paint(path(p=>{p.moveTo(hx-head*.6,side*head*.6);p.quadraticCurveTo(hx-head*(.8+family.ears*.12),side*head*(1.05+family.ears*.12),hx-head*.1,side*head*.72);p.closePath();}));
  if(r==='hunter'||r==='apex')for(const side of [-1,1]){
-  const len=size*1.3*gut;const jaw=path(p=>{p.moveTo(hx+head*.5,side*head*.55);p.quadraticCurveTo(hx+head+len,side*head*.85,hx+head+len*.85,side*head*.1);p.quadraticCurveTo(hx+head+len*.55,side*head*.5,hx+head*.5,side*head*.3);p.closePath();});paint(jaw,shade(hue,35,L-12));
+  const len=size*1.3*gut;const jaw=path(p=>{p.moveTo(hx+head*.5,side*head*.55);p.quadraticCurveTo(hx+head+len,side*head*(.85+.35*bite),hx+head+len*.85,side*head*.1);p.quadraticCurveTo(hx+head+len*.55,side*head*.5,hx+head*.5,side*head*.3);p.closePath();});paint(jaw,shade(hue,35,L-12));
   if(r==='apex')for(let i=0;i<5;i++){const x=hx+head*.65+i*len*.15;paint(path(p=>{p.moveTo(x,side*head*.42);p.lineTo(x+size*.1,side*head*.12);p.lineTo(x+size*.17,side*head*.42);p.closePath();}),'#f1e6c9');}
+ }
+ if(bite){
+  for(const side of [-1,1]){g.beginPath();g.moveTo(hx-head*.12,side*head*.68);g.quadraticCurveTo(hx+head*.2,side*head*.87,hx+head*.55,side*head*.62);g.lineWidth=size*(.035+.07*bite);g.strokeStyle=rim;g.stroke();}
+  if(r!=='hunter'&&r!=='apex')paint(path(p=>{const tip=hx+head*(r==='browser'?1.35:r==='insectivore'?1.8:1);p.moveTo(tip-head*.24,-head*.24);p.lineTo(tip+size*(.12+.35*bite),0);p.lineTo(tip-head*.12,head*.2);p.closePath();}),'rgb(210,196,160)');
+ }
+ if(r==='omnivore')for(const side of [-1,1])paint(path(p=>{p.moveTo(hx+head*.6,side*head*.48);p.lineTo(hx+head*1.08,side*head*.6);p.lineTo(hx+head*.72,side*head*.22);p.closePath();}),'#f1e6c9');
+ if(r==='insectivore'){
+  line(hx+head*1.8,0,hx+head*2.14,head*.06,size*.07,'#dc8d9c');
+  for(const side of [-1,1])for(let i=0;i<3;i++)line(hx+head*(1.15+i*.15),side*head*.12,hx+head*(1.05+i*.27),side*head*(.5+i*.12),size*.027,rim);
  }
  if(r==='scavenger')paint(path(p=>{p.moveTo(hx+head*.65,-head*.3);p.quadraticCurveTo(hx+head*1.6,-head*.25,hx+head*1.16,head*.43);p.lineTo(hx+head*.9,head*.09);p.lineTo(hx+head*.65,head*.3);p.closePath();}),shade(hue,30,L-15));
  if(r==='parasite'){
   if(!young&&armor>.3){g.save();if(elder)g.globalAlpha*=.7;const radius=size*(.8+armor*.45),cx=-a*.1;g.fillStyle=shade(hue,32,L+14);g.strokeStyle=rim;g.lineWidth=.35;g.beginPath();g.arc(cx,0,radius,0,7);g.fill();g.stroke();g.beginPath();for(let i=0;i<160;i++){const t=i/159*Math.PI*5,rad=radius*(.06+.84*i/159),x=cx+Math.cos(t)*rad,y=Math.sin(t)*rad;if(!i)g.moveTo(x,y);else g.lineTo(x,y);}g.lineWidth=size*.075;g.stroke();g.restore();}
   g.fillStyle=shade(hue,50,L-28);g.beginPath();g.arc(hx+head*.55,0,head*.64,0,7);g.fill();g.strokeStyle=shade(hue,35,L+22);g.lineWidth=head*.2;g.stroke();
- }else{const eyeR=size*.09*(.6+clamp(live.eyes||0)*1.8);for(const side of [-1,1]){g.fillStyle='#252c27';g.beginPath();g.arc(hx+head*.35,side*head*.49,eyeR,0,7);g.fill();}}
+ }else{const eyeR=size*.09*(.6+clamp(live.eyes||0)*1.8)*(r==='insectivore'?1.5:1);for(const side of [-1,1]){g.fillStyle='#252c27';g.beginPath();g.arc(hx+head*.35,side*head*.49,eyeR,0,7);g.fill();}}
  return cv;
 }
 // Sprites change only when the rounded species traits change.
 const creatureSprites=new Map();
 const CREATURE_SCALE = 0.5; // sprites drawn at this share of their reference size, so a body covers about the room the world gives it
 let creatureSpriteTimer=null;
-const spriteTraits=['gut','legs','armor','toxin','coat','swim','eyes','fat','decomp','parasitism','browse'];
+const spriteTraits=['gut','legs','armor','toxin','coat','swim','climb','bite','eyes','fat','decomp','parasitism','browse'];
 function refreshCreatureSprites(){
  if(creatureSpriteTimer!==null){clearTimeout(creatureSpriteTimer);creatureSpriteTimer=null;}
  const living=species.filter(sp=>sp.extinct===null&&!sp.waiting&&!sp.unique),listed=new Set(living.map(sp=>sp.name));
@@ -1150,28 +1292,115 @@ function refreshCreatureSprites(){
  for(const name of creatureSprites.keys())if(!listed.has(name)){creatureSprites.delete(name);portraits.delete(name);}
  for(const sp of living){
   const tr=traits[sp.name],old=creatureSprites.get(sp.name);if(!tr&&old)continue;
-  const live=tr||{},rounded=spriteTraits.map(k=>live[k]===undefined?null:Math.round(live[k]*10)/10),food=Object.entries(live.food||{}).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,Math.round(v*10)/10]);
+  const live=tr||{},rounded=spriteTraits.map(k=>live[k]===undefined?null:(['climb','bite'].includes(k)&&live[k]<.1?0:Math.round(live[k]*10)/10)),food=Object.entries(live.food||{}).sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,Math.round(v*10)/10]);
   const key=JSON.stringify([sp.name,sp.lineage,live.label||'',live.role||'',rounded,food]);if(old?.key===key)continue;
   if(built>=2){if(creatureSpriteTimer===null)creatureSpriteTimer=setTimeout(refreshCreatureSprites,50);break;}
   built++;
   const values=Object.fromEntries(spriteTraits.filter((k,i)=>rounded[i]!==null).map(k=>[k,rounded[spriteTraits.indexOf(k)]]));
   const s={...values,name:sp.name,lineage:sp.lineage,label:live.label||live.role||'',food:Object.fromEntries(food),size:6,live:values},variants=[];
-  for(const stage of ['adult','juvenile','elder'])for(const e of [.15,.5,.9]){
-   const base=paintCreature(s,e,stage),bg=base.getContext('2d'),pixels=bg.getImageData(0,0,base.width,base.height).data;
-   let x0=base.width,y0=base.height,x1=0,y1=0;
-   for(let y=0;y<base.height;y++)for(let x=0;x<base.width;x++)if(pixels[(y*base.width+x)*4+3]){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}
-   x0=Math.max(0,x0-2);y0=Math.max(0,y0-2);x1=Math.min(base.width-1,x1+2);y1=Math.min(base.height-1,y1+2);
-   for(const wash of stage==='adult'?['rgba(0,0,12,0.25)',null,'rgba(255,248,230,0.18)']:[null]){
-    const cv=document.createElement('canvas');cv.width=x1-x0+1;cv.height=y1-y0+1;const pg=cv.getContext('2d');pg.drawImage(base,-x0,-y0);
-    if(wash){pg.globalCompositeOperation='source-atop';pg.fillStyle=wash;pg.fillRect(0,0,cv.width,cv.height);}
-    variants.push({canvas:cv,x:(x0-300)/10,y:(y0-160)/10,w:cv.width/10,h:cv.height/10});
-   }
-  }
-  creatureSprites.set(sp.name,{key,variants,fat:values.fat??.4});portraits.delete(sp.name);
+  const buildStart=performance.now();variants.push(...buildCreatureVariants(s));
+  creatureSprites.set(sp.name,{key,variants,fat:values.fat??.4,buildMs:performance.now()-buildStart});portraits.delete(sp.name);
   const img=[...$('species').querySelectorAll('details')].find(d=>d.dataset.name===sp.name)?.querySelector('img.portrait');if(img)img.src=portraitOf(sp);
  }
 }
-function stampCreature(pg,sprite){pg.drawImage(sprite.canvas,sprite.x,sprite.y,sprite.w,sprite.h);}
+// Paint geometry once per life stage. Energy and light are inexpensive colour washes
+// on one atlas; portraits and live sprites both use these same world-space dimensions.
+function buildCreatureVariants(s){
+ const variants=[],stages=[];
+ for(const stage of ['adult','juvenile','elder']){
+  const base=paintCreature(s,.5,stage),width=base.width,height=base.height,U=width/60,pixels=base.getContext('2d').getImageData(0,0,width,height).data;
+  let x0=width,y0=height,x1=0,y1=0;
+  for(let y=0;y<height;y++){
+   const row=y*width*4;let left=0,right=width-1;
+   while(left<width&&!pixels[row+left*4+3])left++;
+   if(left===width)continue;
+   while(right>left&&!pixels[row+right*4+3])right--;
+   if(left<x0)x0=left;if(right>x1)x1=right;if(y<y0)y0=y;y1=y;
+  }
+  x0=Math.max(0,x0-2);y0=Math.max(0,y0-2);x1=Math.min(width-1,x1+2);y1=Math.min(height-1,y1+2);
+  stages.push({width,height,pixels,U,x0,y0,w:x1-x0+1,h:y1-y0+1,stage});
+ }
+ const atlas=document.createElement('canvas'),tileW=Math.max(...stages.map(s=>s.w)),tileH=Math.max(...stages.map(s=>s.h));
+ const atlasWidth=tileW*3,atlasHeight=tileH*5;atlas.width=atlasWidth;atlas.height=atlasHeight;const pg=atlas.getContext('2d'),image=pg.createImageData(atlasWidth,atlasHeight),out=image.data;
+ for(const {width,height,pixels,U,x0,y0,w,h,stage} of stages)for(const energy of [.15,.5,.9])for(const wash of stage==='adult'?[0,1,2]:[1]){
+  const index=variants.length,sx=index%3*tileW,sy=Math.floor(index/3)*tileH;
+  let factor=1,red=0,green=0,blue=0;
+  const tint=(r,g,b,alpha)=>{factor*=1-alpha;red=red*(1-alpha)+r*alpha;green=green*(1-alpha)+g*alpha;blue=blue*(1-alpha)+b*alpha;};
+  if(energy<.5)tint(0,0,12,.18);else if(energy>.5)tint(255,248,230,.22);
+  if(wash===0)tint(0,0,12,.25);else if(wash===2)tint(255,248,230,.18);
+  // Apply the source-atop washes in one pixel pass, retaining the original alpha.
+  // One atlas upload avoids fifteen canvas allocations and repeated readbacks.
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+   const src=((y+y0)*width+x+x0)*4,dst=((y+sy)*atlasWidth+x+sx)*4;
+   if(!pixels[src+3])continue;
+   out[dst]=pixels[src]*factor+red;out[dst+1]=pixels[src+1]*factor+green;out[dst+2]=pixels[src+2]*factor+blue;out[dst+3]=pixels[src+3];
+  }
+  variants.push({canvas:atlas,sx,sy,sw:w,sh:h,x:(x0-width/2)/U,y:(y0-height/2)/U,w:w/U,h:h/U});
+ }
+ pg.putImageData(image,0,0);
+ return variants;
+}
+
+function stampCreature(pg,sprite){pg.drawImage(sprite.canvas,sprite.sx,sprite.sy,sprite.sw,sprite.sh,sprite.x,sprite.y,sprite.w,sprite.h);}
+
+// Review mode is entirely opt-in; no fixtures or pixel checks run during normal viewing.
+if(new URLSearchParams(location.search).get('mock')==='creatures'){
+ const roles=['grazer','browser','mixed','omnivore','hunter','apex','scavenger','decomposer','parasite','insectivore'];
+ const columns=[['Base',{}],['+swim 0.6',{swim:.6}],['+climb 0.6',{climb:.6}],['+bite 0.6',{bite:.6}],['Armour 0.6 + toxin 0.5',{armor:.6,toxin:.5}],['Coat 0.6',{coat:.6}],['Young',{},'juvenile'],['Elder',{},'elder']];
+ // Fixed roots chosen through lineageColour, spaced around the colour wheel.
+ const sampleLineages=['P.214.0.0','P.162.0.0','P.445.0.0','P.21.0.0','P.117.0.0','P.29.0.0','P.69.0.0','P.100.0.0','P.5.0.0','P.198.0.0'];
+ const sample=(r,i,extra={})=>{
+  const live={gut:r==='hunter'||r==='apex'?.85:.4,legs:1,fat:.4,eyes:.4,coat:0,swim:0,climb:0,bite:0,armor:0,toxin:0,decomp:.5,...extra};
+  return {...live,name:r,lineage:sampleLineages[i],label:r,role:r,size:6,live};
+ };
+ const panel=document.createElement('section');panel.id='creature-gallery';panel.setAttribute('aria-label','Creature review gallery');
+ panel.style.cssText='position:absolute;inset:8px;z-index:30;overflow:auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);padding:12px;box-sizing:border-box;overscroll-behavior:contain';
+ const bar=document.createElement('div');bar.style.cssText='position:sticky;left:0;display:flex;gap:12px;align-items:center;max-width:calc(100vw - 60px)';
+ const title=document.createElement('strong');title.textContent='Creature family · map size / 3× detail';
+ const close=document.createElement('button');close.type='button';close.textContent='×';close.setAttribute('aria-label','Close creature gallery');close.style.cssText='margin-left:auto;background:var(--panel);color:var(--fg);border:1px solid var(--line);font-size:20px;cursor:pointer';close.onclick=()=>panel.remove();bar.append(title,close);
+ const summary=document.createElement('p');summary.id='creature-checks';summary.textContent='Checking roles, silhouettes, gene thresholds and sprite build times…';summary.style.cssText='position:sticky;left:0;max-width:680px;font-size:11px';
+ const table=document.createElement('table');table.style.cssText='border-collapse:collapse;font-size:11px;text-align:center';
+ const header=table.createTHead().insertRow();for(const label of ['Way of life',...columns.map(c=>c[0])]){const th=document.createElement('th');th.textContent=label;th.scope='col';th.style.cssText='padding:8px;min-width:112px;border-bottom:1px solid var(--line)';header.append(th);}
+ const tbody=table.createTBody();
+ roles.forEach((r,i)=>{
+  const row=tbody.insertRow(),label=document.createElement('th');label.scope='row';label.textContent=r==='mixed'?'Mixed feeder':r[0].toUpperCase()+r.slice(1);label.style.cssText='position:sticky;left:0;background:var(--panel);padding:8px;text-align:left';row.append(label);
+  for(const [,extra,stage] of columns){
+   const cell=row.insertCell(),cv=document.createElement('canvas'),dpr=Math.min(2,devicePixelRatio||1);cv.width=120*dpr;cv.height=112*dpr;cv.style.cssText='width:120px;height:112px';cv.setAttribute('aria-label',`${r}, ${stage||'adult'}, ${JSON.stringify(extra)}, map size and three times detail`);
+   const g=cv.getContext('2d');g.scale(dpr,dpr);const base=paintCreature(sample(r,i,extra),.5,stage);
+   for(const [y,k] of [[20,1],[75,3]]){g.save();g.translate(60,y);g.scale(CREATURE_SCALE*k,CREATURE_SCALE*k);g.drawImage(base,-30,-16,60,32);g.restore();}
+   cell.style.cssText='padding:3px;border-bottom:1px solid var(--line)';cell.append(cv);
+  }
+ });
+ panel.append(bar,summary,table);canvas.parentElement.append(panel);
+ // The same reference size and CREATURE_SCALE used by the live sprite stamper.
+ const pixels=(s,small=false)=>{const base=paintCreature(s,.5);if(!small)return base.getContext('2d').getImageData(0,0,base.width,base.height).data;const c=document.createElement('canvas');c.width=64;c.height=40;const g=c.getContext('2d');g.translate(32,20);g.scale(CREATURE_SCALE,CREATURE_SCALE);g.drawImage(base,-30,-16,60,32);return c.getContext('2d').getImageData(0,0,64,40).data;};
+ const equal=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+ // Defer costly review checks until after the gallery has painted; still no world writes.
+ setTimeout(()=>{
+  const failures=[],check=(ok,label)=>{if(!ok)failures.push(label);};let roleChecks=0,overlayChecks=0;
+  for(const r of roles)for(const key of ['label','role']){check(role({[key]:r==='mixed'?'mixed feeder':r})===r,`${key}: ${r}`);roleChecks++;}
+  const mixes=[['grazer',{grass:.8}],['browser',{browse:.8}],['mixed',{grass:.3,browse:.3}],['omnivore',{grass:.25,flesh:.15,carrion:.1}],['omnivore',{browse:.25,carrion:.25}],['omnivore',{fruit:.1,nut:.1,cone:.05,flesh:.25}],['hunter',{flesh:.8}],['scavenger',{carrion:.8}],['decomposer',{dung:.8}],['parasite',{host:.8}],['insectivore',{insects:.8}],['grazer',{}]];
+  for(const [r,food] of mixes){check(role({food})===r,`food: ${r}`);roleChecks++;}
+  const masks=roles.map(r=>pixels(sample(r,0),true));let maxIoU=0,closest='',pairs=0;
+  for(let i=0;i<roles.length;i++)for(let j=i+1;j<roles.length;j++){
+   let intersection=0,union=0;for(let k=3;k<masks[i].length;k+=4){const a=masks[i][k]>=128,b=masks[j][k]>=128;intersection+=a&&b;union+=a||b;}
+   const iou=intersection/union;pairs++;if(iou>maxIoU){maxIoU=iou;closest=`${roles[i]} / ${roles[j]}`;}check(iou<.85,`silhouette: ${roles[i]} / ${roles[j]} ${(iou*100).toFixed(1)}%`);
+  }
+  for(const r of roles)for(const gene of ['climb','bite']){
+   const base=pixels(sample(r,0));check(equal(base,pixels(sample(r,0,{[gene]:.099}))),`${r} ${gene} below 0.1`);
+   check(!equal(base,pixels(sample(r,0,{[gene]:.1}))),`${r} ${gene} at 0.1`);check(!equal(base,pixels(sample(r,0,{[gene]:.6}))),`${r} ${gene} at 0.6`);overlayChecks+=3;
+  }
+  // Warm the canvas path, then report full 15-sprite builds, not just one paint.
+  const coldStart=performance.now();buildCreatureVariants(sample('grazer',0));const coldMs=+(performance.now()-coldStart).toFixed(2);
+  for(let n=0;n<2;n++)buildCreatureVariants(sample('grazer',0));const timings=[];
+  roles.forEach((r,i)=>{const samples=[];for(let n=0;n<3;n++){const start=performance.now();buildCreatureVariants(sample(r,i));samples.push(performance.now()-start);}samples.sort((a,b)=>a-b);timings.push({role:r,ms:+samples[1].toFixed(2)});});
+  const heavy=[];for(let n=0;n<3;n++){const start=performance.now();buildCreatureVariants(sample('apex',0,{coat:.6,swim:.6,climb:.6,bite:.6,armor:.6,toxin:.5}));heavy.push(performance.now()-start);}heavy.sort((a,b)=>a-b);const heavyMs=+heavy[1].toFixed(2);
+  const timingTargetMet=timings.every(t=>t.ms<=25)&&heavyMs<=25;
+  const report={timingTargetMet,coldMs,roleChecks,silhouettePairs:pairs,maxIoU:+maxIoU.toFixed(4),closest,alphaThreshold:128,overlayChecks,timings,heavyMs,failures};
+  summary.dataset.result=JSON.stringify(report);summary.textContent=`${failures.length?'FAIL: '+failures.join('; '):'PASS'} · ${roleChecks} role checks · ${pairs} silhouette pairs, largest overlap ${(maxIoU*100).toFixed(1)}% (${closest}) · ${overlayChecks} gene checks. Full sprite builds (median of 3, ms): ${timings.map(t=>`${t.role} ${t.ms}`).join(' · ')}. First measured build: ${coldMs} ms; all-overlay apex median: ${heavyMs} ms. Target ≤25 ms/species: ${timingTargetMet?'met':'exceeded on this device'}.`;
+  console.info('Creature review',JSON.stringify(report));
+ },0);
+}
 
 // A small portrait of a species, for the Life list.
 function portrait(sp) {
@@ -1292,8 +1521,10 @@ function draw() {
   else { g.imageSmoothingEnabled = false; g.drawImage(reefCanvas, 0, 0, meta.W, meta.H); g.imageSmoothingEnabled = true; }
   if (!groundBitmap && climateNow?.relief && lightCanvas.width) { g.globalCompositeOperation = 'hard-light'; g.drawImage(lightCanvas, 0, 0, meta.W, meta.H); g.globalCompositeOperation = 'source-over'; }
 
+  if(treesBitmap){g.imageSmoothingEnabled=false;g.drawImage(treesBitmap,0,0,meta.W,meta.H);}
   g.restore();}
   for(const {ox,oy} of objectTiles){g.save();g.translate(ox,oy);
+    drawTreeFire(now);
     const left=view.left-ox,top=view.top-oy,right=view.right-ox,bottom=view.bottom-oy;
   if (quakeSeen && qAge < 60) { // the fault: a jagged crack along the break, fading over a minute
     const q = quakeSeen, ux = Math.cos(q.ang), uy = Math.sin(q.ang), fade = 1 - qAge / 60;
@@ -1340,7 +1571,7 @@ function draw() {
     // Trails above may still cross the view when their head is outside it.
     const margin = 40 + s * Math.max(4, 2 * (c.l ?? 1), 2 * (1 + 0.35 * (c.f ?? 0)) / Math.sqrt(c.l ?? 1));
     if (x < left - margin || x > right + margin || y < top - margin || y > bottom + margin) continue;
-    const ci = cellOf(x, y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7);
+    const ci = cellOf(x, y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7) || (worldInputs.canopy?.[ci]>=128);
     g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : hid ? 0.5 : 1;
     const spriteDrawn=!sp.unique&&creatureSprites.has(sp.name),bodySize=spriteDrawn?s*CREATURE_SCALE*1.4:s;
     if (!(c.b & 32)) { g.fillStyle = 'rgba(10,8,5,.28)'; g.beginPath(); g.ellipse(x + bodySize * 0.3, y + bodySize * 0.4, bodySize * 0.95, bodySize * 0.6, a, 0, Math.PI * 2); g.fill(); } // a contact shadow, away from the light
@@ -1672,11 +1903,11 @@ function updatePlaces(now=performance.now()){
 function placeIndex(x,y){return places.map?.[cellOf(x,y)]??0;}
 function placeOf(x,y){return places.names[placeIndex(x,y)]??'unknown place';}
 function bodyHighlighted(c,sp){return typeof highlight==='function'?highlight(c,sp):sp.name===highlight;}
-const ECO_ROLES=['grazer','browser','mixed feeder','decomposer','omnivore','scavenger','hunter','apex','parasite'];
+const ECO_ROLES=['grazer','browser','mixed feeder','decomposer','omnivore','scavenger','hunter','apex','parasite','insectivore'];
 const rolePlural=r=>r==='apex'?'apex predators':r+'s';
 const recordedEcoRoles=new Map();
 // Keep only explicit roles: missing historical data must not imply a grazer.
-function explicitEcoRole(...sources){for(const s of sources)for(const r of [s?.label,s?.dietLabel,s?.role])if(ECO_ROLES.includes(r))return r;return null;}
+function explicitEcoRole(...sources){for(const s of sources)for(const r of [s?.label,s?.dietLabel,s?.role])if(r==='mixed')return 'mixed feeder';else if(ECO_ROLES.includes(r))return r;return null;}
 function rememberEcoRoles(points){
  for(const e of [...points,{stats,traits}])for(const [name,tr]of Object.entries(e.stats??{}).concat(Object.entries(e.traits??{}))){
   const r=explicitEcoRole(tr,tr?.lastTraits,tr?.traits,tr?.lastStats);if(r)recordedEcoRoles.set(name,r);
@@ -1684,7 +1915,7 @@ function rememberEcoRoles(points){
 }
 function ecoRole(sp){
  const st=stats[sp.name],r=explicitEcoRole(traits[sp.name],sp,sp.lastTraits,sp.lastStats,sp.traits,sp.stats,st?.lastTraits,st?.traits,st?.lastStats,st)??recordedEcoRoles.get(sp.name);
- return r??(sp.extinct==null?role({...sp,...traits[sp.name]}):null);
+ return r??(sp.extinct==null?role({...sp,...traits[sp.name]}).replace(/^mixed$/,'mixed feeder'):null);
 }
 function shortPlaceName(name){
  const words=String(name).trim().toLowerCase().split(/[\s-]+/);
