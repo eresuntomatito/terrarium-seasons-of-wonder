@@ -24,6 +24,14 @@
   #theme:hover { color: var(--hi); }
   #zoom { position: absolute; top: 22px; right: 22px; display: flex; gap: 5px; align-items: center; padding: 4px; background: color-mix(in srgb, var(--bg) 82%, transparent); color: var(--dim); font-size: 10px; }
   #zoom button { background: color-mix(in srgb, var(--bg) 82%, transparent); border: 1px solid var(--line); color: var(--dim); font: inherit; padding: 1px 6px; cursor: pointer; }
+  #zoom button.on { color:var(--hi); border-color:var(--hi); }
+  #magnifier { position:absolute; z-index:8; width:240px; height:240px; transform:translate(-50%,-50%); touch-action:none; cursor:move; }
+  #magnifier[hidden], #lenshint[hidden] { display:none; }
+  #lensglass { width:100%; height:100%; border:2px solid #fffaf0; border-radius:50%; box-shadow:0 5px 20px #0006; background:#ddd7c5; }
+  #lensclose { position:absolute; right:22px; top:3px; border:1px solid var(--line); border-radius:50%; background:var(--bg); color:var(--hi); cursor:pointer; width:22px; height:22px; }
+  #lenslabel { position:absolute; top:100%; left:50%; transform:translateX(-50%); width:max-content; max-width:260px; text-align:center; font-size:10px; padding:4px 6px; background:var(--bg); color:var(--fg); pointer-events:none; }
+  #lenshint { position:absolute; top:54px; right:22px; padding:5px; background:var(--bg); color:var(--fg); font-size:10px; pointer-events:none; z-index:9; }
+  @media(max-width:600px) { #magnifier { width:180px; height:180px; } }
   #zoom button:hover { color: var(--hi); }
   #zoom .divider { width: 1px; height: 12px; margin: 0 2px; background: var(--line); }
   #xraypanel { position: absolute; bottom: 22px; left: 22px; max-width: calc(100% - 44px); padding: 4px; background: color-mix(in srgb, var(--bg) 82%, transparent); color: var(--dim); font-size: 10px; }
@@ -119,7 +127,7 @@
 </style>
 </head>
 <body>
-<main><canvas id="world"></canvas><div id="zoom"><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit" title="recenter: whole world, original framing (0)">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
+<main><canvas id="world"></canvas><div id="zoom"><button id="lensbtn" title="Place magnifier (l)" aria-label="Magnifier" aria-pressed="false">🔍</button><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit" title="recenter: whole world, original framing (0)">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="lenshint" role="status" hidden>click to place the magnifier · esc to cancel</div><div id="magnifier" hidden><canvas id="lensglass"></canvas><button id="lensclose" aria-label="Close magnifier">×</button><div id="lenslabel"></div></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
 <aside>
   <div><div id="head"><h1>The Terrarium</h1><nav id="tools"><a id="wikilink" href="/reports.html?section=wiki" title="the world's wiki: guides, concepts, species and history">wiki</a><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="theme" title="theme: auto, light, dark">auto</button></nav></div><div class="dim" id="clock">connecting…</div><div id="weatherwrap"><div id="weather" tabindex="0" aria-controls="climatebox" aria-expanded="false">Waiting for the weather.</div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div></div><div id="god"></div></div>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart" aria-describedby="ecotip"></canvas></section>
@@ -233,7 +241,7 @@ function visibleTiles(left, top, right, bottom, margin = 0) {
     if(ox < right+margin && ox+meta.W > left-margin && oy < bottom+margin && oy+meta.H > top-margin)tiles.push({ox,oy});
   return tiles;
 }
-function cameraCursor() { canvas.style.cursor = gesture?.drag ? 'grabbing' : 'grab'; }
+function cameraCursor() { canvas.style.cursor = lensArmed ? 'crosshair' : gesture?.drag ? 'grabbing' : 'grab'; }
 function resizeWorld() { const r = canvas.getBoundingClientRect(), d = devicePixelRatio || 1, w = Math.max(1, Math.round((r.width - 2 * canvas.clientLeft) * d)), h = Math.max(1, Math.round((r.height - 2 * canvas.clientTop) * d)); if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; } }
 new ResizeObserver(resizeWorld).observe(canvas);
 window.addEventListener('resize', resizeWorld);
@@ -251,6 +259,7 @@ canvas.addEventListener('dblclick', e => { e.preventDefault(); zoomTo(target.z *
 function pinchInfo() { const [a, b] = [...pointers.values()]; return { distance: Math.hypot(a.x - b.x, a.y - b.y), q: canvasPoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }) }; }
 canvas.addEventListener('pointerdown', e => {
   hideTip();
+  if(lensArmed&&meta&&e.button===0){placeLens(worldPoint(canvasPoint(e)));return;}
   if (!meta || e.button !== 0 || pointers.size >= 2) return;
   canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 2) { const p = pinchInfo(); following = null; gesture = { pinch: true, drag: true, distance: Math.max(1, p.distance), z: camera.z, at: worldPoint(p.q) }; }
@@ -281,14 +290,85 @@ for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.
 $('zoomin').onclick = () => zoomTo(target.z * 1.5); $('zoomout').onclick = () => zoomTo(target.z / 1.5); $('zoomfit').onclick = fitWorld;
 window.addEventListener('keydown', e => {
   if (e.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
-  if (e.key === 'Escape') { following = null; anchor = null; }
+  if (e.key === 'Escape') { closeLens(); following = null; anchor = null; }
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomTo(target.z * 1.5); }
   else if (e.key === '-') { e.preventDefault(); zoomTo(target.z / 1.5); }
+  else if (e.key.toLowerCase() === 'l') { e.preventDefault();toggleLens(); }
   else if (e.key.toLowerCase() === 'x') { e.preventDefault();setXray(!showXray); }
   else if(mockTrees&&!showXray&&/^[1-6]$/.test(e.key)){e.preventDefault();treeScene=+e.key;treeMockDirty=true;applyTreeMock();}
   else if (showXray && /^[1-4]$/.test(e.key)) { e.preventDefault();setXray(true,xrayViews[+e.key-1]); }
   else if (e.key === '0') { e.preventDefault(); fitWorld(); }
 });
+// The magnifier owns only a disposable 30-unit crop, never a whole-map detail image.
+let lensArmed=false,lensPoint=null,lensFollowing=null,lensBitmap=null,lensId=0,lensDrag=null,lensDirty=false,lensJobMs=0,lensBitmapRect=null,lensInputWarning='';
+const lensBox=$('magnifier'),lensCanvas=$('lensglass'),lensG=lensCanvas.getContext('2d');
+const lensIgnored=new URLSearchParams(location.search).get('mock')?.split(',').includes('creatures');
+function lensRect(p){return {x:p.x-15,y:p.y-15,w:30,h:30};}
+function lensNeedsPaint(){const r=lensBitmapRect;return !r||Math.abs(wrappedDelta(r.x+r.w/2,lensPoint.x,meta.W))>=r.w/2-35||Math.abs(wrappedDelta(r.y+r.h/2,lensPoint.y,meta.H))>=r.h/2-35;}
+function closeLens(){lensArmed=false;lensPoint=null;lensFollowing=null;lensDrag=null;lensDirty=false;lensId++;lensBitmap?.close();lensBitmap=null;lensBitmapRect=null;delete worldPending.lens;lensBox.hidden=true;$('lenshint').hidden=true;$('lensbtn').classList.remove('on');$('lensbtn').setAttribute('aria-pressed','false');cameraCursor();}
+function toggleLens(){if(showXray||lensIgnored)return;if(lensPoint||lensArmed){closeLens();return;}lensArmed=true;$('lenshint').hidden=false;$('lensbtn').classList.add('on');$('lensbtn').setAttribute('aria-pressed','true');cameraCursor();}
+function placeLens(p){lensBitmap?.close();lensBitmap=null;lensBitmapRect=null;const hit=creatureAt(p);lensFollowing=hit&&cur?.has(hit.id)?hit.id:null;const point=lensFollowing!==null?hit:p;lensPoint={x:wrap(point.x,meta.W),y:wrap(point.y,meta.H)};lensArmed=false;$('lenshint').hidden=true;cameraCursor();requestLens(true);}
+function requestLens(force=false){if(!lensPoint||lensDrag||showXray||lensIgnored)return;lensDirty=true;if(force)lensId++;if(worldPending.lens)return;worldPending.lens=true;pumpWorld();}
+$('lensbtn').onclick=toggleLens;$('lensclose').onclick=closeLens;
+lensBox.addEventListener('pointerdown',e=>{if(e.target===$('lensclose')||e.button!==0)return;e.preventDefault();lensFollowing=null;lensDrag={id:e.pointerId,at:worldPoint(canvasPoint(e)),point:{...lensPoint}};lensBox.setPointerCapture(e.pointerId);});
+lensBox.addEventListener('pointermove',e=>{if(!lensDrag||lensDrag.id!==e.pointerId)return;const p=worldPoint(canvasPoint(e));lensPoint={x:wrap(lensDrag.point.x+p.x-lensDrag.at.x,meta.W),y:wrap(lensDrag.point.y+p.y-lensDrag.at.y,meta.H)};});
+function releaseLens(e){if(!lensDrag||lensDrag.id!==e.pointerId)return;lensDrag=null;if(lensBox.hasPointerCapture(e.pointerId))lensBox.releasePointerCapture(e.pointerId);if(lensNeedsPaint())requestLens();}
+for(const type of ['pointerup','pointercancel','lostpointercapture'])lensBox.addEventListener(type,releaseLens);
+function lensCrop(d){
+ const r={x:lensPoint.x-60,y:lensPoint.y-60,w:120,h:120},cx=Math.floor(r.x/meta.CELL)-1,cy=Math.floor(r.y/meta.CELL)-1,cw=Math.ceil((r.x+r.w)/meta.CELL)-cx+1,ch=Math.ceil((r.y+r.h)/meta.CELL)-cy+1;
+ const keys=['elev','elev2','elev3','geo','terrain','water','snow','hedge','alluv','scorch','rock','bloom','burning','food','canopy','kind','leaf','insectDensity'],missing=keys.filter(k=>!worldInputs[k]);
+ const required=['terrain','water','snow',worldInputs.elev3?'elev3':worldInputs.elev2?'elev2':'elev'];
+ const invalid=keys.filter(k=>worldInputs[k]&&worldInputs[k].length!==meta.GW*meta.GH*(k==='terrain'?3:1));
+ const warning=[missing.length?'missing: '+missing.join(','):'',invalid.length?'invalid: '+invalid.join(','):''].filter(Boolean).join('; ');
+ if(warning!==lensInputWarning){lensInputWarning=warning;if(missing.length||invalid.length)console.warn('Magnifier inputs: missing',missing,'invalid',invalid,'height alternatives and absent optional ecology are allowed');}
+ if(required.some(k=>!worldInputs[k])||invalid.length)return false;
+ d.rect=r;d.lensId=lensId;d.pixels=Math.min(480,Math.max(1,Math.round(r.w*4*(devicePixelRatio||1))));d.crop={cx,cy,cw,ch};d.missingInputs=missing;
+ for(const key of keys){
+  const src=worldInputs[key];if(!src)continue;
+  const stride=key==='terrain'?3:1,a=new src.constructor(cw*ch*stride);
+  for(let y=0;y<ch;y++)for(let x=0;x<cw;x++){const i=wrap(cy+y,meta.GH)*meta.GW+wrap(cx+x,meta.GW);for(let j=0;j<stride;j++)a[(y*cw+x)*stride+j]=src[i*stride+j];}d[key]=a;
+ }
+ // Carry this request's trees explicitly; never depend on an earlier trees job.
+ d.crowns=treeCrowns({...worldInputs,meta}).filter(t=>Math.abs(wrappedDelta(lensPoint.x,t.x,meta.W))<r.w/2+t.r*1.8&&Math.abs(wrappedDelta(lensPoint.y,t.y,meta.H))<r.h/2+t.r*1.8);
+ lensDirty=false;return d;
+}
+function paintLensBodies(pg,bodies,rect,side){
+ const point={x:rect.x+rect.w/2,y:rect.y+rect.h/2},scale=side/rect.w,delta=(x,y)=>({x:wrappedDelta(point.x,x,meta.W),y:wrappedDelta(point.y,y,meta.H)});
+ for(const b of bodies){const q=delta(b.x,b.y);if(Math.abs(q.x)>rect.w/2+b.size||Math.abs(q.y)>rect.h/2+b.size)continue;const c=cur?.get(b.id),sp=c&&species[c.s];if(!sp)continue;const look=creatureSprites.get(sp.name),energy=c.e<.325?0:c.e<.7?1:2,stage=lifeStage(c);
+  pg.save();pg.translate(side/2+q.x*scale,side/2+q.y*scale);pg.rotate(b.a);
+  if(look&&!sp.unique){const sprite=look.variants[stage==='adult'?(c.b&1?0:c.b&32?8:energy*3+1):(stage==='juvenile'?9:12)+energy],k=creatureScale(sprite,c.z)*scale;pg.scale(k,k*(1+.35*((c.f??look.fat)-look.fat)));stampCreature(pg,sprite);}
+  else{pg.scale(b.size*scale/2,b.size*scale/2);pg.fillStyle=`hsl(${sp.hue} 60% 55%)`;body(pg,sp.shape,1);}pg.restore();
+ }
+ for(const [list,egg] of [[corpses,false],[eggs,true]])for(let i=0;i<list.length;i+=4){const q=delta(list[i],list[i+1]);if(Math.abs(q.x)>15||Math.abs(q.y)>15)continue;pg.fillStyle=egg?'#f1d49a':'#968c7a';pg.beginPath();pg.ellipse(side/2+q.x*scale,side/2+q.y*scale,egg?3:4,egg?4:2,.4,0,Math.PI*2);pg.fill();}
+ pg.fillStyle='#463d29';for(const h of insectHomes){const q=delta(h.px??h.x,h.py??h.y);if(Math.abs(q.x)<15&&Math.abs(q.y)<15)pg.fillRect(side/2+q.x*scale,side/2+q.y*scale,1,1);}
+}
+function updateLensFollow(bodies){
+ if(!lensPoint||lensFollowing===null)return;
+ const b=bodies.find(b=>b.id===lensFollowing);
+ if(!b||!cur?.has(lensFollowing)){lensFollowing=null;return;}
+ lensPoint={x:b.x,y:b.y};
+}
+// Clamp exposed areas to the bitmap's nearest edge, including its corners.
+function drawLensBitmap(pg,bitmap,x,y,w,h,side,ratio){
+ const snap=v=>Math.round(v*ratio)/ratio,left=snap(x),top=snap(y),right=snap(x+w),bottom=snap(y+h);
+ const cols=[[0,1,0,Math.max(0,left)],[0,bitmap.width,left,right-left],[bitmap.width-1,1,right,Math.max(0,side-right)]];
+ const rows=[[0,1,0,Math.max(0,top)],[0,bitmap.height,top,bottom-top],[bitmap.height-1,1,bottom,Math.max(0,side-bottom)]];
+ pg.imageSmoothingEnabled=false;
+ for(const [sy,sh,dy,dh] of rows)for(const [sx,sw,dx,dw] of cols)if(dw>0&&dh>0)pg.drawImage(bitmap,sx,sy,sw,sh,dx,dy,dw,dh);
+}
+function drawLens(bodies){
+ if(!lensPoint||showXray||lensIgnored)return;
+ updateLensFollow(bodies);
+ if(lensNeedsPaint())requestLens();
+ const r=canvas.getBoundingClientRect(),x=.5+(wrappedDelta(camera.cx,lensPoint.x,meta.W)+viewShakeX)*camera.z/meta.W,y=.5+(wrappedDelta(camera.cy,lensPoint.y,meta.H)+viewShakeY)*camera.z/meta.H;
+ lensBox.hidden=x<0||x>1||y<0||y>1;if(lensBox.hidden)return;
+ const parent=lensBox.offsetParent.getBoundingClientRect();lensBox.style.left=(r.left-parent.left+canvas.clientLeft+x*(r.width-2*canvas.clientLeft))+'px';lensBox.style.top=(r.top-parent.top+canvas.clientTop+y*(r.height-2*canvas.clientTop))+'px';
+ const side=lensBox.clientWidth,pixels=Math.round(side*Math.min(2,devicePixelRatio||1));if(lensCanvas.width!==pixels){lensCanvas.width=lensCanvas.height=pixels;}
+ lensG.setTransform(pixels/side,0,0,pixels/side,0,0);lensG.clearRect(0,0,side,side);lensG.save();lensG.beginPath();lensG.arc(side/2,side/2,side/2,0,Math.PI*2);lensG.clip();
+ if(lensBitmap){const rect=lensBitmapRect??lensRect(lensPoint),scale=side/30,dx=wrappedDelta(lensPoint.x,rect.x+rect.w/2,meta.W),dy=wrappedDelta(lensPoint.y,rect.y+rect.h/2,meta.H);drawLensBitmap(lensG,lensBitmap,side/2+(dx-rect.w/2)*scale,side/2+(dy-rect.h/2)*scale,rect.w*scale,rect.h*scale,side,pixels/side);}else{lensG.fillStyle='#ded8c7';lensG.fillRect(0,0,side,side);lensG.fillStyle='#514b3e';lensG.font='11px monospace';lensG.textAlign='center';lensG.fillText(lensDrag?'release to paint':'loading…',side/2,side/2);}
+ paintLensBodies(lensG,bodies,lensRect(lensPoint),side);
+ lensG.restore();const i=cellOf(lensPoint.x,lensPoint.y);$('lenslabel').textContent=lensFollowing!==null?species[cur.get(lensFollowing).s].name+' · following · click × to stop':placeOf(lensPoint.x,lensPoint.y)+' · height '+(worldInputs.elev3||worldInputs.elev2||worldInputs.elev?heightAt(i).toFixed(2):'…')+' · '+(['hard rock','soft rock','limestone','sediment','hard basement'][worldInputs.geo?.[i]]??'rock');
+}
 const portraits = new Map();
 // Each species' own look, fixed by its name: a shade (saturation, lightness) and a pale marking, so species of the
 // same diet colour (all the green plant-eaters) still look different. Unique giants keep their plain look.
@@ -939,11 +1019,82 @@ function paintTrees(d){
  g.putImageData(im,0,0);return c.transferToImageBitmap();
 }
 
+// Flat paper crop: continuous world fields, with true-height cuts every 0.05.
+function paintLens(d){
+ const {rect:r,crop:c}=d,N=d.pixels,gc=new OffscreenCanvas(N,N),pg=gc.getContext('2d'),im=pg.createImageData(N,N),out=im.data,scale=N/r.w;
+ const wrap=(v,n)=>(v%n+n)%n,delta=(a,b,n)=>wrap(b-a+n/2,n)-n/2;
+ const cell=(x,y)=>Math.max(0,Math.min(c.ch-1,Math.floor(y/CELL)-c.cy))*c.cw+Math.max(0,Math.min(c.cw-1,Math.floor(x/CELL)-c.cx));
+ const E=d.has3?d.elev3:d.has2?d.elev2:d.elev;
+ for(const [key,a,stride] of [['height',E,1],['terrain',d.terrain,3],['water',d.water,1],['snow',d.snow,1]])if(!a||a.length!==c.cw*c.ch*stride)throw Error('Magnifier missing/invalid '+key);
+ // Decode each neighbour BEFORE interpolation, including the ice bit separately.
+ const depthField=Float64Array.from(d.water,(_,i)=>waterDepth(d.water,i,d.wScale)),iceField=Uint8Array.from(d.water,v=>v>=128?1:0);
+ const rockFields=[0,1,2].map(j=>Float64Array.from(d.geo??new Uint8Array(c.cw*c.ch),v=>(rocks[v]??rocks[0])[j]));
+ const sampleLocal=(a,x,y,stride=1,channel=0)=>{
+  if(!a)return 0;
+  const u=x/CELL-.5-c.cx,v=y/CELL-.5-c.cy,ix=Math.floor(u),iy=Math.floor(v),fx=u-ix,fy=v-iy,x0=Math.max(0,Math.min(c.cw-1,ix))*stride+channel,x1=Math.max(0,Math.min(c.cw-1,ix+1))*stride+channel,y0=Math.max(0,Math.min(c.ch-1,iy))*c.cw*stride,y1=Math.max(0,Math.min(c.ch-1,iy+1))*c.cw*stride;
+  return (a[y0+x0]*(1-fx)+a[y0+x1]*fx)*(1-fy)+(a[y1+x0]*(1-fx)+a[y1+x1]*fx)*fy;
+ };
+ const range=d.has3?d.elev3Range:d.has2?[-1,1.5]:[0,1],height=(x,y)=>sampleLocal(E,x,y)/255*(range[1]-range[0])+range[0],threshold=d.swimDepth??.073,open=.6*threshold;
+ const levels=new Int16Array(N*N),wet=new Uint8Array(N*N),snowy=new Uint8Array(N*N);
+ let minHeight=Infinity,maxHeight=-Infinity,minDepth=Infinity,maxDepth=0,wetPixels=0,cuts=0;
+ for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+  const wx=r.x+(x+.5)/scale,wy=r.y+(y+.5)/scale,i=y*N+x,h=height(wx,wy),k=Math.floor((h+1e-8)/.05),plant=Math.min(2,Math.floor(sampleLocal(d.terrain,wx,wy,3)/86)),depth=sampleLocal(depthField,wx,wy),ice=sampleLocal(iceField,wx,wy)>.5,snow=sampleLocal(d.snow,wx,wy)/255,mud=sampleLocal(d.alluv,wx,wy)/255,char=sampleLocal(d.scorch,wx,wy);
+  levels[i]=k;wet[i]=depth>=open;snowy[i]=snow>.15;
+  minHeight=Math.min(minHeight,h);maxHeight=Math.max(maxHeight,h);minDepth=Math.min(minDepth,depth);maxDepth=Math.max(maxDepth,depth);wetPixels+=wet[i];
+  const band=Math.max(0,Math.min(6,Math.floor(Math.max(0,h)*7))),pale=[0,.12,.27,.48,.70,.87,.97][band],base=h>=1?highRamp[Math.min(5,Math.floor((h-1)/.15))]:h<0?[118,104,84]:ramp[band],earthCol=earth[1][[0,2,3][plant]],w=.35*(1-plant/3)*(1-.6*pale);
+  // Geology is categorical: interpolate colour weights, never numeric rock IDs.
+  const rockCol=rockFields.map(a=>sampleLocal(a,wx,wy));
+  let col=earthCol.map((v,j)=>(v*(1-pale)+base[j]*pale)*(1-w)+rockCol[j]*w);
+  if(mud>.08){const t=Math.min(.45,mud*.6);col=col.map((v,j)=>v*(1-t)+[70,92,50][j]*t);}
+  if(char>.15)col=[58,52,46];
+  if(depth>=.012&&depth<.03)col=col.map((v,j)=>v*.86+[0,1,4][j]);
+  else if(depth>=.03&&depth<open)col=col.map((v,j)=>v*.45+[132,186,194][j]*.55);
+  else if(depth>=open)col=depth>=2*threshold?[44,88,128]:depth>=threshold?[62,112,150]:[132,186,194];
+  if(depth>=.012&&ice)col=[211,231,233];
+  if(depth<open&&snow>.03){const t=Math.min(1,(snow-.03)/.3);col=col.map((v,j)=>v*(1-t)+[242,246,249][j]*t);}
+  const o=i*4;for(let j=0;j<3;j++)out[o+j]=col[j];out[o+3]=255;
+ }
+ // One raster pixel becomes two crisp lens pixels at the full 4 px/unit resolution.
+ const near=(a,x,y)=>a[Math.max(0,Math.min(N-1,y))*N+Math.max(0,Math.min(N-1,x))],lip=1,rim=1,shadow=1;
+ // Keep the outer pixel ring uncut: it is also the colour extended while following.
+ for(let y=1;y<N-1;y++)for(let x=1;x<N-1;x++){
+  const i=y*N+x,o=i*4,k=levels[i];let col=null;
+  if(wet[i]){if(!near(wet,x-lip,y)||!near(wet,x+lip,y)||!near(wet,x,y-lip)||!near(wet,x,y+lip))col=[248,250,245];}
+  else if(near(levels,x+lip,y)<k||near(levels,x,y+lip)<k)col=snowy[i]?[129,150,168]:[69,64,47];
+  else if(near(levels,x-rim,y)<k||near(levels,x,y-rim)<k)col=snowy[i]?[255,255,255]:[227,224,186];
+  else if(near(levels,x-shadow,y-shadow)>k)col=snowy[i]?[129,150,168]:[69,64,47];
+  if(col){cuts++;for(let j=0;j<3;j++)out[o+j]=col[j];}
+ }
+ d.stats={height:[minHeight,maxHeight],depth:[minDepth,maxDepth],centerHeight:height(r.x+r.w/2,r.y+r.h/2),centerDepth:sampleLocal(depthField,r.x+r.w/2,r.y+r.h/2),waterEncoding:d.wScale,terraceLevels:[Math.floor(minHeight/.05),Math.floor(maxHeight/.05)],cuts,wetPixels,missingInputs:d.missingInputs};
+ pg.putImageData(im,0,0);pg.scale(scale,scale);pg.translate(-r.x,-r.y);
+ const blob=(x,y,rx,ry,color)=>{pg.fillStyle=color;pg.beginPath();pg.ellipse(x,y,rx,ry,0,0,Math.PI*2);pg.fill();};
+ // Only rect-intersecting cell centres; all paths are clipped by the crop canvas.
+ for(let cy=c.cy;cy<c.cy+c.ch;cy++)for(let cx=c.cx;cx<c.cx+c.cw;cx++){
+  const x=(cx+.5)*CELL,y=(cy+.5)*CELL,ci=(cy-c.cy)*c.cw+cx-c.cx;if(x<r.x||x>=r.x+r.w||y<r.y||y>=r.y+r.h)continue;
+  const hedge=sampleLocal(d.hedge,x,y)/255;
+  if(hedge>.25){blob(x,y,2,1.6,'#294f31');blob(x-.3,y-.4,1.7,1.1,'#527345');}
+  if(d.rock?.[ci]>153){blob(x,y,1.6,1.3,'#b6a38b');blob(x-.2,y-.3,1.3,.9,'#dac4a3');}
+  if(d.bloom?.[ci]>0&&!wet[Math.min(N*N-1,Math.floor((y-r.y)*scale)*N+Math.floor((x-r.x)*scale))]){
+   const palette=['#f0e8c8','#eecc54','#c4aae0','#ec8c78'];for(let j=0;j<Math.min(4,Math.ceil(d.bloom[ci]/64));j++){pg.fillStyle=palette[(cx+cy+j+4000)%4];pg.fillRect(x-1+j*.65,y+(j%2)*.4,2/8,2/8);}
+  }
+ }
+ const crowns=[];for(const t of d.crowns??[]){const x=r.x+r.w/2+delta(r.x+r.w/2,t.x,W),y=r.y+r.h/2+delta(r.y+r.h/2,t.y,H);if(x+t.r*1.8<r.x||x-t.r*1.8>r.x+r.w||y+t.r*1.8<r.y||y-t.r*1.8>r.y+r.h)continue;crowns.push({...t,x,y});}crowns.sort((a,b)=>a.y-b.y);
+ for(const t of crowns){
+  const ci=cell(t.x,t.y),shape=(ox,oy)=>{pg.beginPath();if(t.k===3){for(let tier=0;tier<3;tier++){const top=t.y-t.r*1.6+tier*t.r*.65;pg.moveTo(t.x+ox,top+oy);pg.lineTo(t.x+t.r*(.65+tier*.12)+ox,top+t.r*1.25+oy);pg.lineTo(t.x-t.r*(.65+tier*.12)+ox,top+t.r*1.25+oy);pg.closePath();}}else if(t.k===2)pg.ellipse(t.x+ox,t.y+oy,t.r*1.3,t.r,0,0,Math.PI*2);else{for(let n=0;n<=40;n++){const a=n/40*Math.PI*2,rr=t.r*(.91+.09*Math.cos(a*6+t.seed*6.28));const x=t.x+ox+Math.cos(a)*rr,y=t.y+oy+Math.sin(a)*rr;n?pg.lineTo(x,y):pg.moveTo(x,y);}pg.closePath();}};
+  shape(.25,.25);pg.fillStyle='#4b4938';pg.fill();pg.fillStyle='#69513a';pg.fillRect(t.x-.1,t.y,.2,t.r+1);
+  const char=(d.scorch?.[ci]??0)>.15&&t.a<.5;shape(0,0);pg.fillStyle=char?'#393b33':['','#568a42','#768848','#2a5242'][t.k];pg.fill();pg.save();shape(0,0);pg.clip();shape(-.25,-.3);pg.strokeStyle=char?'#606051':['','#86b260','#a0ac68','#4e7a62'][t.k];pg.lineWidth=.35;pg.stroke();pg.restore();
+  const bit=1<<(t.k-1);if((d.food?.[ci]??0)&bit)for(let j=0;j<3;j++)blob(t.x+(j-1)*t.r*.45,t.y+(j%2)*.35,.125,.125,t.k===1?'#df6850':t.k===2?'#a07843':'#85603a');
+  if(t.k===1&&d.bloom?.[ci]>30)for(let j=0;j<4;j++)blob(t.x+Math.cos(j*2.4)*t.r*.6,t.y+Math.sin(j*2.4)*t.r*.6,.125,.125,'#f5c6d5');
+  if(d.burning?.[ci])for(let j=-1;j<=1;j++){pg.fillStyle=j?'#f28a34':'#cf4226';pg.beginPath();pg.moveTo(t.x+j*.6-.45,t.y+.7);pg.lineTo(t.x+j*.6+.1,t.y-t.r);pg.lineTo(t.x+j*.6+.5,t.y+.7);pg.fill();}
+ }
+ return gc.transferToImageBitmap();
+}
+
 onmessage=({data:d})=>{try{
  ({W,H,CELL,GW,GH}=d.meta);FW=Math.ceil(W/2);FH=Math.ceil(H/2);
- const start=performance.now();let bitmap=null,stats=null;if(d.layer==='xray')({bitmap,stats}=paintXray(d));else if(d.layer==='land')paintLand(d);else if(d.layer==='detail')bitmap=paintDetail(d.rect);else if(d.layer==='ground')bitmap=paintGround(d);else if(d.layer==='trees')bitmap=paintTrees(d);else bitmap=paintCoral(d.rock);
- postMessage({layer:d.layer,bitmap,stats,rect:d.rect,detailId:d.detailId,view:d.view,revision:d.revision,paintMs:performance.now()-start},bitmap?[bitmap]:[]);
- }catch(error){postMessage({layer:d.layer,detailId:d.detailId,error:String(error)});}
+ const start=performance.now();let bitmap=null,stats=null;if(d.layer==='lens'){bitmap=paintLens(d);stats=d.stats;}else if(d.layer==='xray')({bitmap,stats}=paintXray(d));else if(d.layer==='land')paintLand(d);else if(d.layer==='detail')bitmap=paintDetail(d.rect);else if(d.layer==='ground')bitmap=paintGround(d);else if(d.layer==='trees')bitmap=paintTrees(d);else bitmap=paintCoral(d.rock);
+ postMessage({layer:d.layer,bitmap,stats,lensId:d.lensId,rect:d.rect,detailId:d.detailId,view:d.view,revision:d.revision,paintMs:performance.now()-start},bitmap?[bitmap]:[]);
+ }catch(error){postMessage({layer:d.layer,lensId:d.lensId,detailId:d.detailId,error:String(error)});}
 };
 }
 // Keep one active job and just the newest request for each layer.
@@ -1056,14 +1207,15 @@ function drawDetail(view,ox,oy){
 }
 function pumpWorld(){
  clearTimeout(worldTimer);if(worldBusy||!meta||!worldWorker)return;
- const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000,trees:4000,xray:2000,detail:0};let wait=Infinity;
- for(const layer of ['xray','land','ground','coral','trees','detail']){
+ const now=performance.now(),ready=worldInputs.terrain,delays={land:0,ground:3000,coral:5000,trees:4000,xray:2000,detail:0,lens:1000};let wait=Infinity;
+ for(const layer of ['lens','xray','land','ground','coral','trees','detail']){
+  if(layer==='lens'&&(!lensPoint||lensDrag||showXray||lensIgnored))continue;
   if(layer==='detail'&&(!detailRequest||camera.z<2.5||showXray))continue;
   if(!worldPending[layer]||showXray&&(layer==='ground'||layer==='coral'||layer==='trees')||layer==='ground'&&!ready||layer==='xray'&&(!showXray||!worldInputs.elev&&!worldInputs.elev2&&!worldInputs.elev3))continue;
-  const left=(worldLast[layer]??-Infinity)+delays[layer]-now;if(left>0){wait=Math.min(wait,left);continue;}
+  const left=(worldLast[layer]??-Infinity)+delays[layer]-now;if(left>0){wait=Math.min(wait,left);if(layer==='lens')break;continue;}
   const d={layer,swimDepth,wScale:worldInputs.wScale??1/600,meta:{W:meta.W,H:meta.H,CELL:meta.CELL,GW:meta.GW,GH:meta.GH},has2:!!worldInputs.elev2,has3:!!worldInputs.elev3,elev3Range:climateNow?.relief?.elev3Range??[-1,2.5],hasGeo:!!worldInputs.geo},transfer=[],n=meta.GW*meta.GH;
   const copy=(key)=>{const a=(worldInputs[key]??new Uint8Array(n)).slice();d[key]=a;transfer.push(a.buffer);};
-  if(layer==='detail'){d.rect={...detailRequest,revision:detailRevision};d.detailId=detailId;}else if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,d.wScale,d.swimDepth,...d.elev3Range,...['elev','elev2','elev3','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','elev3','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','elev3','geo'])copy(key);else if(layer==='coral')copy('rock');else if(layer==='trees'){d.dryness=worldInputs.dryness??0;for(const key of ['canopy','kind','leaf','food','snow','terrain','scorch','bloom'])copy(key);}else for(const key of ['terrain','water','snow','hedge','alluv','scorch','canopy','kind','bloom'])copy(key);
+  if(layer==='lens'){if(!lensCrop(d))continue;for(const value of Object.values(d))if(ArrayBuffer.isView(value))transfer.push(value.buffer);}else if(layer==='detail'){d.rect={...detailRequest,revision:detailRevision};d.detailId=detailId;}else if(layer==='xray'){d.view=xrayView;d.revision=xrayRevision;d.cacheKey=[meta.W,meta.H,meta.CELL,meta.GW,meta.GH,d.wScale,d.swimDepth,...d.elev3Range,...['elev','elev2','elev3','geo','alluv','water','snow','need','carve'].map(k=>worldVersions[k]??0)].join(':');d.hasNeed=!!worldInputs.need;d.hasCarve=!!worldInputs.carve;d.climate={rows:climateNow?.rows,frost:climateNow?.frost};d.quakes=climateNow?.relief?.quakes;d.faults=climateNow?.relief?.faults;for(const key of ['elev','elev2','elev3','geo','alluv','water','snow','need','carve'])copy(key);}else if(layer==='land')for(const key of ['elev','elev2','elev3','geo'])copy(key);else if(layer==='coral')copy('rock');else if(layer==='trees'){d.dryness=worldInputs.dryness??0;for(const key of ['canopy','kind','leaf','food','snow','terrain','scorch','bloom'])copy(key);}else for(const key of ['terrain','water','snow','hedge','alluv','scorch','canopy','kind','bloom'])copy(key);
   delete worldPending[layer];worldBusy=true;worldLast[layer]=now;worldWorker.postMessage(d,transfer);return;
  }
  if(wait<Infinity)worldTimer=setTimeout(pumpWorld,wait);
@@ -1073,7 +1225,9 @@ if(typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined')try{
  worldWorker.onmessage=({data:d})=>{
   worldBusy=false;
   if(d.bitmap){
-   if(d.layer==='xray'){
+   if(d.layer==='lens'){
+    if(lensPoint&&d.lensId===lensId&&!showXray&&!lensDrag){lensBitmap?.close();lensBitmap=d.bitmap;lensBitmapRect=d.rect;lensJobMs=d.paintMs;console.info('Magnifier lens '+d.rect.w+'×'+d.rect.h+' units',d.paintMs.toFixed(1)+' ms',d.bitmap.width+'×'+d.bitmap.height,d.stats);}else d.bitmap.close();
+   }else if(d.layer==='xray'){
     if(showXray&&d.view===xrayView){xrayBitmap?.close();xrayBitmap=d.bitmap;xrayStats=d.stats;xrayPaintedRevision=d.revision;updateXray();}else d.bitmap.close();
    }else if(d.layer==='detail'){
     if(d.detailId===detailId&&camera.z>=2.5&&!showXray){
@@ -1086,6 +1240,8 @@ if(typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined')try{
   }
   if(d.layer==='detail'&&d.detailId===detailId)detailRequest=null;
   if(d.layer==='ground'||d.layer==='land')detailRevision++;
+  if(d.layer==='ground'&&lensPoint){lensDirty=true;worldPending.lens=true;}
+  if(d.layer==='lens'&&lensDirty&&lensPoint)worldPending.lens=true;
   if(d.error)console.error('World painter:',d.error);
   pumpWorld();
  };
@@ -1093,6 +1249,7 @@ if(typeof Worker!=='undefined'&&typeof OffscreenCanvas!=='undefined')try{
 }catch(error){console.error('World painter:',error);}
 
 function updateXray(){
+ $('lensbtn').hidden=showXray||lensIgnored;
  $('xraybtn').classList.toggle('on',showXray);$('xraybtn').setAttribute('aria-pressed',showXray);$('xraypanel').hidden=!showXray;
  for(const b of $('xraychips').children){b.classList.toggle('on',b.dataset.view===xrayView);b.setAttribute('aria-pressed',b.dataset.view===xrayView);}
  const sw=(c,t)=>`<i style="background:${c}"></i>${t}`;
@@ -1109,6 +1266,7 @@ function syncXray(){
  worldPending.xray=true;pumpWorld();updateXray();
 }
 function setXray(on,view=xrayView){
+ if(on)closeLens();
  const changed=view!==xrayView||on!==showXray;showXray=on;xrayView=view;
  try { localStorage.setItem('xray',on?'1':'0');localStorage.setItem('xrayView',view); } catch {}
  if(changed){xrayRevision++;worldLast.xray=-Infinity;hideTip();}
@@ -1145,7 +1303,7 @@ let waterNow = null, riverGauge = '';
 on('water', ({ w, w2, w2Enc, snow, aqua, lichen }) => {
   const A8 = aqua ? Uint8Array.from(atob(aqua), ch => ch.charCodeAt(0)) : null, L8 = lichen ? Uint8Array.from(atob(lichen), ch => ch.charCodeAt(0)) : null;
   if (!meta) return;
-  const encoded=w2??w, scale=w2!=null&&w2Enc==='sqrt1.5'?'sqrt1.5':1/600;
+  const hasW2=w2!=null&&w2Enc==='sqrt1.5',encoded=hasW2?w2:w,scale=hasW2?'sqrt1.5':1/600;
   const W8 = typeof encoded==='string'?Uint8Array.from(atob(encoded),ch=>ch.charCodeAt(0)):Uint8Array.from(encoded), S8 = Uint8Array.from(atob(snow), ch => ch.charCodeAt(0));
   worldInput('wScale', scale, scale);worldInput('water', JSON.stringify([encoded,scale]), W8);worldInput('snow', snow, S8);updatePlaces();
   waterCanvas.width = meta.GW; waterCanvas.height = meta.GH;
@@ -2046,6 +2204,7 @@ function draw() {
   g.setTransform(canvas.width/meta.W,0,0,canvas.height/meta.H,0,0);
   g.fillStyle=`rgba(70,110,160,${Math.max(0,rain-.5)*.06})`;g.fillRect(0,0,meta.W,meta.H);
   drawAir(g,now);
+  drawLens(bodies);
 
 
 
