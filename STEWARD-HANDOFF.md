@@ -61,6 +61,7 @@ Before a go-live, run `node tools/smoke.mjs`, which must print `errors 0`. After
   - `bigriver` (s1863);
   - **`insects` (s1942, step 3b:** flowers, insects, decomposers on carcasses, snap, insectivore).
 - **Release calendar** (also in `STEWARD.md`, OPEN THREADS item 0):
+  0. **Done since writing:** room by niche live s1951; commit 376447f. A Codex CLI build (habitat labels, `rollout.habitat`) was started 10:20. If it is finished and untested, Codex may test it (smoke + `tools/habitat-test.mjs`); go live only if both pass.
   1. **10:15 Oct 18: room by niche** (`zsh tools/restart.sh nicheroom`): built, tested and scheduled. If it's not live yet (check `rollout.nicheroom` in the save), Codex may do it.
   2. Then **no new builds until the weekly usage resets (22:00)**. Next on the roadmap, Luis's order:
      - the step 4 proposal (bodies hold what they cost; a proposal for Luis, not a build);

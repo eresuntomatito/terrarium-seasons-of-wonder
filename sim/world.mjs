@@ -518,11 +518,17 @@ export const PHYSICS = {
   kinCode: 0.5,          // (1) code numbers count at half weight (most drift neutrally) …
   kinBody: 1,            // … the 12 body traits from the genes (scaled as in the ancestry measure) at full weight …
   kinGenes: 0.3,         // … and the 4 personal genes at this weight
+  // Home ranges and spatial footprint (homerange, Luis s2012; proposal s2008 M1).
+  homeR: 140, homeMin: 60, homeMax: 300, homeInner: 0.6, homePull: 0.25,
+  homeHunger: 0.3, homeHungryPull: 0.2, homeShift: TICKS_PER_DAY, dispersal: 3, homeTries: 8, homeOppose: 0.5,
+  grassRampCut: 0.3, grassRampSeasons: 6, grassRampFloor: 160, grassRampStarve: 0.6, // (grassramp, Luis s2013) grass alone −30% over 6 seasons; freezes below 160 bodies or > 60% of deaths by hunger
+  footprint: 0.5, mateFloor: 4, // (footprint, Luis s2012 decision 9; split from homerange s2018) contact, mating and crowding distances × footprint to match the drawn body
   homeRange: 120,        // (4) beyond this distance from its birthplace a body is pulled home …
-  homePull: 1.0,         // … harder the further it strays (up to 1.5 × this)
+  oldHomePull: 1.0,         // … harder the further it strays (up to 1.5 × this)
   niche: { apex: 0.3, hunter: 0.6, scavenger: 0.3, omnivore: 0.2, browser: 0.5, mixed: 0.2, decomposer: 0.25, parasite: 0.25, insectivore: 0.3 }, // (3) recent-diet bars for each way of life (Luis, 11:45 Oct 15) …
   nicheHold: { scavenger: 3 }, // … daily checks in a row a group must hold before splitting (default nicheDays + 1; scavengers longer: carcass feasts after a drought pass)
   nicheDays: 1,
+  habEvery: 10, habRecent: TICKS_PER_DAY, habAquatic: 0.4, habHigh: 0.6, habHeight: 0.5, // (habitat, Luis s1694 / roadmap v2)
   nicheRecent: TICKS_PER_DAY, // (3) the niche reads the RECENT diet (Luis, 10:55 Oct 15): meals fade with this time constant, so a lifetime of grazing does not hide a body that now lives on meat          // … and a local group of splitMin such bodies, held this many days, splits off      // a different mind (a hidden slip) counts this much against a pairing: like prefers like
 };
 const P = PHYSICS;
@@ -576,7 +582,8 @@ const KIN_BODY = [['size', 'log'], ['gut', 1], ['legs', 1, 1], ['wind', 1, 0.5],
 const kinBody = (a, b) => KIN_BODY.reduce((s, [k, sc, d]) => { const x = geneOf(a, k) ?? d, y = geneOf(b, k) ?? d; return s + (sc === 'log' ? Math.abs(Math.log(x / y)) : Math.abs(x - y) / sc); }, 0) / KIN_BODY.length;
 const kinGenes = (a, b) => a.genes.reduce((s, g, i) => s + Math.abs(g - (b.genes[i] ?? g)), 0) / a.genes.length;
 // The traits the selection ledger follows.
-const LEDGER = [['size', c => c.sizeGene ?? c.size], ['gut', c => c.bornGut ?? c.gut], ['litter', c => c.litter ?? 1], ['legs', c => c.legs ?? 1],
+export const LEDGER = [['size', c => c.sizeGene ?? c.size], ['gut', c => c.bornGut ?? c.gut], ['litter', c => c.litter ?? 1], ['legs', c => c.legs ?? 1],
+  ['swim', c => c.swim ?? 0], ['climb', c => c.climb ?? 0],
   ['wind', c => c.wind ?? 0.5], ['armor', c => c.armor ?? 0], ['mature', c => c.mature ?? 1], ['browse', c => c.browse ?? 0], ['eyes', c => c.eyes ?? 0.5],
   ['gape', c => c.gapeGene ?? c.gape ?? 0.5], ['resist', c => c.resist ?? 0.3], ['decomp', c => c.decomp ?? 0.03], ['parasitism', c => c.parasitism ?? 0.03], ['fright', c => c.genes?.[1] ?? 0.5], ['fat', c => c.fat ?? 0], ['toxin', c => c.toxin ?? 0]]; // (toxin added s1694, Luis: does selection pull it down now predation is low?)
 const driftAbility = (v, start) => clamp01((v ?? start) + wobble(P.abilityDrift) + leap() * 0.3);
@@ -1720,7 +1727,7 @@ export class World {
   // Flystrike: parasite beetles infest grazers that are weak AND crowded; an infestation drains its host, spreads by touch
   // through crowded weak kin, feeds the beetles on it, and clears once the host is well fed again. Small or healthy
   // herds never catch it, so it brakes a plague without ending a line.
-  crowded(c) { let n = 0; this.near(c.x, c.y, P.crowdRange, o => { if (o !== c && !o.dead && o.species === c.species) n++; }); return n >= P.crowdCount; }
+  crowded(c) { let n = 0; this.near(c.x, c.y, P.crowdRange * (this.rolled('footprint') ? P.footprint : 1), o => { if (o !== c && !o.dead && o.species === c.species) n++; }); return n >= P.crowdCount; }
   // The beetle's role follows its life: a parasite-line body that lives on plants is a grazer (and a possible host).
   // How well a hunter's jaws suit a prey: 1 at its gape (prey/self size ratio), falling off with distance, never below gapeFloor.
   gapeFit(c, o) { const r = this.bodySize(o) / this.bodySize(c); return Math.max(P.gapeFloor, Math.exp(-(((r - (c.gape ?? 0.5)) / P.gapeWidth) ** 2))); }
@@ -2312,10 +2319,10 @@ export class World {
         if (f.signal !== undefined) c.signal = r2(clamp01(f.signal));
         c.fx = f.x; c.fy = f.y;
         if (c.mind && this.registry[name].unique) { const [mx, my] = this.mindPull(c); c.fx += mx * P.mindPull; c.fy += my * P.mindPull; } // the kraken's map turns it
-        if (this.rolled('home') && !this.registry[name].unique) { // rollout 4: a home range, so local populations can form
+        if (!this.rolled('homerange') && this.rolled('home') && !this.registry[name].unique) { // rollout 4: a home range, so local populations can form
           c.home ??= { x: c.x, y: c.y };
           const hx = delta(c.x, c.home.x, W), hy = delta(c.y, c.home.y, H), away = Math.hypot(hx, hy);
-          if (away > P.homeRange) { const pull = P.homePull * Math.min(1.5, (away - P.homeRange) / P.homeRange); c.fx += hx / away * pull; c.fy += hy / away * pull; }
+          if (away > P.homeRange) { const pull = P.oldHomePull * Math.min(1.5, (away - P.homeRange) / P.homeRange); c.fx += hx / away * pull; c.fy += hy / away * pull; }
         }
         if (c.wall && this.tick < c.wall.until) { const d = c.fx * c.wall.x + c.fy * c.wall.y; if (d > 0) { c.fx -= d * c.wall.x; c.fy -= d * c.wall.y; } } // a wall it was kept back by: no pressing into it
         this.steer(c, c.fx, c.fy);
@@ -2329,6 +2336,7 @@ export class World {
     const born = [];
     for (const c of this.creatures) {
       if (c.dead) continue;
+      if (this.rolled('habitat') && (c.id + t) % P.habEvery === 0) this.rememberHabitat(c);
       const sp = this.registry[c.species], k = this.scale(c);
       if (c.dormant) { c.vx = 0; c.vy = 0; continue; } // asleep: no movement, no hunger, no ageing
       if (c.bumps > 0) c.bumps *= 0.995;
@@ -2405,6 +2413,7 @@ export class World {
       c.age += c.pulse; // age is counted in heartbeats
       if (c.digesting > 0) c.digesting--;
       if (c.cooldown > 0) c.cooldown -= c.pulse;
+      if (this.rolled('homerange') && c.homeSeen && !c.homeDispersed && this.fertile(c)) this.disperseHome(c); // maturity can arrive on this heartbeat, before breeding
       const upkeep = Math.max(0.4, 1 + P.legUpkeep * (c.legs - 1) + P.windUpkeep * (c.wind - 0.5)) * (1 + P.fatUpkeep * this.fatLoad(c))
         * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0)) * this.climateCost(c);
       if (c.aversion) { c.aversion.s *= P.aversionFade; if (c.aversion.s < 0.3) c.aversion = null; }
@@ -2512,10 +2521,44 @@ export class World {
     const m = Math.hypot(fx, fy);
     if (m > maxForce) { fx *= maxForce / m; fy *= maxForce / m; }
     if (this.fireLive) { const away = this.fireAway(c); if (away) { fx += away[0] * P.fireFlee * maxForce; fy += away[1] * P.fireFlee * maxForce; c.fled = (c.fled ?? 0) + 1; } } // flames: run
+    if (this.rolled('homerange')) {
+      const pull = this.homeForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      // Keep danger and fire steering dominant when home lies against the escape direction.
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
     c.vx += fx;
     c.vy += fy;
     const s = Math.hypot(c.vx, c.vy);
     if (s > limit) { c.vx *= limit / s; c.vy *= limit / s; }
+  }
+
+  homeRadius(c) { return Math.max(P.homeMin, Math.min(P.homeMax, P.homeR * mass(this.bodySize(c)) / mass(5))); }
+
+  disperseHome(c, R = this.homeRadius(c)) {
+    c.homeDispersed = true; c.homeFed = 0;
+    const N = this.climbNeed();
+    for (let k = 0; k < P.homeTries; k++) {
+      const a = Math.random() * Math.PI * 2, d = R * (1 + Math.random() * (P.dispersal - 1));
+      const x = wrap(c.home.x + Math.cos(a) * d, W), y = wrap(c.home.y + Math.sin(a) * d, H), i = cellAt(x, y);
+      if (N[i] < 0.5 && this.reef[i] < P.reefSolid && this.waterAt(x, y).d * P.depthPx <= Math.max(1, (c.legs ?? 1) * this.bodySize(c))) { c.home = { x, y }; break; }
+    }
+  }
+
+  homeForce(c, maxForce) {
+    if (!c.homeSeen) {
+      c.home ??= { x: c.x, y: c.y };
+      // Already mature residents do not all disperse on rollout day.
+      c.homeDispersed ??= c.age > Math.max(P.maturity * (c.mature ?? 1) * (this.rolled('climate') ? 1 + P.waterSlow * (c.water ?? P.waterStart) : 1), P.growTicks * 0.75); c.homeSeen = true;
+    }
+    const R = this.homeRadius(c);
+    if (!c.homeDispersed && this.fertile(c)) this.disperseHome(c, R);
+    const hx = delta(c.x, c.home.x, W), hy = delta(c.y, c.home.y, H), d = Math.hypot(hx, hy), hungry = c.energy / this.capOf(c) < P.homeHunger;
+    c.homeFed = !hungry && d > R ? (c.homeFed ?? 0) + 1 : 0;
+    if (c.homeFed >= P.homeShift) { c.home = { x: c.x, y: c.y }; c.homeFed = 0; return [0, 0]; }
+    if (d <= P.homeInner * R) return [0, 0];
+    const pull = maxForce * P.homePull * (d / R - P.homeInner) / (1 - P.homeInner) * (hungry ? P.homeHungryPull : 1);
+    return [hx / d * pull, hy / d * pull];
   }
 
   // Away from flames: a unit-ish vector (length up to 1, stronger the nearer) from burning cells within fireSmoke cells, or null.
@@ -2544,7 +2587,7 @@ export class World {
     if (c.energy >= full) return this.growOn(c, sp);
     const me = this.bodySize(c), eaten = [];
     this.near(c.x, c.y, me * (sp.gulpReach ?? 1) + 20, (o, dx, dy) => {
-      const reach = (me + this.bodySize(o)) * (sp.gulpReach ?? P.gulpReach) + 2;
+      const reach = (me + this.bodySize(o)) * (sp.gulpReach ?? P.gulpReach) * (this.rolled('footprint') ? P.footprint : 1) + 2;
       if (eaten.length < (sp.gulp ?? P.gulp) && o !== c && !o.dead && !(this.toxinOf(o) > (c.resist ?? 0.3) + P.tolerate) && this.canOverpower(c, o) && this.wouldEat(c, o) && dx * dx + dy * dy <= reach * reach) eaten.push(o);
     });
     if (P.targetedHunger && this.preyRank && eaten.length) { // targeted hunger: of what is in reach, only the commonest kind
@@ -2614,7 +2657,7 @@ export class World {
         const quality = Math.min(P.grassQuality[1], Math.max(P.grassQuality[0], 0.5 + this.moisture[i])); // dry grass is poor food
         const otherWays = Math.max(0.2, 1 - P.decompGrass * (c.decomp ?? 0) - P.parasiteGrass * (c.parasitism ?? 0)); // a gut built for dung or hosts grazes worse
         const strain = this.rolled('grassvar') ? (1 - P.hardyEnergy * this.grassHardy[i]) * (1 + P.sweetEnergy * this.grassSweet[i]) : 1; // tough grass is poorer, sweet grass richer
-        const raw = bite * quality * otherWays * strain * (this.grassFood ?? 1) * P.plantEnergy, dig = raw * this.grassGut(c.gut) * (1 - P.browseCost * (c.browse ?? 0));
+        const raw = bite * quality * otherWays * strain * (this.grassFood ?? 1) * (this.grassLean ?? 1) * P.plantEnergy, dig = raw * this.grassGut(c.gut) * (1 - P.browseCost * (c.browse ?? 0));
         this.feed(c, dig, 1, 'plant'); // a browsing gut grazes worse
         if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig; // honest dung: what it ate and did not digest goes on as dung
         if (bite > 0) {
@@ -2648,7 +2691,7 @@ export class World {
         let prey = null;
         const me = this.bodySize(c);
         this.near(c.x, c.y, me + 8, (o, dx, dy) => {
-          const reach = (me + this.bodySize(o)) * 0.6 + 2;
+          const reach = (me + this.bodySize(o)) * 0.6 * (this.rolled('footprint') ? P.footprint : 1) + 2;
           if (!prey && o !== c && !o.dead && dx * dx + dy * dy <= reach * reach && this.wouldEat(c, o) && this.canOverpower(c, o)) { // cheap checks first
             if (Math.random() < this.gapeFit(c, o)) prey = o;
             else if (this.rolled('lunge')) c.energy -= P.lungeCost; // it slipped away: a failed attack costs
@@ -2821,7 +2864,7 @@ export class World {
   // Children inherit body and genes (from one parent or the other) with a little drift.
   breed(c, sp, k, born) {
     let partner = null;
-    this.near(c.x, c.y, Math.max(P.mateReach, c.size * 2), o => { // tiny bodies still need a little room to find each other
+    this.near(c.x, c.y, (this.rolled('footprint') ? Math.max(P.mateFloor, Math.max(P.mateReach, c.size * 2) * P.footprint) : Math.max(P.mateReach, c.size * 2)), o => { // tiny bodies still need a little room to find each other
       if (!partner && o !== c && !o.dead && this.interbreeds(c.species, o.species) && o.willing && this.fertile(o)) {
         // Choosy mating: the more two differ (genes, body, colour), the less likely they pair; past isolation, never.
         // The wish to mate comes first: the longer a body waits, the less it minds, and after a long wait any of its kind will do.
@@ -2936,7 +2979,8 @@ export class World {
     kid.body += energy * P.bodyShare;
     kid.k = k;
     kid.morph = parent.morph ?? 0; // the mind it took (its parent's hidden slip, if any)
-    kid.home = { x: kid.x, y: kid.y }; // where it was born
+    kid.home = this.rolled('homerange') ? { x: wrap(x, W), y: wrap(y, H) } : { x: kid.x, y: kid.y };
+    if (this.rolled('homerange')) { kid.homeSeen = true; kid.homeDispersed = false; } // where it was born
     if (!this.registry[parent.species].unique) this.record('parents', parent); // who breeds (the mind-giving parent stands for the pair)
     kid.hue = parent.hue;
     const name = parent.species, sp = this.registry[name], rec = this.records[name];
@@ -3065,16 +3109,18 @@ export class World {
         // What the species lives on, by measured food: its diet label (shown on the Life panel and logged when it changes).
         const foods = ['grass', 'browse', 'carrion', 'flesh', 'host', 'dung', 'insect'], total = foods.reduce((t, k) => t + (d[k] ?? 0), 0) || 1;
         const f = k => (d[k] ?? 0) / total, plants = f('grass') + f('browse');
-        const label = f('host') + f('dung') > 0.5 ? (f('host') >= f('dung') ? 'parasite' : 'decomposer')
+        let label = f('host') + f('dung') > 0.5 ? (f('host') >= f('dung') ? 'parasite' : 'decomposer')
           : f('insect') > P.niche.insectivore ? 'insectivore'
           : f('carrion') > 0.5 ? 'scavenger'
           : f('flesh') > 0.5 ? (sp.role === 'apex' ? 'apex' : 'hunter')
           // Omnivore only with real meat in the diet (dung and hosts are side foods, shown as 'part decomposer/parasite').
           : f('carrion') + f('flesh') >= P.niche.omnivore ? 'omnivore'
           : f('browse') > 0.6 * plants ? 'browser' : f('browse') > 0.2 * plants ? 'mixed feeder' : 'grazer';
+        if (this.rolled('habitat') && group.length) label = this.habitatLabel(label, { water: group.reduce((s, c) => s + (c.hab?.water ?? 0), 0) / group.length, high: group.reduce((s, c) => s + (c.hab?.high ?? 0), 0) / group.length });
         if (label !== sp.dietLabel && sp.dietLabel && (this.lastCounts[name] ?? 0) >= 5 && this.tick - (sp.labelLogged ?? -1e9) > TICKS_PER_DAY) {
           sp.labelLogged = this.tick; // at most one announcement a day per species, so a borderline diet does not flicker
           const said = { grazer: 'grazers: they live on grass', browser: 'browsers: they live on thicket shoots', 'mixed feeder': 'mixed feeders: grass and thicket shoots alike',
+            aquatic: 'aquatic plant feeders: they live in swim-deep water', highland: 'highland plant feeders: they live in the heights',
             scavenger: 'scavengers: they live on the dead', hunter: 'hunters: they live on what they kill', apex: 'apex predators: they hunt hunters',
             omnivore: 'omnivores: plants and flesh alike', insectivore: 'insectivores: they live on insects', decomposer: 'decomposers: they live on dung and remains', parasite: 'parasites: they live on infested hosts' }[label];
           this.log(`The ${plural(name)} (${sp.lineage}) have become ${said}.`);
@@ -3155,11 +3201,21 @@ export class World {
     }
   }
 
+  // Habitat observations fade over a day and share the movement test for swim-deep water, including ice.
+  rememberHabitat(c) {
+    const h = c.hab ??= { water: 0, high: 0, t: this.tick }, a = 1 - Math.exp(-Math.max(0, this.tick - h.t) / P.habRecent);
+    const w = this.waterAt(c.x, c.y), water = w.d * P.depthPx > Math.max(1, (c.legs ?? 1) * this.bodySize(c)) ? 1 : 0;
+    h.water += a * (water - h.water); h.high += a * ((this.elevMap()[w.i] >= P.habHeight ? 1 : 0) - h.high); h.t = this.tick;
+  }
+  habitatLabel(label, hab) {
+    if (!this.rolled('habitat') || (label !== 'grazer' && label !== 'mixed feeder')) return label;
+    return (hab?.water ?? 0) >= P.habAquatic ? 'aquatic' : (hab?.high ?? 0) >= P.habHigh ? 'highland' : label;
+  }
   // How a body lives now (rollout 3, label-based since 11:45 Oct 15), from its RECENT diet: hunter (meat ≥ 60%, mostly live
   // prey), scavenger (meat ≥ 30%, mostly carrion), omnivore (meat 20–60%), browser (browse ≥ 50%), mixed feeder (grass and
   // browse ≥ 20% each), else grazer.
   nicheOf(c) {
-    const r = c.recent; if (!r || r.ate < 0.3) return 'grazer';
+    const r = c.recent; if (!r || r.ate < 0.3) return this.habitatLabel('grazer', c.hab);
     if ((r.host ?? 0) / r.ate >= P.niche.parasite) return 'parasite';
     if ((r.dung ?? 0) / r.ate >= P.niche.decomposer) return 'decomposer';
     if ((r.insect ?? 0) / r.ate >= P.niche.insectivore) return 'insectivore'; // lives on insects (snap + a middle gut)
@@ -3169,8 +3225,8 @@ export class World {
     if (meat >= P.niche.scavenger && dead >= 0.5) return 'scavenger';
     if (meat >= P.niche.omnivore) return 'omnivore';
     if (browse >= P.niche.browser) return 'browser';
-    if (browse >= P.niche.mixed && grass >= P.niche.mixed) return 'mixed feeder';
-    return 'grazer';
+    if (browse >= P.niche.mixed && grass >= P.niche.mixed) return this.habitatLabel('mixed feeder', c.hab);
+    return this.habitatLabel('grazer', c.hab);
   }
   // A local group of splitMin bodies of a species living differently (browsing, or eating meat), seen on nicheDays daily
   // checks in a row, becomes a kind of its own.
@@ -3181,7 +3237,7 @@ export class World {
     for (const n of of.values()) count[n] = (count[n] ?? 0) + 1;
     const usual = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0];
     const near = (p, q) => Math.hypot(delta(p.x, q.x, W), delta(p.y, q.y, H)) < P.nicheRange;
-    for (const niche of Object.keys(P.niche).concat('grazer', 'mixed feeder').filter((n, i, a) => a.indexOf(n) === i)) {
+    for (const niche of Object.keys(P.niche).concat('grazer', 'mixed feeder', ...(this.rolled('habitat') ? ['aquatic', 'highland'] : [])).filter((n, i, a) => a.indexOf(n) === i)) {
       const them = group.filter(c => of.get(c) === niche);
       const s2 = this.rolled('speciate2'), floor = s2 ? P.speciateMin : P.nicheMin; // (speciate2) the founders' floor falls 30 → 15; the rest left behind still needs nicheMin
       if (niche === usual || them.length < floor || group.length - them.length < P.nicheMin) { delete sp.nicheSeen[niche]; continue; }
@@ -3651,6 +3707,18 @@ export class World {
     return this.quakeNow;
   }
 
+  // GRASS RAMP (Luis, s2013; proposal s2008 decision 7; rollout.grassramp): grass alone (not fruit, nuts, water plants or lichen)
+  // grows poorer by grassRampCut over grassRampSeasons, so richer foods pay relatively more. The ramp freezes (what is applied stays)
+  // if bodies fall under grassRampFloor or starvation is over grassRampStarve of a season's deaths: a brake on the change, not a rescue.
+  grassRampSeason() {
+    if (!this.rolled('grassramp') || this.grassRampFrozen) return;
+    const tot = k => Object.values(this.stats).reduce((a, s) => a + (s[k] ?? 0), 0), now = { starved: tot('starved'), all: tot('starved') + tot('eaten') + tot('old') };
+    const last = this.grassRampLast ?? now; this.grassRampLast = now;
+    const died = now.all - last.all, starvedShare = died > 0 ? (now.starved - last.starved) / died : 0, bodies = this.creatures.filter(c => !c.dead).length;
+    if ((this.grassLean ?? 1) < 1 && (bodies < P.grassRampFloor || starvedShare > P.grassRampStarve)) { this.grassRampFrozen = true; this.log(`The grass stops growing poorer: it holds at ${Math.round(this.grassLean * 100)}% (${bodies} bodies, ${Math.round(starvedShare * 100)}% of the season's deaths by hunger).`); return; }
+    const f = Math.min(1, (this.season - this.rollout.grassramp + 1) / P.grassRampSeasons), lean = Math.round((1 - P.grassRampCut * f) * 1000) / 1000;
+    if (lean !== this.grassLean) { this.grassLean = lean; this.log(`The grass grows poorer: it is worth ${Math.round(lean * 100)}% of what it was a few seasons ago.`); }
+  }
   // Leaner grass, once a season: step the grass's worth down every leanEvery seasons until the room ceiling stops being touched.
   leanSeason() {
     if (!this.rolled('leaner') || this.leanDone) return;
@@ -3666,6 +3734,7 @@ export class World {
 
   endSeason() {
     this.leanSeason();
+    this.grassRampSeason();
     this.quakeSeason();
     if (this.rollout?.sections !== undefined) { // the four sections: the season's crossings, and the chronicle of the change
       const s0 = this.rollout.sections, done = s0 + P.sectionsSeasons;
@@ -3791,7 +3860,7 @@ export class World {
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
       creatures: this.creatures.map(c => ({ ...c, memory: safeMemory(c.memory) })),
-      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
+      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, grassLean: this.grassLean, grassRampFrozen: this.grassRampFrozen, grassRampLast: this.grassRampLast, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -3799,7 +3868,7 @@ export class World {
   restore(s) {
     Object.assign(this, {
       tick: s.tick, season: s.season, nextId: s.nextId, registry: s.registry, code: s.code,
-      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, grassFood: s.grassFood ?? 1, leanLast: s.leanLast, leanDone: s.leanDone ?? false, ceilingAt: s.ceilingAt, dominance: s.dominance ?? {}, rollout: s.rollout, ledger: s.ledger, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
+      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, grassFood: s.grassFood ?? 1, grassLean: s.grassLean, grassRampFrozen: s.grassRampFrozen, grassRampLast: s.grassRampLast, leanLast: s.leanLast, leanDone: s.leanDone ?? false, ceilingAt: s.ceilingAt, dominance: s.dominance ?? {}, rollout: s.rollout, ledger: s.ledger, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
       stats: s.stats, records: s.records, diet: s.diet, lastCounts: s.lastCounts, since: s.since, lessons: s.lessons ?? [], pendingStudies: s.pendingStudies ?? [],
     });
     this.plants = Float32Array.from(s.plants);
