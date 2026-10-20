@@ -168,6 +168,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  shrubHold: 0.35,       // (s2085) away from reef, scrub holds on only at this moisture; drier, it wears back (it ran past 9% of the map at 0.12)
   waves: 3, waveShare: 0.4, // returns come in this many waves, each this share of the species' seed base
   dungRange: 20,         // a beetle this close to a grazer finds its droppings …
   dungFeed: 0.018,       // energy a beetle near a grazer gets from its dung each pass (10 ticks), and soil it buries
@@ -1490,7 +1491,7 @@ export class World {
           th[at(x, y + 1)] >= P.shrubSeed || th[at(x, y - 1)] >= P.shrubSeed)) {
         const g = Math.min(P.shrubMax - th[i], P.shrubGrow * (P.shrubMax - th[i]) * (m + f) * (f / (f + (P.soilNeed || 0.1))));
         if (g > 0) { th[i] += g; this.fertility[i] = Math.max(0, f - g * P.thicketUptake); }
-      } else if ((edge || shrub) && m >= P.thicketHardy) {
+      } else if (edge ? m >= P.thicketHardy : shrub && m >= P.shrubHold) { // (s2085) soil shrubs persist only on moist ground
         // Thorny scrub is drought-hardy: in ordinary dryness it holds on, neither growing nor dying.
       } else if (th[i] > 0) {
         const d = Math.min(th[i], P.thicketDie);
