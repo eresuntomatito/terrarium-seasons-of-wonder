@@ -168,6 +168,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  shrubFloor: 0.15,      // (s2093, rollout.shrubbrowse) away from reef, browsers eat scrub down to this, not browseFloor
   shrubHold: 0.35,       // (s2085) away from reef, scrub holds on only at this moisture; drier, it wears back (it ran past 9% of the map at 0.12)
   waves: 3, waveShare: 0.4, // returns come in this many waves, each this share of the species' seed base
   dungRange: 20,         // a beetle this close to a grazer finds its droppings …
@@ -2734,8 +2735,9 @@ export class World {
         if (!this.rolled('carcass2')) c.toxStock = Math.min(1, (c.toxStock ?? 1) + P.toxinGain * this.thicket[i]); // (carcass2) toxin comes only from shoots eaten
         if (bite > 0) c.minStock = Math.min(1, (c.minStock ?? 1) + P.mineralGain * Math.min(1, this.reefNear(i) + this.mineral[i] * 4 + (this.rolled('geology') ? P.rockMineral[this.rockOf(i)] : 0))); // limestone country feeds shells
         // Browse: a big enough body with a browsing gut eats thicket shoots, down to a floor (the hedge survives as a refuge).
-        if (!this.digestFull(c) && this.browses(c) && this.thicket[i] > P.browseFloor) {
-          const shoots = Math.min(this.thicket[i] - P.browseFloor, P.browseBite * Math.sqrt(k) * c.browse);
+        const floor = this.rolled('shrubbrowse') && this.reefNear(i) === 0 ? P.shrubFloor : P.browseFloor; // (s2093) open scrub is browsed lower than the reef's hedge
+        if (!this.digestFull(c) && this.browses(c) && this.thicket[i] > floor) {
+          const shoots = Math.min(this.thicket[i] - floor, P.browseBite * Math.sqrt(k) * c.browse);
           this.thicket[i] -= shoots;
           const T = this.tempAt(c.y, undefined, c.x), buds = 1 + P.winterBuds * Math.max(0, 0.5 - T) * 2; // in the cold, the hedge's buds are the food
           const juicy = Math.min(P.shootQuality[1], Math.max(P.shootQuality[0], 1.5 - this.moisture[i])) * buds; // shoots are best when the grass is dry
