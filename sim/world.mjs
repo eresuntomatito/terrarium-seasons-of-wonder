@@ -166,6 +166,8 @@ export const PHYSICS = {
   thicketDrag: 0.6,      // top speed × (1 − this × density × min(1, body / thicketBig)): big bodies are slowed most
   thicketBig: 10,
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
+  // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
+  shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
   waves: 3, waveShare: 0.4, // returns come in this many waves, each this share of the species' seed base
   dungRange: 20,         // a beetle this close to a grazer finds its droppings …
   dungFeed: 0.018,       // energy a beetle near a grazer gets from its dung each pass (10 ticks), and soil it buries
@@ -1469,10 +1471,11 @@ export class World {
     }
   }
 
-  // The thicket's life: it grows beside solid reef (from soil, with moisture), dies back where the reef is gone or
-  // the ground is dry, and is worn by heavy traffic; whatever it loses returns to the soil.
+  // The thicket's life: beside solid reef, or (rollout.shrubland) spreading from its own patch on suitable soil.
+  // Drought and heavy traffic wear it; whatever it loses returns to the soil.
   updateThicket() {
     const th = this.thicket, reef = this.reef, S = P.reefSolid, at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW);
+    const shrub = this.rolled('shrubland'), N = shrub ? this.climbNeed() : null;
     for (let i = 0; i < GW * GH; i++) {
       const x = i % GW, y = (i / GW) | 0;
       const edge = reef[i] < S && (reef[at(x + 1, y)] >= S || reef[at(x - 1, y)] >= S || reef[at(x, y + 1)] >= S || reef[at(x, y - 1)] >= S);
@@ -1480,7 +1483,14 @@ export class World {
       if (edge && m >= 0.3) {
         const g = P.thicketGrow * (P.thicketMax - th[i]) * (m + f) * (f / (f + (P.soilNeed || 0.1)));
         if (g > 0) { th[i] += g; this.fertility[i] = Math.max(0, f - g * P.thicketUptake); }
-      } else if (edge && m >= P.thicketHardy) {
+      } else if (shrub && !edge && m >= P.shrubWet && f >= P.shrubSoil &&
+        reef[i] < S && this.water[i] <= P.treeDeep && this.rockOf(i) !== 4 && N[i] <= 0.5 &&
+        !(this.trees[i] >= P.treeMature) && (th[i] > 0 ||
+          th[at(x + 1, y)] >= P.shrubSeed || th[at(x - 1, y)] >= P.shrubSeed ||
+          th[at(x, y + 1)] >= P.shrubSeed || th[at(x, y - 1)] >= P.shrubSeed)) {
+        const g = Math.min(P.shrubMax - th[i], P.shrubGrow * (P.shrubMax - th[i]) * (m + f) * (f / (f + (P.soilNeed || 0.1))));
+        if (g > 0) { th[i] += g; this.fertility[i] = Math.max(0, f - g * P.thicketUptake); }
+      } else if ((edge || shrub) && m >= P.thicketHardy) {
         // Thorny scrub is drought-hardy: in ordinary dryness it holds on, neither growing nor dying.
       } else if (th[i] > 0) {
         const d = Math.min(th[i], P.thicketDie);
