@@ -994,7 +994,19 @@ export class World {
   }
   // How much of grass's value a gut keeps: (1 − gut)², or with the plateau rolled out, all of it up to gutPlateau, then
   // the same curve squeezed onto what is left — so the first steps toward meat cost nothing.
-  grassGut(g) { if (!this.rolled('plateau')) return (1 - g) ** 2; const p = P.gutPlateau; return g <= p ? 1 : ((1 - g) / (1 - p)) ** 2; }
+  // M4 (Codex): Gaussian shoulders begin at the flat top's edge, so fits stay continuous.
+  gutFit(g, kind) {
+    const [peak, top, width] = kind === 'plant' ? [0.05, 0.10, 0.35]
+      : kind === 'browse' ? [0.25, 0.10, 0.35]
+      : kind === 'insect' ? [0.40, 0.05, 0.30]
+      : kind === 'carrion' ? [0.55, 0.10, 0.30]
+      : kind === 'flesh' ? [0.80, 0.15, 0.35] : [0.20, 0.10, 0.40]; // fruit, nut, cone
+    return Math.exp(-((Math.max(0, Math.abs(g - peak) - top) / width) ** 2));
+  }
+  gutCurves(c) { return this.rolled('gutcurves') && (!c || !this.registry[c.species].unique); }
+  browseGut(c) { return this.gutCurves(c) ? this.gutFit(c.gut, 'browse') : 1 - c.gut; }
+  treeGut(c) { return this.gutCurves(c) ? this.gutFit(c.gut, 'fruit') : this.grassGut(c.gut, c); }
+  grassGut(g, c) { if (this.gutCurves(c)) return this.gutFit(g, 'plant'); if (!this.rolled('plateau')) return (1 - g) ** 2; const p = P.gutPlateau; return g <= p ? 1 : ((1 - g) / (1 - p)) ** 2; }
 
   // How different two creatures' code numbers are: mean |log ratio|. Too different, and they cannot breed.
   // A line's founder (the species at the root of its lineage) and what it started as: its written code numbers and
@@ -1898,13 +1910,13 @@ export class World {
     const r = c.recent; return !!r && r.ate > 0.3 && ((r.dung ?? 0) + (r.carrion ?? 0)) / r.ate >= P.openDiet;
   }
   // Insects are digested best by a middle gut (a bump around snapGut), which bridges the valley between plant and meat guts.
-  insectGut(g) { return P.snapEff * Math.exp(-(((g - P.snapGut) / P.snapWidth) ** 2)); }
+  insectGut(g, c) { if (this.gutCurves(c)) return P.snapEff * this.gutFit(g, 'insect'); return P.snapEff * Math.exp(-(((g - P.snapGut) / P.snapWidth) ** 2)); }
   // A snapping body takes a share of the swarm on its own cell; what the gut does not extract goes on as dung (honest dung).
   eatInsects(c, k) {
     if (this.digestFull(c) || (this.digests(c) && this.isClimbing(c))) return;
     const i = cellAt(c.x, c.y), I = this.insects, d = I[i]; if (!(d > 0.01)) return;
     const take = d * Math.min(1, P.snapBite * c.snap * Math.sqrt(k)), L = this.insLedger ??= {};
-    I[i] -= take; const raw = take * P.insScale, dig = raw * this.insectGut(c.gut);
+    I[i] -= take; const raw = take * P.insScale, dig = raw * this.insectGut(c.gut, c);
     L.eaten = (L.eaten ?? 0) + raw; L.eatenGot = (L.eatenGot ?? 0) + dig;
     this.feed(c, dig, 2, 'insect'); // insects eat plants (level 2), so their eater sits at ~3
     if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
@@ -2150,7 +2162,7 @@ export class World {
   mutateGrass(i) { const w = () => (Math.random() - 0.5) * 2 * P.grassMut; this.grassHardy[i] = clamp01(this.grassHardy[i] + w()); this.grassSweet[i] = clamp01(this.grassSweet[i] + w()); }
   fleshEff(c) { if (!this.rolled('pyramid') || this.registry[c.species].unique) return P.fleshEfficiency;
     return this.rolled('meatspec') ? P.pyramidFlesh + (P.fleshEfficiency - P.pyramidFlesh) * clamp01(((c.gut ?? 0) - 0.5) / 0.4) : P.pyramidFlesh; } // a meat gut keeps more of a kill
-  fleshGut(c) { return c.gut ** (this.rolled('valley') && !this.registry[c.species].unique ? P.valleyPower : P.fleshPower); }
+  fleshGut(c) { if (this.gutCurves(c)) return this.gutFit(c.gut, 'flesh'); return c.gut ** (this.rolled('valley') && !this.registry[c.species].unique ? P.valleyPower : P.fleshPower); }
   grazes(c) { return c.gut < 1 - P.jaws; }
   // The body as it is now: juveniles are smaller than the adult size their genes promise.
   bodySize(c) { return (P.growTicks ? c.size * Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : c.size) * (c.grown ?? 1); } // (× growth after adulthood, growon)
@@ -2716,7 +2728,7 @@ export class World {
         const quality = Math.min(P.grassQuality[1], Math.max(P.grassQuality[0], 0.5 + this.moisture[i])); // dry grass is poor food
         const otherWays = Math.max(0.2, 1 - P.decompGrass * (c.decomp ?? 0) - P.parasiteGrass * (c.parasitism ?? 0)); // a gut built for dung or hosts grazes worse
         const strain = this.rolled('grassvar') ? (1 - P.hardyEnergy * this.grassHardy[i]) * (1 + P.sweetEnergy * this.grassSweet[i]) : 1; // tough grass is poorer, sweet grass richer
-        const raw = bite * quality * otherWays * strain * (this.grassFood ?? 1) * (this.grassLean ?? 1) * P.plantEnergy, dig = raw * this.grassGut(c.gut) * (1 - P.browseCost * (c.browse ?? 0));
+        const raw = bite * quality * otherWays * strain * (this.grassFood ?? 1) * (this.grassLean ?? 1) * P.plantEnergy, dig = raw * this.grassGut(c.gut, c) * (1 - P.browseCost * (c.browse ?? 0));
         this.feed(c, dig, 1, 'plant'); // a browsing gut grazes worse
         if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig; // honest dung: what it ate and did not digest goes on as dung
         if (bite > 0) {
@@ -2725,10 +2737,10 @@ export class World {
         }
         if (!this.digestFull(c) && this.rolled('waterfood') && this.aqua[i] > 0.02) { const acc = this.aquaAccess(c, i); if (acc > 0) { // water plants, for waders and swimmers
           const b2 = Math.min(this.aqua[i], P.aquaBite * Math.sqrt(k) * acc * (1 - c.gut)); this.aqua[i] -= b2;
-          this.feed(c, b2 * P.aquaEnergy * P.plantEnergy * this.grassGut(c.gut) * (this.grassFood ?? 1), 1, 'plant'); } }
+          this.feed(c, b2 * P.aquaEnergy * P.plantEnergy * this.grassGut(c.gut, c) * (this.grassFood ?? 1), 1, 'plant'); } }
         if (!this.digestFull(c) && this.rolled('highfood') && this.lichen[i] > 0.02) { // lichen on the heights, worth more to a thick coat
           const b3 = Math.min(this.lichen[i], P.lichenBite * Math.sqrt(k) * (1 - c.gut)); this.lichen[i] -= b3;
-          this.feed(c, b3 * P.lichenEnergy * (0.5 + (c.coat ?? P.coatStart)) * P.plantEnergy * this.grassGut(c.gut) * (this.grassFood ?? 1), 1, 'plant'); }
+          this.feed(c, b3 * P.lichenEnergy * (0.5 + (c.coat ?? P.coatStart)) * P.plantEnergy * this.grassGut(c.gut, c) * (this.grassFood ?? 1), 1, 'plant'); }
         if (this.trees[i] > 0.05 && this.rolled('trees')) this.eatTrees(c, sp, k, i); // fruit, nuts and cones; saplings
         // Defences from food: hedge plants carry toxin, ground by the reef carries minerals for a shell.
         // Toxin: a body in the hedge nibbles its leaves whether or not there is grass to bite.
@@ -2741,7 +2753,7 @@ export class World {
           this.thicket[i] -= shoots;
           const T = this.tempAt(c.y, undefined, c.x), buds = 1 + P.winterBuds * Math.max(0, 0.5 - T) * 2; // in the cold, the hedge's buds are the food
           const juicy = Math.min(P.shootQuality[1], Math.max(P.shootQuality[0], 1.5 - this.moisture[i])) * buds; // shoots are best when the grass is dry
-          this.feed(c, shoots * juicy * P.browseEnergy * (1 - c.gut) * c.browse, 1, 'browse');
+          this.feed(c, shoots * juicy * P.browseEnergy * this.browseGut(c) * c.browse, 1, 'browse');
           c.toxStock = Math.min(1, (c.toxStock ?? 1) + (this.rolled('carcass2') ? P.toxinShoot * shoots : P.toxinGain * 2 * this.thicket[i]));
         }
       }
@@ -2800,7 +2812,7 @@ export class World {
           corpse.energy -= bite;
           if (opens) { corpse.opened = this.tick; this.carcassOpened = (this.carcassOpened ?? 0) + bite; } // (insects) the carcass is opened; its rot slows while they feed
           if (P.carrionDung) { const i = cellAt(corpse.x, corpse.y); this.fertility[i] = Math.min(2, this.fertility[i] + bite * P.carrionDung); }
-          const carrionMult = this.carrionDigests(c.gut) * (1 + (c.decomp ?? 0)) * (this.rolled('carcass') ? P.carcassRich : 1), c2 = this.rolled('carcass2');
+          const carrionMult = this.carrionDigests(c.gut, c) * (1 + (c.decomp ?? 0)) * (this.rolled('carcass') ? P.carcassRich : 1), c2 = this.rolled('carcass2');
           if (c2) this.carrionBitten = (this.carrionBitten ?? 0) + bite; // (carcass2) never more than the bite taken
           this.feed(c, bite * (c2 ? Math.min(1, carrionMult) : carrionMult), this.registry[corpse.species]?.tl ?? 2, 'carrion'); // a decomposer's gut gets more from the dead
           break;
@@ -2823,7 +2835,7 @@ export class World {
       const bite = Math.min(store[i], sp.biteSize * Math.sqrt(k) * (1 - c.gut) * acc);
       if (!(bite > 0)) continue;
       store[i] -= bite;
-      const raw = bite * e * P.plantEnergy * (this.grassFood ?? 1), dig = raw * this.grassGut(c.gut);
+      const raw = bite * e * P.plantEnergy * (this.grassFood ?? 1), dig = raw * this.treeGut(c);
       this.feed(c, dig, 1, name);
       if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
       c.dung = (c.dung ?? 0) + bite * P.dungShare;
@@ -2832,7 +2844,7 @@ export class World {
     if (!this.digestFull(c) && this.browses(c) && this.trees[i] < P.treeSapling) { // browsing saplings
       const d = Math.min(this.trees[i], P.treeBrowse * Math.sqrt(k) * c.browse);
       this.trees[i] -= d; this.saplingsBrowsed = (this.saplingsBrowsed ?? 0) + d;
-      this.feed(c, d * P.treeBrowseEnergy * (1 - c.gut) * c.browse, 1, 'browse');
+      this.feed(c, d * P.treeBrowseEnergy * this.browseGut(c) * c.browse, 1, 'browse');
     }
   }
 
@@ -2857,7 +2869,8 @@ export class World {
   }
 
   // Every meal is booked by its trophic level, so each species' role is measured, not declared.
-  carrionDigests(gut) {
+  carrionDigests(gut, c) {
+    if (this.gutCurves(c)) return P.carrionEfficiency * this.gutFit(gut, 'carrion');
     const peak = this.rolled('carrion') ? P.carrionPeak2 : P.carrionPeak; // (3) a gut barely past grass digests the dead well
     return peak ? P.carrionEfficiency * Math.max(0, 1 - Math.abs(gut - peak) / P.carrionWidth) : gut * P.carrionEfficiency;
   }
@@ -2885,9 +2898,9 @@ export class World {
     if (energy <= 0) return;
     if (!this.digests(c)) return this.feedNow(c, energy, foodLevel, kind);
     // Intake is gated upstream; food already taken (a diner's share) overfills rather than vanishing.
-    const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut) : kind === 'browse' ? P.browseEnergy * (1 - c.gut) * (c.browse ?? 0)
-      : kind === 'fruit' || kind === 'nut' || kind === 'cone' ? P.plantEnergy * this.grassGut(c.gut)
-      : kind === 'flesh' ? this.fleshGut(c) * this.fleshEff(c) : kind === 'carrion' ? this.carrionDigests(c.gut) : kind === 'insect' ? this.insectGut(c.gut) : 1;
+    const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut, c) : kind === 'browse' ? P.browseEnergy * this.browseGut(c) * (c.browse ?? 0)
+      : kind === 'fruit' || kind === 'nut' || kind === 'cone' ? P.plantEnergy * this.treeGut(c)
+      : kind === 'flesh' ? this.fleshGut(c) * this.fleshEff(c) : kind === 'carrion' ? this.carrionDigests(c.gut, c) : kind === 'insect' ? this.insectGut(c.gut, c) : 1;
     const load = energy * (P.digBulk[kind] ?? 0.5) / Math.max(0.05, eff);
     const pool = (c.gutPools ??= {})[kind] ??= { energy: 0, load: 0, level: foodLevel };
     pool.level = (pool.level * pool.energy + foodLevel * energy) / (pool.energy + energy);
@@ -2901,9 +2914,9 @@ export class World {
     const richness = Math.max(P.stomach, P.fatRich), thrift = c.thrift ?? 0.5, rich = richness && !this.registry[c.species].unique ? 1 + richness * ((P.stomachRich[kind] ?? 1) - 1) : 1;
     const share = P.fatShare * (0.5 + thrift) * rich;
     if (P.stomach && !this.registry[c.species].unique) { // the stomach fills by the food's raw amount: energy ÷ how well this gut extracts it
-      const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut) : kind === 'browse' ? P.browseEnergy * (1 - c.gut) * (c.browse ?? 0)
-        : kind === 'fruit' || kind === 'nut' || kind === 'cone' ? P.plantEnergy * this.grassGut(c.gut)
-        : kind === 'flesh' ? this.fleshGut(c) * this.fleshEff(c) : kind === 'carrion' ? this.carrionDigests(c.gut) : kind === 'insect' ? this.insectGut(c.gut) : 1;
+      const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut, c) : kind === 'browse' ? P.browseEnergy * this.browseGut(c) * (c.browse ?? 0)
+        : kind === 'fruit' || kind === 'nut' || kind === 'cone' ? P.plantEnergy * this.treeGut(c)
+        : kind === 'flesh' ? this.fleshGut(c) * this.fleshEff(c) : kind === 'carrion' ? this.carrionDigests(c.gut, c) : kind === 'insect' ? this.insectGut(c.gut, c) : 1;
       c.bulk = (c.bulk ?? 0) + P.stomach * (P.stomachBulk[kind] ?? 0.5) * energy / Math.max(0.05, eff);
     }
     if (c.energy > max * (P.fatAbove + (0.5 - thrift) * 0.4)) { this.store(c, energy * share); c.energy += energy * (1 - share); }
