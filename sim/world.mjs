@@ -169,6 +169,9 @@ export const PHYSICS = {
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
   skillCost: 0.03, skillRamp: 10, // (s2235, skillcost) breadth cost: a typical body today (S ≈ 1.8) pays ~10% more upkeep at full ramp, a one-skill specialist (S ≈ 0.8) ~2%
+  lapseCold: 0.45, bergmann: 1.0, // (D, s2261, rollout.coldheights) the heights colder in every era (lapse 0.3 → 0.45) and climate cost ∝ size^∓1 (was ^∓0.5)
+  // (C, s2261, rollout.climbweight) climbing speed follows power-to-weight (strength ÷ mass ratio), so light bodies climb faster
+  saplingBase: 0.08, nurseThicket: 0.5, // (trees2, s2261) saplings grow from a real base; thicket this dense fully shelters a sapling from browsers
   shrubFloor: 0.15,      // (s2093, rollout.shrubbrowse) away from reef, browsers eat scrub down to this, not browseFloor
   shrubHold: 0.35,       // (s2085) away from reef, scrub holds on only at this moisture; drier, it wears back (it ran past 9% of the map at 0.12)
   waves: 3, waveShare: 0.4, // returns come in this many waves, each this share of the species' seed base
@@ -798,8 +801,10 @@ export class World {
     const ns = P.tempNorth + (P.tempSouth - P.tempNorth) * (wrap(y, H) / H) + era, r = this.reliefRise();
     if (!r || x === undefined) return clamp01(ns);
     // relief: temperature from height replaces north–south, blending in as the land rises
-    return clamp01(ns * (1 - r) + (P.tempLow + era - P.lapse * this.elevAt(x, y) / Math.max(r, 1e-9) * r) * r);
+    return clamp01(ns * (1 - r) + (P.tempLow + era - this.lapseNow() * this.elevAt(x, y) / Math.max(r, 1e-9) * r) * r);
   }
+  // (D, s2261, rollout.coldheights) the heights are colder in every era: a steeper lapse rate.
+  lapseNow() { return this.rolled('coldheights') ? P.lapseCold : P.lapse; }
   // How far the relief has risen (0 flat … 1 full), smoothly by tick from rollout.relief over reliefSeasons.
   reliefRise() { const s0 = this.rollout?.relief; if (s0 === undefined || this.tick < s0 * SEASON_TICKS) return 0; return Math.min(1, (this.tick - s0 * SEASON_TICKS) / (P.reliefSeasons * SEASON_TICKS)); }
   // The relief (0…1 per cell; the land today is this × reliefRise()): the orography's own, blended toward the four
@@ -999,8 +1004,9 @@ export class World {
   climateCost(c) {
     if (!this.rolled('climate') || this.registry[c.species].unique) return 1;
     const T = this.tempAt(c.y, undefined, c.x), ins = 0.7 * (c.coat ?? P.coatStart) + 0.3 * Math.min(1, this.fatLoad(c)), size = this.bodySize(c) / 7;
-    const cold = P.coldCost * 2 * Math.max(0, 0.5 - T) * (1 - ins) / Math.sqrt(Math.max(0.3, size));
-    const heat = P.heatCost * 2 * Math.max(0, T - 0.5) * ins * Math.sqrt(Math.max(0.3, size));
+    const sf = this.rolled('coldheights') ? Math.max(0.3, size) ** P.bergmann : Math.sqrt(Math.max(0.3, size)); // (D) Bergmann by place: cold ∝ 1/size once the heights are colder
+    const cold = P.coldCost * 2 * Math.max(0, 0.5 - T) * (1 - ins) / sf;
+    const heat = P.heatCost * 2 * Math.max(0, T - 0.5) * ins * sf;
     const m = this.moisture[cellAt(c.x, c.y)], dry = m < 0.3 ? P.dryCost * (0.3 - m) / 0.3 * (1 - (c.water ?? P.waterStart)) : 0;
     return (1 + cold + heat + dry) * (1 + P.coatUpkeep * (c.coat ?? P.coatStart));
   }
@@ -1533,7 +1539,7 @@ export class World {
   // TREES (rollout.trees; see the TREES block in PHYSICS). One update with the thicket's cadence. Suitability of a kind at a cell
   // (0 … 1): rock, temperature and moisture. Nothing for basement, deep water, crags and cliffs, or solid reef.
   treeSuit(kind, i, T, m, rk) {
-    if (kind === 1) return rk === 1 || rk === 3 ? clamp01((T - 0.35) / 0.1) * clamp01((m - 0.4) / 0.2) : 0;
+    if (kind === 1) { const t2 = this.rolled('trees2'); return rk === 1 || rk === 3 ? clamp01((T - (t2 ? 0.3 : 0.35)) / 0.1) * clamp01((m - (t2 ? 0.3 : 0.4)) / 0.2) : 0; } // (trees2) fruit trees: a wider warm, moist window
     if (kind === 2) return rk === 2 ? clamp01((T - 0.3) / 0.1) * clamp01((0.75 - T) / 0.1) * clamp01((m - 0.2) / 0.2) : 0;
     return rk === 0 || T < 0.4 ? clamp01((T - P.treeFrost) / 0.05) * clamp01((m - 0.05) / 0.1) : 0; // conifers: hard rock, and the cold heights up to the treeline
   }
@@ -1549,7 +1555,7 @@ export class World {
   // by the hard mouth (bite), a little from size and gape; cones come easier.
   treeAccess(c, kind) {
     const size = this.bodySize(c);
-    if (kind === 1) return P.fruitFall + (1 - P.fruitFall) * Math.max(clamp01((size - P.fruitReach) / 4), c.climb ?? 0);
+    if (kind === 1) return P.fruitFall + (1 - P.fruitFall) * (this.rolled('smallfood') ? clamp01((c.climb ?? 0) * (1.4 - 0.4 * size / 5)) : Math.max(clamp01((size - P.fruitReach) / 4), c.climb ?? 0)); // (smallfood) fruit is climbed for, and light bodies climb best
     const a = clamp01(0.9 * (c.bite ?? 0) + 0.08 * clamp01((size - 4) / 6) + 0.12 * (c.gape ?? 0.5));
     return kind === 2 ? a : Math.min(1, 1.5 * a + 0.05);
   }
@@ -1583,7 +1589,7 @@ export class World {
       const barred = this.treeBarred(i, rk, N), suit = barred ? 0 : this.treeSuit(kind, i, T, m, rk);
       let c2 = c;
       if (suit > 0) { // grows (logistic), drawing a little fertility; leaf litter gives some back
-        const vigor = suit * (0.5 + 0.5 * Math.min(1, f)) * Math.min(1, m + 0.2), g = P.treeGrow * growK * vigor * (c + 0.01) * (1 - c / P.treeMax);
+        const vigor = suit * (0.5 + 0.5 * Math.min(1, f)) * Math.min(1, m + 0.2), g = P.treeGrow * growK * vigor * (c + (this.rolled('trees2') ? P.saplingBase : 0.01)) * (1 - c / P.treeMax); // (trees2) a sapling grows at a real rate from the start
         if (g > 0) { c2 += g; this.fertility[i] = Math.max(0, f - g * P.treeUptake); }
         this.fertility[i] = Math.min(2, this.fertility[i] + P.treeLitter * c);
       }
@@ -2853,7 +2859,7 @@ export class World {
       if (this.digestFull(c)) break;
       if (!(store[i] > 0.01)) continue;
       const acc = this.treeAccess(c, kind); if (acc < 0.02) continue;
-      const bite = Math.min(store[i], sp.biteSize * Math.sqrt(k) * (1 - c.gut) * acc);
+      const bite = Math.min(store[i], sp.biteSize * (this.rolled('smallfood') ? 1 : Math.sqrt(k)) * (1 - c.gut) * acc); // (smallfood) picking is handling-limited, not mass-limited
       if (!(bite > 0)) continue;
       store[i] -= bite;
       const raw = bite * e * P.plantEnergy * (this.grassFood ?? 1), dig = raw * this.treeGut(c);
@@ -2863,7 +2869,7 @@ export class World {
       if (kind === 1) { c.tseeds = 1; c.tkind = this.treeKind[i]; }
     }
     if (!this.digestFull(c) && this.browses(c) && this.trees[i] < P.treeSapling) { // browsing saplings
-      const d = Math.min(this.trees[i], P.treeBrowse * Math.sqrt(k) * c.browse);
+      const d = Math.min(this.trees[i], P.treeBrowse * Math.sqrt(k) * c.browse * (this.rolled('trees2') ? Math.max(0, 1 - this.thicket[i] / P.nurseThicket) : 1)); // (trees2) thorny thicket nurses its saplings
       this.trees[i] -= d; this.saplingsBrowsed = (this.saplingsBrowsed ?? 0) + d;
       this.feed(c, d * P.treeBrowseEnergy * this.browseGut(c) * c.browse, 1, 'browse');
     }
@@ -3430,7 +3436,7 @@ export class World {
       if (!r) { rows.push(Math.round(this.tempAt((gy + 2) * CELL, era) * 100) / 100); continue; }
       let t = 0; for (let gx = 0; gx < GW; gx += 4) t += this.tempAt((gy + 2) * CELL, era, (gx + 2) * CELL); rows.push(Math.round(t / (GW / 4) * 100) / 100);
     }
-    const relief = r ? { rise: Math.round(r * 1000) / 1000, low: P.tempLow, lapse: P.lapse, ns: [P.tempNorth, P.tempSouth], elev: Buffer.from(Uint8Array.from(this.reliefMap(), (v, i) => Math.round(Math.min(1, Math.max(0, v + ((this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0)) / Math.max(r, 0.05))) * 255))).toString('base64') } : null;
+    const relief = r ? { rise: Math.round(r * 1000) / 1000, low: P.tempLow, lapse: this.lapseNow(), ns: [P.tempNorth, P.tempSouth], elev: Buffer.from(Uint8Array.from(this.reliefMap(), (v, i) => Math.round(Math.min(1, Math.max(0, v + ((this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0)) / Math.max(r, 0.05))) * 255))).toString('base64') } : null;
     if (relief && this.rolled('geology')) { // GEOLOGY for the viewer (s1544): rock per cell (0 hard, 1 soft, 2 soluble, 3 sediment, 4 basement), alluvium 0–255, and the full height −1 … 1.5 as 0–255 (elev above stays 0 … 1 for old viewers)
       const R = this.reliefMap(), n = GW * GH, rock = new Uint8Array(n), al = new Uint8Array(n), e2 = new Uint8Array(n);
       for (let i = 0; i < n; i++) { rock[i] = this.rockOf(i); al[i] = Math.round(Math.min(1, this.alluv?.[i] ?? 0) * 255); e2[i] = Math.round(Math.min(1, Math.max(0, (R[i] * r + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0) + 1) / 2.5)) * 255); }
@@ -3581,8 +3587,10 @@ export class World {
   bodyTraits(c) { return [this.bodySize(c), c.gut, this.armorOf(c), this.toxinOf(c), c.legs ?? 1, c.wind ?? 0.5, c.mature ?? 1, c.browse ?? 0, c.gape ?? 0.5, c.resist ?? P.resistStart, c.litter ?? 1, ...(this.rolled('bodytest2') ? [c.swim ?? 0, c.climb ?? 0, c.bite ?? 0, c.snap ?? 0, c.coat ?? P.coatStart] : [])]; } // (s2235, bodytest2) the skills the newest rules select on
   // Do these founders differ from the rest of their species in body, beyond chance? The rms over the traits of (founders' mean − rest's mean) in the species' SDs,
   // against the median of speciateNull random groups of the same size; it must beat the null by speciateGap.
-  realDifference(name, founders, kind) {
-    const all = this.creatures.filter(c => !c.dead && c.species === name), n = all.length, f = founders.length, st = this.spStat();
+  // How far founders' bodies stand from the rest of their species, and what random founders of the same number would give
+  // (the median of speciateNull draws). Shared by the split rule and the viewer's bands (which pass their own random source).
+  bodyDifference(name, founders, rand = Math.random) {
+    const all = this.creatures.filter(c => !c.dead && c.species === name), n = all.length, f = founders.length;
     const raw = all.map(c => this.bodyTraits(c)), m = raw[0].length, mean = [], sd = [];
     for (let j = 0; j < m; j++) { mean[j] = raw.reduce((a, r) => a + r[j], 0) / n; const v = Math.sqrt(raw.reduce((a, r) => a + (r[j] - mean[j]) ** 2, 0) / n); sd[j] = v > 1e-6 ? v : Infinity; }
     const rms = pick => { // pick: indexes of the founders
@@ -3590,13 +3598,43 @@ export class World {
       return Math.sqrt(s / m);
     };
     const set = new Set(founders), real = rms(all.map((c, i) => set.has(c) ? i : -1).filter(i => i >= 0)), idx = all.map((_, i) => i), nulls = [];
-    for (let r = 0; r < P.speciateNull; r++) { for (let i = 0; i < f; i++) { const j = i + Math.floor(Math.random() * (n - i)); [idx[i], idx[j]] = [idx[j], idx[i]]; } nulls.push(rms(idx.slice(0, f))); }
-    nulls.sort((a, b) => a - b); const nul = nulls[nulls.length >> 1], ok = n > f && real >= nul + P.speciateGap;
+    for (let r = 0; r < P.speciateNull; r++) { for (let i = 0; i < f; i++) { const j = i + Math.floor(rand() * (n - i)); [idx[i], idx[j]] = [idx[j], idx[i]]; } nulls.push(rms(idx.slice(0, f))); }
+    nulls.sort((a, b) => a - b);
+    return { real, nul: nulls[nulls.length >> 1], n, f };
+  }
+  realDifference(name, founders, kind) {
+    const st = this.spStat(), { real, nul, n, f } = this.bodyDifference(name, founders), ok = n > f && real >= nul + P.speciateGap;
     st.gaps.push({ kind, season: this.season, name, founders: f, of: n, rms: +real.toFixed(3), nul: +nul.toFixed(3), ok });
     if (st.gaps.length > 200) st.gaps.splice(0, st.gaps.length - 200); // (s2235) keep the latest 200 in the save
     (ok ? st.passed : st.blocked)[kind] = ((ok ? st.passed : st.blocked)[kind] ?? 0) + 1;
     return ok;
   }
+  // (s2261, Luis) Bands inside each species for the viewer: groups living differently (ways of life and habitats other than the
+  // usual one) and mind variants, with how many stand together, how different their bodies are against random founders, and
+  // how ready they are to split (0 … 1 of speciateGap above random). Read-only: a private random source, nothing recorded.
+  bands() {
+    let seed = this.tick >>> 0; const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const out = {}, st = this.spStat();
+    for (const name of this.living()) {
+      const group = this.creatures.filter(c => !c.dead && c.species === name && c.k?.length); if (group.length < P.speciateMin * 2) continue;
+      const list = [], of = new Map(group.map(c => [c, this.nicheOf(c)])), count = {};
+      for (const v of of.values()) count[v] = (count[v] ?? 0) + 1;
+      const usual = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0];
+      const add = (kind, label, members, range) => {
+        if (members.length < 5) return;
+        const together = members.length >= P.speciateMin ? this.gather(members, range) : members, d = this.bodyDifference(name, together, rand);
+        list.push({ kind, label, n: members.length, together: together.length, needTogether: P.speciateMin, rms: +d.real.toFixed(3), nul: +d.nul.toFixed(3), need: +(d.nul + P.speciateGap).toFixed(3),
+          ready: +Math.max(0, Math.min(1, (d.real - d.nul) / P.speciateGap)).toFixed(3), ids: members.map(c => c.id), seen: this.registry[name].nicheSeen?.[label] ?? 0 });
+      };
+      for (const [label, k] of Object.entries(count)) if (label !== usual) add('niche', label, group.filter(c => of.get(c) === label), P.nicheRange);
+      for (const [id, m] of Object.entries(this.registry[name].morphs ?? {})) add('mind', m.what ?? `mind ${id}`, group.filter(c => String(c.morph) === String(id)), P.splitRange);
+      list.sort((a, b) => b.ready - a.ready || b.n - a.n);
+      const tries = st.gaps.filter(g => g.name === name).slice(-20).map(({ kind, season, founders, rms, nul, ok }) => ({ kind, season, founders, rms, nul, ok }));
+      out[name] = { usual, bands: list, tries, passed: st.passed, blocked: st.blocked, gap: P.speciateGap };
+    }
+    return out;
+  }
+
   // (speciate2) At the end of its first season, a new species under speciateMin bodies blends back into its parent (if that still lives); mind-born ones do not (their numbers are another layout).
   blendBack() {
     for (const name of this.living()) {
@@ -3747,7 +3785,7 @@ export class World {
     const allowed = i0 === i1 || committed || this.canStep(c, i0, i1, true);
     if (physics && i0 !== i1 && allowed && !committed && N[i1] > P.needFloor && N[i1] > n0 && this.elevAt(c.x + c.vx, c.y + c.vy) > this.elevAt(c.x, c.y)) {
       const rise = Math.max(P.climbMinRise, (this.elevAt(c.x + c.vx, c.y + c.vy) - this.elevAt(c.x, c.y)) * P.heightMetres);
-      c.climbing = { left: Math.min(P.climbMaxTicks, Math.ceil(rise / (P.climbUp * P.tickSeconds * climb * this.strength(c)))) };
+      c.climbing = { left: Math.min(P.climbMaxTicks, Math.ceil(rise / (P.climbUp * P.tickSeconds * climb * (this.rolled('climbweight') ? this.strength(c) / (mass(this.bodySize(c)) / mass(5)) : this.strength(c))))) };
       c.climbEntry = i1;
       const stamina = c.stamina; this.steer(c, 0, 0); c.stamina = stamina; // Limit the first step without a second wind recovery.
     }

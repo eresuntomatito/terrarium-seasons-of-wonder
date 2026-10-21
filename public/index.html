@@ -107,6 +107,8 @@
   .egg { padding: 4px 0; color: hsl(35 85% 55%); font-weight: 600; }
   #extinct button { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; text-decoration: underline dotted; }
   #extinct s { text-decoration-color: var(--strike); }
+  .bands { margin:2px 0 8px 22px; font-size:11px; } .band { display:grid; grid-template-columns:1fr 70px 32px; gap:6px; align-items:center; padding:1px 4px; border-radius:4px; cursor:default; } .band:hover { background:color-mix(in srgb, var(--fg) 8%, transparent); }
+  .readybar { height:5px; background:color-mix(in srgb, var(--fg) 12%, transparent); border-radius:3px; overflow:hidden; } .readybar i { display:block; height:100%; background:var(--warm); }
   .lenses { display:flex; flex-wrap:wrap; gap:4px; margin:8px 0 6px; }
   .lenses button { font:inherit; font-size:10px; padding:2px 5px; border:1px solid var(--line); border-radius:10px; background:none; color:var(--dim); cursor:pointer; }
   .lenses button.on { color:var(--hi); border-color:var(--dim); } .lenses button:disabled { opacity:.4; cursor:default; }
@@ -179,7 +181,7 @@ const trails = new Map();
 const headings = new Map(); // id → the heading drawn, turned smoothly toward where the body really goes
 const SCALE = 2;
 let meta, frameMs, cur = null, prev = null, recvAt = 0, rain = 0, tick = 0, season = 1;
-let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null;
+let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null, bands = {};
 // The camera eases toward a wrapped target; zoom keeps its chosen world point under the pointer.
 const camera = { z: 1, cx: 0, cy: 0 }, target = { ...camera }, pointers = new Map();
 let pileBadges = [], peakMarks = [], summits = [], peakHistory = [], peakRise = 0, summitKey = null;
@@ -1299,6 +1301,7 @@ on('meta', m => {
   reefCanvas.width = meta.GW; reefCanvas.height = meta.GH;
 });
 on('species', list => { species = list; refreshCreatureSprites(); renderSpecies(true); });
+on('bands', b => { bands = b ?? {}; renderSpecies(true); });
 on('god', s => {
   $('god').className = s.state;
   const waiting = s.queue?.length ? ` (waiting: ${s.queue.join(', ')})` : '';
@@ -1413,6 +1416,7 @@ on('history', ({ h, stats: s, records: r, traits: tr }) => {
 });
 $('species').addEventListener('mouseover', e => {
  const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number);highlight=(c,sp)=>ecoRole(sp)===ECO_ROLES[r]&&placeIndex(c.x,c.y)===p;showEcoTip(e,cell.title);return;}
+ const band=e.target.closest('[data-band]');if(band){const ids=new Set(band.dataset.band.split(',').map(Number));highlight=c=>ids.has(c.id);hideEcoTip();return;}
  hideEcoTip();highlight=e.target.closest('details')?.dataset.name??null;
 });
 $('species').addEventListener('mousemove',e=>{if(e.target.closest('[data-niche]'))positionEcoTip(e);});
@@ -1422,7 +1426,7 @@ es.onerror = () => { $('clock').textContent = 'the glass is dark (server stopped
 
 function unpack(c) {
   const m = new Map();
-  for (let i = 0; i < c.length; i += FRAME_STRIDE) m.set(c[i], { s: c[i + 1], x: c[i + 2], y: c[i + 3], a: c[i + 4], e: c[i + 5], h: c[i + 6], b: c[i + 7], z: c[i + 8], l: c[i + 9], f: c[i + 10], r: c[i + 11], p: c[i + 12], g: FRAME_STRIDE > 13 ? c[i + 13] : undefined });
+  for (let i = 0; i < c.length; i += FRAME_STRIDE) m.set(c[i], { id: c[i], s: c[i + 1], x: c[i + 2], y: c[i + 3], a: c[i + 4], e: c[i + 5], h: c[i + 6], b: c[i + 7], z: c[i + 8], l: c[i + 9], f: c[i + 10], r: c[i + 11], p: c[i + 12], g: FRAME_STRIDE > 13 ? c[i + 13] : undefined });
   return m;
 }
 
@@ -2462,6 +2466,16 @@ function updatePlaces(now=performance.now()){
 }
 function placeIndex(x,y){return places.map?.[cellOf(x,y)]??0;}
 function placeOf(x,y){return places.names[placeIndex(x,y)]??'unknown place';}
+// (s2261, Luis) Bands inside a species: groups living or thinking differently, from the world's own split test. The bar is how far
+// their bodies stand from the rest beyond what random founders of the same size would (0 … the split bar); hover lights them on the map.
+const BAND_WORDS={highland:'highland band',aquatic:'water band','mixed feeder':'mixed feeders',decomposer:'dung eaters',omnivore:'omnivores',scavenger:'scavengers',browser:'browsers',insectivore:'insect eaters',hunter:'hunters',parasite:'parasites',apex:'apex'};
+function bandsHtml(name){
+ const b=bands[name];if(!b?.bands?.length)return '';
+ const tried=Object.values(b.blocked??{}).reduce((a,x)=>a+x,0),passed=Object.values(b.passed??{}).reduce((a,x)=>a+x,0);
+ const rows=b.bands.map(x=>{const pct=Math.round(x.ready*100),label=x.kind==='mind'?`thinkers: “${x.label}”`:(BAND_WORDS[x.label]??x.label),gather=x.together>=x.needTogether?`${x.together} together`:`${x.together}/${x.needTogether} together`;
+  return `<div class="band" data-band="${x.ids.join(',')}" title="${esc(`${label}: ${x.n} bodies, ${gather} (a split needs ${x.needTogether} in one place).\nBody difference ${x.rms} vs ${x.nul} for random groups; the split bar is ${x.need}.`)}"><span class="bandname">${esc(label)} <b>${x.n}</b> <span class="dim">· ${gather}</span></span><span class="readybar"><i style="width:${pct}%"></i></span><span class="dim">${pct}%</span></div>`;}).join('');
+ return `<div class="bands"><div class="dim">inside the ${esc(name)}s · split readiness${tried||passed?` · ${tried} tries blocked${passed?`, ${passed} passed`:''}`:''}</div>${rows}</div>`;
+}
 function bodyHighlighted(c,sp){return typeof highlight==='function'?highlight(c,sp):sp.name===highlight;}
 const ECO_ROLES=['grazer','browser','mixed feeder','decomposer','omnivore','scavenger','hunter','apex','parasite','insectivore'];
 const rolePlural=r=>r==='apex'?'apex predators':r+'s';
@@ -2683,7 +2697,7 @@ function renderSpecies(force) {
       ${mark('size', `size ${tr.size ?? '?'}`)} · ${mark('gut', `gut ${tr.gut ?? '?'}`)} · ${mark('legs', `legs ${tr.legs ?? '?'}`)} · fat ${tr.fat !== undefined ? Math.round(tr.fat * 100) + '%' : '?'} · ${mark('wind', `stamina ${tr.wind ?? '?'}`)} · ${mark('armor', `armour ${tr.armor ?? '?'}`)} · ${mark('toxin', `toxin ${tr.toxin ?? '?'}`)} · ${mark('litter', `litter ${tr.litter ?? '?'}`)} · ${mark('mature', `maturity ×${tr.mature ?? '?'}`)} · ${mark('browse', `browse ${tr.browse ?? '?'}`)} · ${mark('gape', `gape ×${tr.gape ?? '?'}`)} · ${mark('resist', `resistance ${tr.resist ?? '?'}`)} · ${mark('eyes', `eyes ${tr.eyes ?? '?'}`)}${tr.browsers ? ` (${tr.browsers} browsing)` : ''}${tr.decomp !== undefined ? ` · ${mark('decomp', `decomposer ${tr.decomp}`)} · ${mark('swim', `swim ${tr.swim ?? 0}`)} · ${mark('parasitism', `parasite ${tr.parasitism}`)} · ${mark('coat', `coat ${tr.coat}`)} · ${mark('water', `water thrift ${tr.water}`)}` : ''} · thrift ${tr.thrift ?? '?'} · plasticity ${tr.plastic ?? '?'}${tr.turning ? ` (${tr.turning} turning)` : ''} · trophic level ${tr.tl ?? '?'}${sp.driftRoot !== undefined && sp.root && sp.root !== sp.name ? ` · from the ${sp.root}s: code ${Math.round(sp.driftRoot * 100)}%, body ${Math.round((sp.bodyRoot ?? 0) * 100)}% (since its split: code ${Math.round((sp.drift ?? 0) * 100)}%)` : ` · code drifted ${Math.round((sp.drift ?? 0) * 100)}%${sp.bodyRoot !== undefined ? `, body ${Math.round(sp.bodyRoot * 100)}%` : ''}`}<br>
       mated ${st.mated ?? 0} · budded ${st.budded ?? 0} · ${deeds} · starved ${st.starved ?? 0}<br>
       ${drift.code !== undefined && drift.body !== undefined ? `drifted ${Math.round(drift.code * 100)}% in code and ${Math.round(drift.body * 100)}% in body from its line's founder` : 'founder drift: ' + (drift.code !== undefined ? `code ${Math.round(drift.code * 100)}%` : 'code unrecorded') + ' · ' + (drift.body !== undefined ? `body ${Math.round(drift.body * 100)}%` : 'body unrecorded')}</div>
-      <pre>${esc(sp.code ?? '')}</pre></details>`];
+      <pre>${esc(sp.code ?? '')}</pre></details>${bandsHtml(sp.name)}`];
   }));
   let body='';
   if(lifeLens==='Family')body=ordered.map(({sp})=>rows.get(sp.name)).join('');

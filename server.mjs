@@ -63,6 +63,7 @@ function tickOnce() {
   if (world.tick % 60 === 0) { const wf = world.waterFrame(); if (wf) broadcast('water', wf); }
   if (world.tick % 60 === 0) broadcast('reef', { map: world.reefMap(), thicket: world.thicketMap(), trees: world.treeMap(), insects: world.insectMap(), climate: world.climate() });
   if (world.tick % 900 === 0) broadcast('species', world.speciesList()); // evolved code and drift
+  if (world.tick % 900 === 450) broadcast('bands', world.bands()); // (s2261) bands inside each species and how near a split they are
   if (world.tick % 300 === 0) stewardRelease();
 }
 setTimeout(clock, 0);
@@ -89,6 +90,7 @@ function stream(req, res) {
   res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
   res.write(message('meta', { W, H, CELL, GW, GH, TICKS_PER_DAY, TICKS_PER_SEC, SEASON_TICKS, GENERATIONS_PER_MUTATION, FRAME_STRIDE }));
   res.write(message('species', world.speciesList()));
+  res.write(message('bands', world.bands()));
   res.write(message('reef', { map: world.reefMap(), thicket: world.thicketMap(), trees: world.treeMap(), insects: world.insectMap(), climate: world.climate() }));
   res.write(message('god', god));
   res.write(message('past', { history: world.history, events: world.events, stats: world.stats, records: world.records, traits: world.traits() }));
