@@ -376,6 +376,7 @@ export const PHYSICS = {
   // Bodies catch them in water: wading 0.2 × swim, swim-deep 1 × swim (× habits); digested as meat by a middle gut (peak 0.45).
   // A one-time seed (fishSeed in swim-deep cells) starts them when the key rolls out.
   fishEvery: 20, fishScale: 0.2, fishMax: 1, fishGraze: 0.02, fishEff: 0.3, fishSoil: 0.3, fishDie: 0.004, fishDry: 0.3, fishSpread: 0.05, fishDrift: 0.05,
+  fishSeen: 4,           // (s2428) a fish density this many times as tempting as a grass patch, × swim (bodies see fish as food)
   fishDepth: 0.02, fishSeed: 0.02, fishBite: 0.1, fishWade: 0.2,
   // FOODS THAT DIFFER (Luis, 13:00 Oct 15 — the stomach test's recommendations, applied):
   grassQuality: [0.6, 1.3], // grass energy × (0.5 + moisture of its cell), held within these bounds: dry-season grass is poor, wet-season rich
@@ -2250,7 +2251,7 @@ export class World {
   // ISOLATION (Luis, s2417: "do it directly in the world… so no specimen can leave the area"): a boundary around a box of land that
   // no body crosses, either way: walking, being swept or falling are undone, and young are born on their parents' side. The box is
   // world.isoBox {x0, y0, x1, y1, since}; isoBlocked counts the crossings stopped.
-  inIso(x, y) { const b = this.isoBox; return !!b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1; }
+  inIso(x, y) { const b = this.isoBox; if (!b) return false; if (b.rx) { const dx = delta(b.cx, x, W) / b.rx, dy = delta(b.cy, y, H) / b.ry; return dx * dx + dy * dy <= 1; } return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1; } // a box, or (s2428) an oval on the wrapping map
   growTissue(c) {
     const r = this.tissueRise(), oldFrac = P.growTicks ? Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : 1;
     c.grownFrac ??= oldFrac;
@@ -2382,13 +2383,13 @@ export class World {
     }
     if (this.grazes(c)) {
       const browser = this.browses(c), tOn = this.rolled('trees'), TR = this.trees; // a big body with a browsing gut sees thicket shoots as food; trees bear fruit, nuts and cones
-      const patches = [], gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL), aquaOn = this.rolled('waterfood'), highOn = this.rolled('highfood'), snapW = this.rolled('insects') ? (c.snap ?? 0) : 0, INS = this.insects; // (insects) a snapping body sees a swarm as food
+      const patches = [], gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL), aquaOn = this.rolled('waterfood'), highOn = this.rolled('highfood'), snapW = this.rolled('insects') ? Math.max(c.snap ?? 0, P.snapBase) : 0, INS = this.insects, FISH = this.fish, swimW = FISH ? (c.swim ?? 0) : 0; // (insects) a snapping body sees a swarm as food
       let enough = Infinity; // once ATTENTION patches are found, cells more than 1.5 cells further out cannot be nearer
       for (const [dx, dy, ring] of cellsWithin(Math.ceil(r / CELL) * CELL)) { // whole cells for the cache key (sight varies continuously); exact distance is checked below
         if (ring > enough) break;
         if (patches.length >= ATTENTION && enough === Infinity) enough = ring + 1.5;
         const gx = gx0 + dx, gy = gy0 + dy;
-        const ci = (gy < 0 ? gy + GH : gy >= GH ? gy - GH : gy) * GW + (gx < 0 ? gx + GW : gx >= GW ? gx - GW : gx), b = Math.max(this.plants[ci], aquaOn ? this.aqua[ci] * (0.4 + 0.6 * (c.swim ?? 0)) : 0, highOn ? this.lichen[ci] * 0.8 : 0, snapW > 0.03 ? Math.min(1, 2 * snapW * P.insSeen * INS[ci]) : 0); // water plants, lichen and (snap) swarms are food to see too
+        const ci = (gy < 0 ? gy + GH : gy >= GH ? gy - GH : gy) * GW + (gx < 0 ? gx + GW : gx >= GW ? gx - GW : gx), b = Math.max(this.plants[ci], aquaOn ? this.aqua[ci] * (0.4 + 0.6 * (c.swim ?? 0)) : 0, highOn ? this.lichen[ci] * 0.8 : 0, snapW > 0.03 ? Math.min(1, 2 * snapW * P.insSeen * INS[ci]) : 0, swimW > 0.05 ? Math.min(1, swimW * P.fishSeen * FISH[ci]) : 0); // water plants, lichen, swarms and (s2428) fish are food to see too
         const th = this.thicket[ci], shoots = browser ? (th - P.browseFloor) * (c.browse ?? 0) * 2 : 0;
         if (tOn && TR[ci] > 0.1) { const tf = this.treeFood(c, ci); if (tf > 0.25 && tf >= b && !(this.burning?.[ci] > 0)) { const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2; if (d2 <= r * r) patches.push({ fx, fy, b: tf, d2 }); continue; } }
         if (shoots > 0.25 && shoots >= b) { const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2; if (d2 <= r * r) patches.push({ fx, fy, b: Math.min(1, shoots), d2 }); continue; }
@@ -2560,7 +2561,7 @@ export class World {
           } else { c.wading = 0; if (this.rolled('physics')) c.swimming = false; }
         }
         if (climb > 0 && !this.registry[c.species].unique) c.energy -= P.climbCost * climb * (mass(this.bodySize(c)) / mass(7)) * (1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c))) * (1.3 - 0.5 * (c.legs ?? 1)); }
-      if (this.isoBox) { const inside = this.inIso(c.x, c.y); if (c.isoSide === undefined) c.isoSide = inside; else if (inside !== c.isoSide) { const dx = delta(isoX, c.x, W), dy = delta(isoY, c.y, H), l = Math.hypot(dx, dy) || 1; c.wall = { x: dx / l, y: dy / l, until: this.tick + P.wallMemory }; c.x = isoX; c.y = isoY; c.vx = 0; c.vy = 0; this.isoBlocked = (this.isoBlocked ?? 0) + 1; } } // remembered like any wall, so it steers along or away // (isolation) nobody crosses the boundary
+      if (this.isoBox) { const inside = this.inIso(c.x, c.y); if (c.isoSide === undefined) c.isoSide = inside; else if (inside !== c.isoSide && !this.isoBox.block) { this.isoCrossed = (this.isoCrossed ?? 0) + 1; (inside ? (this.isoIn = (this.isoIn ?? 0) + 1) : (this.isoOut = (this.isoOut ?? 0) + 1)); c.isoSide = inside; } else if (inside !== c.isoSide) { const dx = delta(isoX, c.x, W), dy = delta(isoY, c.y, H), l = Math.hypot(dx, dy) || 1; c.wall = { x: dx / l, y: dy / l, until: this.tick + P.wallMemory }; c.x = isoX; c.y = isoY; c.vx = 0; c.vy = 0; this.isoBlocked = (this.isoBlocked ?? 0) + 1; } } // remembered like any wall, so it steers along or away // (isolation) nobody crosses the boundary
       (c.gut >= 0.5 ? this.scentHunt : this.scentPrey)[cellAt(c.x, c.y)] += P.scent * mass(this.bodySize(c));
       c.pulse = this.heartRate(c);
       if (this.tissueOn(c)) this.growTissue(c);
@@ -3259,7 +3260,7 @@ export class World {
     kid.body += energy * P.bodyShare;
     if (this.tissueOn(kid)) { kid.energy = energy; this.birthTissue(kid, parents, remaining); }
     kid.k = k;
-    if (this.isoBox) { const side = this.inIso(parent.x, parent.y); if (this.inIso(kid.x, kid.y) !== side) { kid.x = parent.x; kid.y = parent.y; } kid.isoSide = side; } // (isolation) born on the parent's side
+    if (this.isoBox) { const side = this.inIso(parent.x, parent.y); if (this.isoBox.block && this.inIso(kid.x, kid.y) !== side) { kid.x = parent.x; kid.y = parent.y; } kid.isoSide = this.inIso(kid.x, kid.y); } // (isolation) born on the parent's side
     if (this.rolled('habits') && parent.recent?.ate > 0) { const r = parent.recent, f = P.habitBirth / r.ate; kid.recent = Object.fromEntries(Object.entries(r).map(([key, v]) => [key, key === 't' ? this.tick : v * f])); } // (habits) the young start with the parent's way of life
     kid.morph = parent.morph ?? 0; // the mind it took (its parent's hidden slip, if any)
     kid.home = this.rolled('homerange') ? { x: wrap(x, W), y: wrap(y, H) } : { x: kid.x, y: kid.y };
@@ -4194,7 +4195,7 @@ export class World {
     const corpses = [];
     for (const k of this.corpses) corpses.push(Math.round(k.x), Math.round(k.y), r2(k.age / CORPSE_TICKS), k.cause === 'eaten' ? 1 : 0);
     const eggs = (this.eggs ?? []).flatMap(e => [Math.round(e.x), Math.round(e.y), Math.round((this.tick - e.laid) / (e.hatch - e.laid) * 1e4) / 1e4, index[e.species] ?? -1]); // progress, fine enough for a countdown
-    return { iso: this.isoBox ?? null, t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide(), kraken: this.krakenClock(), food: this.grassFood ?? 1, quake: this.quakeNow && this.tick < this.quakeNow.until ? this.quakeNow : undefined, temp: this.tick % 300 === 0 ? this.tempFrame() : undefined, mind: this.tick % 30 === 0 ? this.mindFrame() : undefined };
+    return { iso: this.isoBox?.block ? this.isoBox : null, t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide(), kraken: this.krakenClock(), food: this.grassFood ?? 1, quake: this.quakeNow && this.tick < this.quakeNow.until ? this.quakeNow : undefined, temp: this.tick % 300 === 0 ? this.tempFrame() : undefined, mind: this.tick % 30 === 0 ? this.mindFrame() : undefined };
   }
 
   // Plants, moisture and fertility per cell, as base64 bytes.
@@ -4235,7 +4236,7 @@ export class World {
       corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, grassLean: this.grassLean, grassRampFrozen: this.grassRampFrozen, grassRampLast: this.grassRampLast, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       speciate: this.speciate ?? null,
       ...(this.fish ? { fish: Array.from(this.fish, v => Math.round(v * 1e4) / 1e4), fishLedger: this.fishLedger } : {}),
-      ...(this.isoBox ? { isoBox: this.isoBox, isoBlocked: this.isoBlocked ?? 0 } : {}),
+      ...(this.isoBox ? { isoBox: this.isoBox, isoBlocked: this.isoBlocked ?? 0, isoIn: this.isoIn ?? 0, isoOut: this.isoOut ?? 0 } : {}),
       ...(this.tune ? { tune: this.tune } : {}), // (s2235) the split counters survive restarts
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
@@ -4251,7 +4252,7 @@ export class World {
     this.climbTicks = s.climbTicks ?? 0;
     if (s.tune) { this.tune = s.tune; Object.assign(P, s.tune); } // (s2303, Luis's food-loop directive) live tuning saved with the world: parameter overrides, set by tools/restart.sh key=value
     if (s.speciate) this.speciate = s.speciate;
-    if (s.isoBox) { this.isoBox = s.isoBox; this.isoBlocked = s.isoBlocked ?? 0; }
+    if (s.isoBox) { this.isoBox = s.isoBox; this.isoBlocked = s.isoBlocked ?? 0; this.isoIn = s.isoIn ?? 0; this.isoOut = s.isoOut ?? 0; }
     this.plants = Float32Array.from(s.plants);
     this.fertility = Float32Array.from(s.fertility);
     if (s.thicket?.length) this.thicket = Float32Array.from(s.thicket);
