@@ -169,6 +169,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  lifeDiffNiche: false, // (lifediff) also weigh ways of life in niche splits (circular: off until Luis decides)
   skillCost: 0.03, skillRamp: 10, // (s2235, skillcost) breadth cost: a typical body today (S ≈ 1.8) pays ~10% more upkeep at full ramp, a one-skill specialist (S ≈ 0.8) ~2%
   lapseCold: 0.45, bergmann: 1.0, // (D, s2261, rollout.coldheights) the heights colder in every era (lapse 0.3 → 0.45) and climate cost ∝ size^∓1 (was ^∓0.5)
   // (C, s2261, rollout.climbweight) climbing speed follows power-to-weight (strength ÷ mass ratio), so light bodies climb faster
@@ -3625,14 +3626,24 @@ export class World {
     return best.sort((a, b) => d(a) - d(b)).slice(0, P.speciateMax);
   }
   // The body traits a new species must differ in (the 11 the great divide used).
-  bodyTraits(c) { return [this.bodySize(c), c.gut, this.armorOf(c), this.toxinOf(c), c.legs ?? 1, c.wind ?? 0.5, c.mature ?? 1, c.browse ?? 0, c.gape ?? 0.5, c.resist ?? P.resistStart, c.litter ?? 1, ...(this.rolled('bodytest2') ? [c.swim ?? 0, c.climb ?? 0, c.bite ?? 0, c.snap ?? 0, c.coat ?? P.coatStart] : [])]; } // (s2235, bodytest2) the skills the newest rules select on
+  bodyTraits(c, way = false) { return [this.bodySize(c), c.gut, this.armorOf(c), this.toxinOf(c), c.legs ?? 1, c.wind ?? 0.5, c.mature ?? 1, c.browse ?? 0, c.gape ?? 0.5, c.resist ?? P.resistStart, c.litter ?? 1, ...(this.rolled('bodytest2') ? [c.swim ?? 0, c.climb ?? 0, c.bite ?? 0, c.snap ?? 0, c.coat ?? P.coatStart ] : []), ...(way ? this.wayTraits(c) : [])]; } // (s2235, bodytest2) the skills the newest rules select on
+  // (lifediff, Luis s2298: "that should count as difference") how a body lives, for the split test alongside its body: the recent
+  // diet's shares (meat, browse and tree food, dung, insects, hosts) and its habitat (time in swim-deep water, on the heights).
+  // Ways of life, not mere place, so groups that only live apart still need a real difference.
+  // Which splits weigh ways of life: mind splits (does a new way of thinking lead to a new way of living?); niche splits only with
+  // P.lifeDiffNiche, since a niche band is chosen by its way of life and would always pass.
+  wayCounts(kind) { return this.rolled('lifediff') && (kind === 'mind' || (kind === 'niche' && P.lifeDiffNiche)); }
+  wayTraits(c) {
+    const r = c.recent, a = r && r.ate > 0.3 ? r.ate : 0, sh = v => a ? (v ?? 0) / a : 0;
+    return [sh(r?.meat), sh(r?.browse), sh(r?.dung), sh(r?.insect), sh(r?.host), c.hab?.water ?? 0, c.hab?.high ?? 0];
+  }
   // Do these founders differ from the rest of their species in body, beyond chance? The rms over the traits of (founders' mean − rest's mean) in the species' SDs,
   // against the median of speciateNull random groups of the same size; it must beat the null by speciateGap.
   // How far founders' bodies stand from the rest of their species, and what random founders of the same number would give
   // (the median of speciateNull draws). Shared by the split rule and the viewer's bands (which pass their own random source).
-  bodyDifference(name, founders, rand = Math.random) {
+  bodyDifference(name, founders, rand = Math.random, way = false) {
     const all = this.creatures.filter(c => !c.dead && c.species === name), n = all.length, f = founders.length;
-    const raw = all.map(c => this.bodyTraits(c)), m = raw[0].length, mean = [], sd = [];
+    const raw = all.map(c => this.bodyTraits(c, way)), m = raw[0].length, mean = [], sd = [];
     for (let j = 0; j < m; j++) { mean[j] = raw.reduce((a, r) => a + r[j], 0) / n; const v = Math.sqrt(raw.reduce((a, r) => a + (r[j] - mean[j]) ** 2, 0) / n); sd[j] = v > 1e-6 ? v : Infinity; }
     const rms = pick => { // pick: indexes of the founders
       let s = 0; for (let j = 0; j < m; j++) { const sf = pick.reduce((a, i) => a + raw[i][j], 0), mf = sf / f, mr = (mean[j] * n - sf) / Math.max(1, n - f); s += ((mf - mr) / sd[j]) ** 2; }
@@ -3644,7 +3655,7 @@ export class World {
     return { real, nul: nulls[nulls.length >> 1], n, f };
   }
   realDifference(name, founders, kind) {
-    const st = this.spStat(), { real, nul, n, f } = this.bodyDifference(name, founders), ok = n > f && real >= nul + P.speciateGap;
+    const st = this.spStat(), { real, nul, n, f } = this.bodyDifference(name, founders, Math.random, this.wayCounts(kind)), ok = n > f && real >= nul + P.speciateGap;
     st.gaps.push({ kind, season: this.season, name, founders: f, of: n, rms: +real.toFixed(3), nul: +nul.toFixed(3), ok });
     if (st.gaps.length > 200) st.gaps.splice(0, st.gaps.length - 200); // (s2235) keep the latest 200 in the save
     (ok ? st.passed : st.blocked)[kind] = ((ok ? st.passed : st.blocked)[kind] ?? 0) + 1;
@@ -3663,7 +3674,7 @@ export class World {
       const usual = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0];
       const add = (kind, label, members, range) => {
         if (members.length < 5) return;
-        const together = members.length >= P.speciateMin ? this.gather(members, range) : members, d = this.bodyDifference(name, together, rand);
+        const together = members.length >= P.speciateMin ? this.gather(members, range) : members, d = this.bodyDifference(name, together, rand, this.wayCounts(kind));
         list.push({ kind, label, n: members.length, together: together.length, needTogether: P.speciateMin, rms: +d.real.toFixed(3), nul: +d.nul.toFixed(3), need: +(d.nul + P.speciateGap).toFixed(3),
           ready: +Math.max(0, Math.min(1, (d.real - d.nul) / P.speciateGap)).toFixed(3), ids: members.map(c => c.id), seen: this.registry[name].nicheSeen?.[label] ?? 0 });
       };
