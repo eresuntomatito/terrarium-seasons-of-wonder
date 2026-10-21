@@ -169,6 +169,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  nicheFounders: 0,      // (s2315) founders a niche split needs together (0 = speciateMin)
   lifeDiffNiche: false, // (lifediff) also weigh ways of life in niche splits (circular: off until Luis decides)
   skillCost: 0.03, skillRamp: 10, // (s2235, skillcost) breadth cost: a typical body today (S ≈ 1.8) pays ~10% more upkeep at full ramp, a one-skill specialist (S ≈ 0.8) ~2%
   lapseCold: 0.45, bergmann: 1.0, // (D, s2261, rollout.coldheights) the heights colder in every era (lapse 0.3 → 0.45) and climate cost ∝ size^∓1 (was ^∓0.5)
@@ -3420,7 +3421,7 @@ export class World {
     const near = (p, q) => Math.hypot(delta(p.x, q.x, W), delta(p.y, q.y, H)) < P.nicheRange;
     for (const niche of Object.keys(P.niche).concat('grazer', 'mixed feeder', ...(this.rolled('habitat') ? ['aquatic', 'highland'] : [])).filter((n, i, a) => a.indexOf(n) === i)) {
       const them = group.filter(c => of.get(c) === niche);
-      const s2 = this.rolled('speciate2'), floor = s2 ? P.speciateMin : P.nicheMin; // (speciate2) the founders' floor falls 30 → 15; the rest left behind still needs nicheMin
+      const s2 = this.rolled('speciate2'), floor = s2 ? (P.nicheFounders || P.speciateMin) : P.nicheMin; // (speciate2) the founders' floor falls 30 → 15 (nicheFounders, s2315: a stricter floor for niche splits); the rest left behind still needs nicheMin
       if (niche === usual || them.length < floor || group.length - them.length < P.nicheMin) { delete sp.nicheSeen[niche]; continue; }
       let local = [];
       for (const centre of them) { const here = them.filter(c => near(centre, c)); if (here.length > local.length) local = here; }
@@ -3676,7 +3677,7 @@ export class World {
       const add = (kind, label, members, range) => {
         if (members.length < 5) return;
         const together = members.length >= P.speciateMin ? this.gather(members, range) : members, d = this.bodyDifference(name, together, rand, this.wayCounts(kind));
-        list.push({ kind, label, n: members.length, together: together.length, needTogether: P.speciateMin, rms: +d.real.toFixed(3), nul: +d.nul.toFixed(3), need: +(d.nul + P.speciateGap).toFixed(3),
+        list.push({ kind, label, n: members.length, together: together.length, needTogether: kind === 'niche' ? (P.nicheFounders || P.speciateMin) : P.speciateMin, rms: +d.real.toFixed(3), nul: +d.nul.toFixed(3), need: +(d.nul + P.speciateGap).toFixed(3),
           ready: +Math.max(0, Math.min(1, (d.real - d.nul) / P.speciateGap)).toFixed(3), ids: members.map(c => c.id), seen: this.registry[name].nicheSeen?.[label] ?? 0,
           range, rest: group.length - members.length, needRest: kind === 'niche' ? P.nicheMin : 0, needSeen: kind === 'niche' ? (P.nicheHold[label] ?? P.nicheDays + 1) : 0 });
       };
