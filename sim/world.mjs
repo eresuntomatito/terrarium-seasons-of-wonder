@@ -40,6 +40,7 @@ export const PHYSICS = {
   plantEnergy: 0.55,     // energy per unit of plant, times (1 - gut)²
   bodyEnergy: 1.0,       // energy locked in a body of mass 1, on top of what it was carrying …
   bornBody: 0,           // … but a body born in the world holds only this share of it: its parents never paid for the rest
+  tissueBirth: 0.4, tissueRate: 0.01, tissueRamp: 10, // step 4 (tissue): paid newborn stores and energy built into tissue per tick
   bodyShare: 0.2,          // share of a child's gift locked into its body: it cannot spend it, but its corpse holds it
   fleshEfficiency: 0.9,  // share of a kill's energy that survives digestion, times gut ** fleshPower
   fleshPower: 1,
@@ -2183,7 +2184,41 @@ export class World {
   fleshGut(c) { if (this.gutCurves(c)) return this.gutFit(c.gut, 'flesh'); return c.gut ** (this.rolled('valley') && !this.registry[c.species].unique ? P.valleyPower : P.fleshPower); }
   grazes(c) { return c.gut < 1 - P.jaws; }
   // The body as it is now: juveniles are smaller than the adult size their genes promise.
-  bodySize(c) { return (P.growTicks ? c.size * Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : c.size) * (c.grown ?? 1); } // (× growth after adulthood, growon)
+  tissueOn(c) { return this.rolled('tissue') && !this.registry[c.species].unique; }
+  tissueSeason() {
+    if (!this.rolled('tissue') || this.tissueSeasonAt === this.season) return;
+    this.tissueSeasonAt = this.season;
+    if (this.creatures.filter(c => !c.dead).length < 160) this.tissueFrozen = true;
+    if (!this.tissueFrozen) this.tissueLevel = clamp01((this.season - this.rollout.tissue + 1) / P.tissueRamp);
+  }
+  tissueRise() { return this.tissueLevel ?? 0; }
+
+  // Residents keep their present size and stores: no free retrospective tissue or shrinking on release.
+  // The unpaid deficit is caught up at the same rate as new growth, before further size is earned.
+  growTissue(c) {
+    const r = this.tissueRise(), oldFrac = P.growTicks ? Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : 1;
+    c.grownFrac ??= oldFrac;
+    c.body ??= mass(this.bodySize(c)) * P.bodyEnergy * (c.gen > 0 ? P.bornBody : 1);
+    let grown = c.grown ?? 1;
+    if (this.rolled('growon') && c.grownFrac >= 1 && c.age > P.growTicks && grown < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) grown = Math.min(P.growOnMax, grown + P.growOnRate);
+    const desired = Math.max(c.grownFrac, oldFrac), target = mass(c.size * desired * grown) * P.bodyEnergy * r;
+    const paid = Math.min(Math.max(0, target - c.body), P.tissueRate * r, Math.max(0, c.energy));
+    c.energy -= paid; c.body += paid;
+    const supported = r > 0 ? Math.sqrt(c.body / (mass(c.size) * P.bodyEnergy * r)) : Infinity;
+    c.grownFrac = Math.max(c.grownFrac, Math.min(desired, supported / (c.grown ?? 1)));
+    if (c.grownFrac >= 1) c.grown = Math.max(c.grown ?? 1, Math.min(grown, supported));
+  }
+
+  // The tissue share is additional to the ordinary gift. An unaffordable child is born smaller.
+  birthTissue(kid, parents, remaining = 1) {
+    const r = this.tissueRise(), cost = mass(kid.size * (P.growTicks ? 0.4 : 1)) * P.bodyEnergy * P.tissueBirth * r;
+    const available = parents.reduce((s, c) => s + Math.max(0, c.energy), 0), paid = Math.min(cost, available / remaining);
+    for (const c of parents) c.energy -= available > 0 ? paid * Math.max(0, c.energy) / available : 0;
+    kid.body = paid;
+    kid.grownFrac = (P.growTicks ? 0.4 : 1) * (cost > 0 ? Math.sqrt(paid / cost) : 1);
+  }
+
+  bodySize(c) { if (this.tissueOn(c) && c.grownFrac !== undefined) return c.size * c.grownFrac * (c.grown ?? 1); return (P.growTicks ? c.size * Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : c.size) * (c.grown ?? 1); } // (× growth after adulthood, growon)
   // The defence a body actually carries: its gene's ceiling × what its food has supplied. Parasite lines (beetles)
   // and unique giants make theirs without help.
   toxinOf(c) { const sp = this.registry[c.species]; return (c.toxin ?? 0) * (sp.parasite || sp.unique ? 1 : c.toxStock ?? 1); }
@@ -2326,6 +2361,7 @@ export class World {
 
   step() {
     const t = ++this.tick;
+    if (this.rolled('tissue')) this.tissueSeason();
     if (t % P.reefEvery === 0) { this.updateThicket(); if (this.rolled('trees')) this.updateTrees(); else this._shelter = null; this.updateReef(); }
     if (t % P.waterEvery === 0 && this.rolled('water')) this.updateWater();
     if (t % P.insEvery === 0 && this.rolled('insects')) this.updateInsects();
@@ -2468,6 +2504,7 @@ export class World {
         if (climb > 0 && !this.registry[c.species].unique) c.energy -= P.climbCost * climb * (mass(this.bodySize(c)) / mass(7)) * (1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c))) * (1.3 - 0.5 * (c.legs ?? 1)); }
       (c.gut >= 0.5 ? this.scentHunt : this.scentPrey)[cellAt(c.x, c.y)] += P.scent * mass(this.bodySize(c));
       c.pulse = this.heartRate(c);
+      if (this.tissueOn(c)) this.growTissue(c);
       c.age += c.pulse; // age is counted in heartbeats
       if (c.digesting > 0) c.digesting--;
       if (this.digests(c)) this.digest(c);
@@ -2477,7 +2514,7 @@ export class World {
         * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0)) * this.climateCost(c) * this.breadthCost(c);
       if (c.aversion) { c.aversion.s *= P.aversionFade; if (c.aversion.s < 0.3) c.aversion = null; }
       const drag = 1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c));
-      if (this.rolled('growon') && !sp.unique && c.age > P.growTicks && (c.grown ?? 1) < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) c.grown = Math.min(P.growOnMax, (c.grown ?? 1) + P.growOnRate); // a well-fed adult keeps growing
+      if (this.rolled('growon') && !this.tissueOn(c) && !sp.unique && c.age > P.growTicks && (c.grown ?? 1) < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) c.grown = Math.min(P.growOnMax, (c.grown ?? 1) + P.growOnRate); // a well-fed adult keeps growing
       c.energy -= sp.metabolism * k ** 0.75 * upkeep + sp.moveCost * k * drag * (c.vx * c.vx + c.vy * c.vy);
       if (c.fat > 0 && c.energy < this.capOf(c) * 0.3) { const d = Math.min(c.fat, P.fatBurn); c.fat -= d; c.energy += d * P.fatEfficiency; }
       if (!climbing) this.eat(c, sp, k);
@@ -2992,6 +3029,7 @@ export class World {
 
   fertile(c) {
     if (this.isClimbing(c)) return false;
+    if (this.tissueOn(c) && (c.grownFrac ?? 1) < 0.85) return false;
     const thrifty = this.rolled('climate') ? 1 + P.waterSlow * (c.water ?? P.waterStart) : 1; // water-thrifty bodies grow up slower
     return c.age > Math.max(P.maturity * (c.mature ?? 1) * thrifty, P.growTicks * 0.75) && !(c.cooldown > 0) && !c.broken;
   }
@@ -3015,6 +3053,7 @@ export class World {
       c.longing = 0; partner.longing = 0;
       let gift = c.give * c.energy + partner.give * partner.energy;
       if (gift < P.minChild) return;
+      if (this.tissueOn(c) && (1 - c.give) * c.energy + (1 - partner.give) * partner.energy <= 0) return;
       if (this.rolled('protein')) { // (2) protein: meat in the mother's recent diet makes her young better provisioned
         const r = c.recent, share = r?.ate > 0.3 ? r.meat / r.ate : 0;
         gift *= 1 + P.proteinBonus * Math.min(1, share / P.proteinShare);
@@ -3029,7 +3068,7 @@ export class World {
         const k = mixed ? mind.k.map(driftK) : c.k.map((v, j) => driftK(pick(v, partner.k[j])));
         born.push(this.child(mind, (c.x + partner.x) / 2, (c.y + partner.y) / 2, gift / n, genes, (mixed ? mind.gen : Math.max(c.gen, partner.gen)) + 1,
           driftSize(pick(c.sizeGene ?? c.size, partner.sizeGene ?? partner.size), this.rolled('sizevar') ? P.sizeDriftWide : P.sizeDrift), driftGut(pick(this.heritableGut(c), this.heritableGut(partner))), k,
-          this.inherit(c, partner)));
+          this.inherit(c, partner), [c, partner], n - i));
       }
       this.maybeSlip(born.slice(-n));
       partner.cooldown = P.refractory;
@@ -3038,11 +3077,12 @@ export class World {
       c.longing = 0;
       const gift = c.give * c.energy, kept = gift * (1 - P.budLoss);
       if (kept < P.minChild) return;
+      if (this.tissueOn(c) && (1 - c.give) * c.energy <= 0) return;
       c.energy -= gift;
       const n = this.litterOf(c.litter, kept);
       for (let i = 0; i < n; i++)
         born.push(this.child(c, c.x, c.y, kept / n, c.genes.map(drift), c.gen + 1, driftSize(c.sizeGene ?? c.size, this.rolled('sizevar') ? P.sizeDriftWide : P.sizeDrift), driftGut(this.heritableGut(c)), c.k.map(driftK),
-          this.inherit(c, c)));
+          this.inherit(c, c), [c], n - i));
       this.maybeSlip(born.slice(-n));
       this.stats[c.species].budded++;
     } else {
@@ -3104,7 +3144,7 @@ export class World {
     this.log(`A ${name} is born strange: something in its body has leapt far from its parents'.`);
   }
 
-  child(parent, x, y, energy, genes, gen, size, gut, k, traits) {
+  child(parent, x, y, energy, genes, gen, size, gut, k, traits, parents = [parent], remaining = 1) {
     const kid = this.spawn(parent.species, x + Math.random() * 8 - 4, y + Math.random() * 8 - 4, gen, genes, size, gut);
     Object.assign(kid, traits);
     // Birth variation: the body differs by chance from the genes it carries (sizeGene, bornGut, gapeGene pass on; the luck does not).
@@ -3114,6 +3154,7 @@ export class World {
     kid.lifespan = Math.round(kid.lifespan * (1 + P.matureLife * ((kid.mature ?? 1) - 1))); // late maturers live longer
     kid.energy = energy * (1 - P.bodyShare);
     kid.body += energy * P.bodyShare;
+    if (this.tissueOn(kid)) { kid.energy = energy; this.birthTissue(kid, parents, remaining); }
     kid.k = k;
     kid.morph = parent.morph ?? 0; // the mind it took (its parent's hidden slip, if any)
     kid.home = this.rolled('homerange') ? { x: wrap(x, W), y: wrap(y, H) } : { x: kid.x, y: kid.y };
@@ -4042,6 +4083,7 @@ export class World {
     const round = a => Array.from(a, v => Math.round(v * 1000) / 1000);
     return {
       ...(this.rolled('physics') ? { climbTicks: this.climbTicks ?? 0 } : {}),
+      ...(this.rollout?.tissue !== undefined ? { tissueLevel: this.tissueLevel, tissueFrozen: this.tissueFrozen, tissueSeasonAt: this.tissueSeasonAt } : {}),
       version: 3, tick: this.tick, season: this.season, nextId: this.nextId,
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
@@ -4058,6 +4100,7 @@ export class World {
       creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, grassFood: s.grassFood ?? 1, grassLean: s.grassLean, grassRampFrozen: s.grassRampFrozen, grassRampLast: s.grassRampLast, leanLast: s.leanLast, leanDone: s.leanDone ?? false, ceilingAt: s.ceilingAt, dominance: s.dominance ?? {}, rollout: s.rollout, ledger: s.ledger, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
       stats: s.stats, records: s.records, diet: s.diet, lastCounts: s.lastCounts, since: s.since, lessons: s.lessons ?? [], pendingStudies: s.pendingStudies ?? [],
     });
+    this.tissueLevel = s.tissueLevel; this.tissueFrozen = s.tissueFrozen; this.tissueSeasonAt = s.tissueSeasonAt;
     this.climbTicks = s.climbTicks ?? 0;
     if (s.speciate) this.speciate = s.speciate;
     this.plants = Float32Array.from(s.plants);
