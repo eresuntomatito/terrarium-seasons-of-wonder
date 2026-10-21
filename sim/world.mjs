@@ -170,6 +170,13 @@ export const PHYSICS = {
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
   callRange: 120, callPull: 0.4, guardRange: 20, guardEach: 0.15, guardMax: 6, // (calls, guard) mate calls; safety in numbers
+  // FOOD VALUES (Luis, s2448; rollout.foodvalues): what a food is worth follows what it is, in this world's terms. Fibre (grass, browse) is
+  // plentiful but poor and needs a fermenting gut; sugar (fruit) is rich and easy for any gut, and fattens fast; oil (nuts, cones) is the
+  // densest; build (insects, fish, carrion, flesh: the world's protein) is rich and provisions the young. Tree foods no longer shrink with
+  // the grass's worth (they are not grass). Insects and fish fit a wide range of guts (a grazer gets most of their worth).
+  foodValue: { fruit: 2.0, nut: 3.0, cone: 1.5 }, foodFit: { insect: [0.30, 0.15, 0.50], fish: [0.40, 0.15, 0.50] }, foodSnapEff: 0.9, foodRich: { fruit: 1.3 },
+  // FOLLOW (Luis, s2448; rollout.follow): a young body keeps near its mother until it matures, so it eats where she eats and is guarded by her.
+  followNear: 12, followRange: 160, followPull: 0.35,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1035,6 +1042,7 @@ export class World {
   // the same curve squeezed onto what is left — so the first steps toward meat cost nothing.
   // M4 (Codex): Gaussian shoulders begin at the flat top's edge, so fits stay continuous.
   gutFit(g, kind) {
+    const ff = this.rolled('foodvalues') && P.foodFit[kind]; if (ff) return Math.exp(-((Math.max(0, Math.abs(g - ff[0]) - ff[1]) / ff[2]) ** 2)); // (foodvalues) insects and fish suit most guts
     const [peak, top, width] = kind === 'plant' ? [0.05, 0.10, 0.35]
       : kind === 'browse' ? [0.25, 0.10, 0.35]
       : kind === 'insect' ? [0.40, 0.05, 0.30]
@@ -1949,7 +1957,7 @@ export class World {
     const r = c.recent; return !!r && r.ate > 0.3 && ((r.dung ?? 0) + (r.carrion ?? 0)) / r.ate >= P.openDiet;
   }
   // Insects are digested best by a middle gut (a bump around snapGut), which bridges the valley between plant and meat guts.
-  insectGut(g, c) { if (this.gutCurves(c)) return P.snapEff * this.gutFit(g, 'insect'); return P.snapEff * Math.exp(-(((g - P.snapGut) / P.snapWidth) ** 2)); }
+  insectGut(g, c) { if (this.gutCurves(c)) return (this.rolled('foodvalues') ? P.foodSnapEff : P.snapEff) * this.gutFit(g, 'insect'); return P.snapEff * Math.exp(-(((g - P.snapGut) / P.snapWidth) ** 2)); }
   // A snapping body takes a share of the swarm on its own cell; what the gut does not extract goes on as dung (honest dung).
   eatInsects(c, k) {
     if (this.digestFull(c) || (this.digests(c) && this.isClimbing(c))) return;
@@ -2324,6 +2332,7 @@ export class World {
     if (c.aversion?.s > 0.3 && hueApart(shownHue(o), c.aversion.hue) < P.aversionRange) return false;
     const hungry = c.energy < P.cannibalHunger * this.registry[c.species].maxEnergy;
     if (o.species !== c.species && this.rolled('founders') && this.registry[o.species].speciated && this.graceOn(this.registry[o.species]) && this.sameBranch(c.species, o.species)) { this.spStat().spared++; return false; } // (founders) a new kind is never eaten by its own branch through grace, hungry or not
+    if (o.species !== c.species && this.rolled('founders') && this.sameBranch(c.species, o.species)) return hungry; // (founders, Luis s2449: close kin are kin) a sister kind of the same branch is eaten only in hunger, like one's own
     if (o.species !== c.species && !hungry && this.rolled('speciate2') && (this.graceOn(this.registry[c.species]) || this.graceOn(this.registry[o.species])) && this.sameBranch(c.species, o.species)) { // (speciate2) no hunting of kin through a new species' first season
       this.spStat().spared++; return false;
     }
@@ -2728,6 +2737,11 @@ export class World {
       const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
       fx += pull[0] * share; fy += pull[1] * share;
     }
+    if (this.rolled('follow') && !sp.unique && c.mom != null) { // (follow) the young keep near their mother
+      const pull = this.followForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
     if (this.rolled('flock') && !sp.unique) { // (flock) kin seek kin, giving way to danger like the home pull
       const pull = this.flockForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
       const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
@@ -2774,6 +2788,14 @@ export class World {
     if (!this.rolled('guard')) return 1;
     let n = 0; this.near(o.x, o.y, P.guardRange, k => { if (k !== o && !k.dead && k.species === o.species) n++; });
     return 1 / (1 + P.guardEach * Math.min(n, P.guardMax));
+  }
+  followForce(c, maxForce) {
+    if (c.age >= P.maturity * (c.mature ?? 1)) { c.mom = null; return [0, 0]; } // grown: on its own
+    if (this._byIdT !== this.tick) { this._byIdT = this.tick; this._byId = new Map(); for (const o of this.creatures) if (!o.dead) this._byId.set(o.id, o); }
+    const m = this._byId.get(c.mom); if (!m) { c.mom = null; return [0, 0]; } // an orphan fends for itself
+    const dx = delta(c.x, m.x, W), dy = delta(c.y, m.y, H), d = Math.hypot(dx, dy);
+    if (d <= P.followNear || d > P.followRange) return [0, 0];
+    const k = P.followPull * maxForce * Math.min(1, (d - P.followNear) / P.followNear); return [dx / d * k, dy / d * k];
   }
   graceBoost(c) { const r = this.registry[c.species]; return this.rolled('founders') && r.speciated && this.graceOn(r) ? { pull: P.graceFlock, reach: P.graceReach } : { pull: 1, reach: 1 }; } // (founders) a new kind gathers hard through its grace
   flockForce(c, maxForce) {
@@ -2998,7 +3020,7 @@ export class World {
   // Fruit seeds ride along (c.tseeds); a browser also nibbles saplings (canopy under treeSapling).
   eatTrees(c, sp, k, i) {
     if (this.digests(c) && this.isClimbing(c)) return;
-    const food = [[this.fruit, 1, 'fruit', P.fruitEnergy], [this.nuts, 2, 'nut', P.nutEnergy], [this.cones, 3, 'cone', P.coneEnergy]];
+    const fv = this.rolled('foodvalues'), food = [[this.fruit, 1, 'fruit', fv ? P.foodValue.fruit : P.fruitEnergy], [this.nuts, 2, 'nut', fv ? P.foodValue.nut : P.nutEnergy], [this.cones, 3, 'cone', fv ? P.foodValue.cone : P.coneEnergy]];
     for (const [store, kind, name, e] of food) {
       if (this.digestFull(c)) break;
       if (!(store[i] > 0.01)) continue;
@@ -3006,7 +3028,7 @@ export class World {
       const bite = Math.min(store[i], sp.biteSize * (this.rolled('smallfood') ? 1 : Math.sqrt(k)) * (1 - c.gut) * acc * this.habit(c, 'browse')); // (smallfood) picking is handling-limited, not mass-limited
       if (!(bite > 0)) continue;
       store[i] -= bite;
-      const raw = bite * e * P.plantEnergy * (this.grassFood ?? 1), dig = raw * this.treeGut(c);
+      const raw = bite * e * P.plantEnergy * (fv ? 1 : this.grassFood ?? 1), dig = raw * this.treeGut(c); // (foodvalues) tree food is not grass: its worth does not fall with the grass's
       this.feed(c, dig, 1, name);
       if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
       c.dung = (c.dung ?? 0) + bite * P.dungShare;
@@ -3082,7 +3104,7 @@ export class World {
   feedNow(c, energy, foodLevel, kind) {
     if (energy <= 0) return;
     const carrion = kind === 'carrion', max = this.capOf(c);
-    const richness = Math.max(P.stomach, P.fatRich), thrift = c.thrift ?? 0.5, rich = richness && !this.registry[c.species].unique ? 1 + richness * ((P.stomachRich[kind] ?? 1) - 1) : 1;
+    const richness = Math.max(P.stomach, P.fatRich), thrift = c.thrift ?? 0.5, rich = richness && !this.registry[c.species].unique ? 1 + richness * (((this.rolled('foodvalues') && P.foodRich[kind]) || (P.stomachRich[kind] ?? 1)) - 1) : 1;
     const share = P.fatShare * (0.5 + thrift) * rich;
     if (P.stomach && !this.registry[c.species].unique) { // the stomach fills by the food's raw amount: energy ÷ how well this gut extracts it
       const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut, c) : kind === 'browse' ? P.browseEnergy * this.browseGut(c) * (c.browse ?? 0)
@@ -3163,7 +3185,7 @@ export class World {
       if (gift < P.minChild) return;
       if (this.tissueOn(c) && (1 - c.give) * c.energy + (1 - partner.give) * partner.energy <= 0) return;
       if (this.rolled('protein')) { // (2) protein: meat in the mother's recent diet makes her young better provisioned
-        const r = c.recent, share = r?.ate > 0.3 ? r.meat / r.ate : 0;
+        const r = c.recent, share = r?.ate > 0.3 ? (r.meat + (this.rolled('foodvalues') ? r.insect ?? 0 : 0)) / r.ate : 0; // (foodvalues) insects build young too
         gift *= 1 + P.proteinBonus * Math.min(1, share / P.proteinShare);
       }
       c.energy -= c.give * c.energy;
@@ -3255,6 +3277,7 @@ export class World {
   child(parent, x, y, energy, genes, gen, size, gut, k, traits, parents = [parent], remaining = 1) {
     const kid = this.spawn(parent.species, x + Math.random() * 8 - 4, y + Math.random() * 8 - 4, gen, genes, size, gut);
     Object.assign(kid, traits);
+    kid.mom = parents[0]?.id; // (follow) who it keeps near while young
     // Birth variation: the body differs by chance from the genes it carries (sizeGene, bornGut, gapeGene pass on; the luck does not).
     kid.sizeGene = size; kid.size = Math.min(P.maxSize, Math.max(P.minSize, size * (1 + gauss() * P.birthSize)));
     kid.bornGut = gut; kid.gut = clamp01(gut + gauss() * P.birthGut);
