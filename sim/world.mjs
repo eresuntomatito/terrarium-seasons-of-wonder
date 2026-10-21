@@ -2203,6 +2203,10 @@ export class World {
 
   // Residents keep their present size and stores: no free retrospective tissue or shrinking on release.
   // The unpaid deficit is caught up at the same rate as new growth, before further size is earned.
+  // ISOLATION (Luis, s2417: "do it directly in the world… so no specimen can leave the area"): a boundary around a box of land that
+  // no body crosses, either way: walking, being swept or falling are undone, and young are born on their parents' side. The box is
+  // world.isoBox {x0, y0, x1, y1, since}; isoBlocked counts the crossings stopped.
+  inIso(x, y) { const b = this.isoBox; return !!b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1; }
   growTissue(c) {
     const r = this.tissueRise(), oldFrac = P.growTicks ? Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : 1;
     c.grownFrac ??= oldFrac;
@@ -2492,6 +2496,7 @@ export class World {
         c.vx = Math.cos(a) * speed * 0.9; c.vy = Math.sin(a) * speed * 0.9;
         if (!open(a)) { c.vx = 0; c.vy = 0; }
       }
+      const isoX = c.x, isoY = c.y; // (isolation) where it stood before moving, falling or being swept
       if (this.rolled('sections') && !this.registry[c.species].unique) this.crossGate(c); // crags, cliffs and deep water ask for skill
       const climbing = this.isClimbing(c);
       if (climbing) { this.climbTicks = (this.climbTicks ?? 0) + 1; c.energy -= P.climbHold * mass(this.bodySize(c)) / mass(7); }
@@ -2510,6 +2515,7 @@ export class World {
           } else { c.wading = 0; if (this.rolled('physics')) c.swimming = false; }
         }
         if (climb > 0 && !this.registry[c.species].unique) c.energy -= P.climbCost * climb * (mass(this.bodySize(c)) / mass(7)) * (1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c))) * (1.3 - 0.5 * (c.legs ?? 1)); }
+      if (this.isoBox) { const inside = this.inIso(c.x, c.y); if (c.isoSide === undefined) c.isoSide = inside; else if (inside !== c.isoSide) { const dx = delta(isoX, c.x, W), dy = delta(isoY, c.y, H), l = Math.hypot(dx, dy) || 1; c.wall = { x: dx / l, y: dy / l, until: this.tick + P.wallMemory }; c.x = isoX; c.y = isoY; c.vx = 0; c.vy = 0; this.isoBlocked = (this.isoBlocked ?? 0) + 1; } } // remembered like any wall, so it steers along or away // (isolation) nobody crosses the boundary
       (c.gut >= 0.5 ? this.scentHunt : this.scentPrey)[cellAt(c.x, c.y)] += P.scent * mass(this.bodySize(c));
       c.pulse = this.heartRate(c);
       if (this.tissueOn(c)) this.growTissue(c);
@@ -3164,6 +3170,7 @@ export class World {
     kid.body += energy * P.bodyShare;
     if (this.tissueOn(kid)) { kid.energy = energy; this.birthTissue(kid, parents, remaining); }
     kid.k = k;
+    if (this.isoBox) { const side = this.inIso(parent.x, parent.y); if (this.inIso(kid.x, kid.y) !== side) { kid.x = parent.x; kid.y = parent.y; } kid.isoSide = side; } // (isolation) born on the parent's side
     if (this.rolled('habits') && parent.recent?.ate > 0) { const r = parent.recent, f = P.habitBirth / r.ate; kid.recent = Object.fromEntries(Object.entries(r).map(([key, v]) => [key, key === 't' ? this.tick : v * f])); } // (habits) the young start with the parent's way of life
     kid.morph = parent.morph ?? 0; // the mind it took (its parent's hidden slip, if any)
     kid.home = this.rolled('homerange') ? { x: wrap(x, W), y: wrap(y, H) } : { x: kid.x, y: kid.y };
@@ -4098,7 +4105,7 @@ export class World {
     const corpses = [];
     for (const k of this.corpses) corpses.push(Math.round(k.x), Math.round(k.y), r2(k.age / CORPSE_TICKS), k.cause === 'eaten' ? 1 : 0);
     const eggs = (this.eggs ?? []).flatMap(e => [Math.round(e.x), Math.round(e.y), Math.round((this.tick - e.laid) / (e.hatch - e.laid) * 1e4) / 1e4, index[e.species] ?? -1]); // progress, fine enough for a countdown
-    return { t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide(), kraken: this.krakenClock(), food: this.grassFood ?? 1, quake: this.quakeNow && this.tick < this.quakeNow.until ? this.quakeNow : undefined, temp: this.tick % 300 === 0 ? this.tempFrame() : undefined, mind: this.tick % 30 === 0 ? this.mindFrame() : undefined };
+    return { iso: this.isoBox ?? null, t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide(), kraken: this.krakenClock(), food: this.grassFood ?? 1, quake: this.quakeNow && this.tick < this.quakeNow.until ? this.quakeNow : undefined, temp: this.tick % 300 === 0 ? this.tempFrame() : undefined, mind: this.tick % 30 === 0 ? this.mindFrame() : undefined };
   }
 
   // Plants, moisture and fertility per cell, as base64 bytes.
@@ -4138,6 +4145,7 @@ export class World {
       creatures: this.creatures.map(c => { const { strengthTick, strengthNow, ...body } = c; return { ...body, memory: safeMemory(c.memory) }; }),
       corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, grassLean: this.grassLean, grassRampFrozen: this.grassRampFrozen, grassRampLast: this.grassRampLast, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       speciate: this.speciate ?? null,
+      ...(this.isoBox ? { isoBox: this.isoBox, isoBlocked: this.isoBlocked ?? 0 } : {}),
       ...(this.tune ? { tune: this.tune } : {}), // (s2235) the split counters survive restarts
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
@@ -4153,6 +4161,7 @@ export class World {
     this.climbTicks = s.climbTicks ?? 0;
     if (s.tune) { this.tune = s.tune; Object.assign(P, s.tune); } // (s2303, Luis's food-loop directive) live tuning saved with the world: parameter overrides, set by tools/restart.sh key=value
     if (s.speciate) this.speciate = s.speciate;
+    if (s.isoBox) { this.isoBox = s.isoBox; this.isoBlocked = s.isoBlocked ?? 0; }
     this.plants = Float32Array.from(s.plants);
     this.fertility = Float32Array.from(s.fertility);
     if (s.thicket?.length) this.thicket = Float32Array.from(s.thicket);

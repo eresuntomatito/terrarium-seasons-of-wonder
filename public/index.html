@@ -186,6 +186,7 @@ const SCALE = 2;
 let meta, frameMs, cur = null, prev = null, recvAt = 0, rain = 0, tick = 0, season = 1;
 let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null, bands = {};
 // (s2268, Luis's picks) a hovered band, and pinned bands in their own colours: the land dims, the bands shine with screen-sized rings.
+let isoBox = null; // (isolation) the sealed area from the world, drawn as a dashed line
 let bandHover = null; const bandPins = new Map(), BAND_COLORS = ['#f0c25a', '#5fb7d6', '#e47f6b', '#9fd36a', '#c79bf0'];
 // The camera eases toward a wrapped target; zoom keeps its chosen world point under the pointer.
 const camera = { z: 1, cx: 0, cy: 0 }, target = { ...camera }, pointers = new Map();
@@ -1393,7 +1394,7 @@ on('frame', f => {
   const [t0, ms0] = speedLog[0];
   if (nowMs - ms0 > 1500 && f.t > t0) tickRate = (f.t - t0) / ((nowMs - ms0) / 1000);
   lastTick = f.t; lastTickAt = nowMs;
-  rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap; divide = f.divide ?? null; krakenClock = f.kraken ?? null; grassFood = f.food ?? 1; if (f.quake && f.quake.x !== quakeSeen?.x) { quakeSeen = f.quake; quakeAt = performance.now(); } if (f.temp !== undefined) { climateNow = f.temp; updatePlaces(); if(showXray)syncXray(); }
+  isoBox = f.iso ?? null; rain = f.rain; tick = f.t; season = f.season; corpses = f.corpses; eggs = f.eggs ?? []; cap = f.cap ?? cap; divide = f.divide ?? null; krakenClock = f.kraken ?? null; grassFood = f.food ?? 1; if (f.quake && f.quake.x !== quakeSeen?.x) { quakeSeen = f.quake; quakeAt = performance.now(); } if (f.temp !== undefined) { climateNow = f.temp; updatePlaces(); if(showXray)syncXray(); }
   renderClock();
 });
 on('event', e => { events.push(e); renderEvents(); toast(e.text); });
@@ -2222,6 +2223,7 @@ function draw() {
   }
 
   if (quakeSeen && qAge < 6) { const q = quakeSeen; g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); } // the quake's dust
+  if(isoBox){const u=Math.max(ux,uy);g.save();g.setLineDash([7*u,5*u]);g.lineWidth=2*u;g.strokeStyle='rgba(240,194,90,.9)';g.strokeRect(isoBox.x0,isoBox.y0,isoBox.x1-isoBox.x0,isoBox.y1-isoBox.y0);g.setLineDash([]);g.font=`${11*u}px ui-monospace, monospace`;g.fillStyle='rgba(240,194,90,.95)';g.fillText(`sealed since s${isoBox.since}`,isoBox.x0+4*u,isoBox.y0-5*u);g.restore();} // (isolation) the boundary
   // (picks) band rings: ~18 screen px at any zoom, drawn for every band body whatever its sprite size.
   if(bandSet){const pulse=0.5+0.5*Math.sin(now/450),u=Math.max(ux,uy);g.save();g.lineWidth=2.2*u;g.globalAlpha=0.6+0.4*pulse;for(const {id,x,y} of bodies){const col=bandSet.get(id);if(!col)continue;g.strokeStyle=col;g.beginPath();g.arc(x,y,(9+4*pulse)*u,0,Math.PI*2);g.stroke();}g.restore();}
   // Badge dimensions and strokes stay in CSS pixels at every camera zoom.
