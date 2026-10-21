@@ -365,8 +365,16 @@ export const PHYSICS = {
   // M3 (Codex, AI-written): separate per-kind pools; capacity is raw bulk per mass(5).
   // digCap ≈ 0.60 × today's 0.00739 size-5.5 raw grass bite × 600 / 1.21 = 2.20 (ample grass).
   digCap: 2.2,
-  digBulk: { plant: 1, browse: 1.5, cone: 0.8, nut: 0.6, fruit: 1, insect: 0.5, carrion: 0.4, flesh: 0.3 },
-  digTime: { plant: 600, browse: 400, cone: 300, nut: 200, fruit: 120, insect: 80, carrion: 100, flesh: 150 },
+  digBulk: { plant: 1, browse: 1.5, cone: 0.8, nut: 0.6, fruit: 1, insect: 0.5, carrion: 0.4, flesh: 0.3, fish: 0.4 },
+  digTime: { plant: 600, browse: 400, cone: 300, nut: 200, fruit: 120, insect: 80, carrion: 100, flesh: 150, fish: 120 },
+  // FISH (Luis, s2419; rollout.fish): world.fish, a density per wet cell (0…fishMax; a density of 1 holds fishScale energy), updated
+  // every fishEvery ticks. Fish graze water plants (aqua) and are paid by them: what they eat leaves the plants, fishEff of its energy
+  // becomes fish, fishSoil goes to the riverbed's fertility, the rest is heat. Warmth speeds them; they spread to neighbouring water,
+  // drift downstream, die off slowly (fishDie), fast where the cell runs dry (fishDry) or freezes; the dead return to the soil.
+  // Bodies catch them in water: wading 0.2 × swim, swim-deep 1 × swim (× habits); digested as meat by a middle gut (peak 0.45).
+  // A one-time seed (fishSeed in swim-deep cells) starts them when the key rolls out.
+  fishEvery: 20, fishScale: 0.2, fishMax: 1, fishGraze: 0.02, fishEff: 0.3, fishSoil: 0.3, fishDie: 0.004, fishDry: 0.3, fishSpread: 0.05, fishDrift: 0.05,
+  fishDepth: 0.02, fishSeed: 0.02, fishBite: 0.1, fishWade: 0.2,
   // FOODS THAT DIFFER (Luis, 13:00 Oct 15 — the stomach test's recommendations, applied):
   grassQuality: [0.6, 1.3], // grass energy × (0.5 + moisture of its cell), held within these bounds: dry-season grass is poor, wet-season rich
   shootQuality: [0.8, 1.4], // thicket shoots × (1.5 − moisture): the hedge holds its water, so in dry spells its shoots are the richer food
@@ -1027,7 +1035,7 @@ export class World {
       : kind === 'browse' ? [0.25, 0.10, 0.35]
       : kind === 'insect' ? [0.40, 0.05, 0.30]
       : kind === 'carrion' ? [0.55, 0.10, 0.30]
-      : kind === 'flesh' ? [0.80, 0.15, 0.35] : [0.20, 0.10, 0.40]; // fruit, nut, cone
+      : kind === 'flesh' ? [0.80, 0.15, 0.35] : kind === 'fish' ? [0.45, 0.10, 0.35] : [0.20, 0.10, 0.40]; // fruit, nut, cone (fish: a middle gut, s2419)
     return Math.exp(-((Math.max(0, Math.abs(g - peak) - top) / width) ** 2));
   }
   gutCurves(c) { return this.rolled('gutcurves') && (!c || !this.registry[c.species].unique); }
@@ -2009,6 +2017,40 @@ export class World {
     add('nectar', nectar); add('fruit', fruit); add('dung', dung); add('leaf', leaf); add('die', die); add('lost', lost); add('heat', heat); add('toSoil', toSoil); add('toIns', toIns);
   }
   // Insects and bloom for the viewer: density 0–255 and bloom 0–255 per cell. Null before rollout.insects.
+  updateFish() {
+    const n = GW * GH, Wd = this.water, A = this.aqua, f = this.fertility;
+    if (!this.fish) { this.fish = new Float32Array(n); for (let i = 0; i < n; i++) if ((Wd?.[i] ?? 0) > 0.08) this.fish[i] = P.fishSeed; this.fishLedger = { seeded: this.fish.reduce((a, x) => a + x, 0) * P.fishScale }; }
+    const F = this.fish, nx = this._fishN ??= new Float32Array(n), L = this.fishLedger ??= {}, era = this.tempEra(), at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW);
+    nx.fill(0); let grazed = 0, died = 0;
+    for (let i = 0; i < n; i++) {
+      let d = F[i]; if (!(d > 0)) continue;
+      const wet = (Wd?.[i] ?? 0) > P.fishDepth, T = this.tempAt(((i / GW | 0) + 0.5) * CELL, era, ((i % GW) + 0.5) * CELL), frozen = T < P.freezeAt;
+      if (wet && !frozen && A) { // graze water plants: paid by them
+        const eat = Math.min(A[i] * 0.5, P.fishGraze * d * A[i] * (0.5 + T)), e = eat * P.aquaEnergy * P.plantEnergy;
+        A[i] -= eat; d += e * P.fishEff / P.fishScale; f[i] = Math.min(2, f[i] + e * P.fishSoil); grazed += e;
+      }
+      const loss = d * (!wet ? P.fishDry : frozen ? P.fishDie * 3 : P.fishDie); d -= loss; f[i] = Math.min(2, f[i] + loss * P.fishScale * 0.5); died += loss * P.fishScale;
+      if (d > P.fishMax) { f[i] = Math.min(2, f[i] + (d - P.fishMax) * P.fishScale * 0.5); d = P.fishMax; }
+      if (!wet) { nx[i] += d; continue; }
+      const x = i % GW, y = (i / GW) | 0, nb = [at(x + 1, y), at(x - 1, y), at(x, y + 1), at(x, y - 1)].filter(j => (Wd?.[j] ?? 0) > P.fishDepth);
+      let stay = d;
+      if (nb.length) { const go = d * P.fishSpread; for (const j of nb) nx[j] += go / nb.length; stay -= go; }
+      if (this.flowDir) { const j = at(x + Math.round(this.flowDir[i * 2]), y + Math.round(this.flowDir[i * 2 + 1])); if (j !== i && (Wd?.[j] ?? 0) > P.fishDepth) { const go = stay * P.fishDrift; nx[j] += go; stay -= go; } }
+      nx[i] += stay;
+    }
+    F.set(nx); L.grazed = (L.grazed ?? 0) + grazed; L.died = (L.died ?? 0) + died;
+  }
+  // A body takes fish from its own cell if it is in the water: wading 0.2 × swim, swim-deep 1 × swim (× habits).
+  eatFish(c, k) {
+    if (this.digestFull(c) || (this.digests(c) && this.isClimbing(c))) return;
+    const w = this.waterAt(c.x, c.y), d = this.fish[w.i]; if (!(d > 0.005) || !(w.d > 0)) return;
+    const deep = w.d * P.depthPx / Math.max(1, (c.legs ?? 1) * this.bodySize(c)), acc = (deep > 1 ? 1 : P.fishWade) * (c.swim ?? 0); if (!(acc > 0.01)) return;
+    const take = d * Math.min(1, P.fishBite * acc * Math.sqrt(k) * this.habit(c, 'fish')); this.fish[w.i] -= take;
+    const raw = take * P.fishScale, dig = raw * (this.gutCurves(c) ? this.gutFit(c.gut, 'fish') : this.carrionDigests(c.gut, c) / P.carrionEfficiency);
+    this.feed(c, dig, 3, 'fish'); if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
+    const L = this.fishLedger ??= {}; L.eaten = (L.eaten ?? 0) + raw;
+  }
+  fishMap() { if (!this.rolled('fish') || !this.fish) return null; return Buffer.from(Uint8Array.from(this.fish, v => Math.round(Math.min(1, v * 4) * 255))).toString('base64'); }
   insectMap() {
     if (!this.rolled('insects')) return null;
     const b = a => Buffer.from(Uint8Array.from(a, v => Math.round(Math.min(1, v) * 255))).toString('base64');
@@ -2377,6 +2419,7 @@ export class World {
     if (t % P.reefEvery === 0) { this.updateThicket(); if (this.rolled('trees')) this.updateTrees(); else this._shelter = null; this.updateReef(); }
     if (t % P.waterEvery === 0 && this.rolled('water')) this.updateWater();
     if (t % P.insEvery === 0 && this.rolled('insects')) this.updateInsects();
+    if (t % P.fishEvery === 0 && this.rolled('fish')) this.updateFish();
     if (t % 135 === 0 && this.rollout?.upheaval !== undefined && !this.upheaval?.done) this.upheavalStep();
     if (t % 135 === 0 && this.rollout?.sloppy !== undefined && this.sloppyRise() > 0 && this.sloppyRise() < 1) this.easeSeams();
     if (t % PLANT_EVERY === 0) { this.updatePlants(); this.spreadScent(this.scentPrey); this.spreadScent(this.scentHunt); }
@@ -2835,7 +2878,8 @@ export class World {
           c.toxStock = Math.min(1, (c.toxStock ?? 1) + (this.rolled('carcass2') ? P.toxinShoot * shoots : P.toxinGain * 2 * this.thicket[i]));
         }
       }
-      if (Math.max(c.snap ?? 0, P.snapBase) > 0.01 && this.insects) this.eatInsects(c, k); // (insects) snap: the swarm on its own cell
+      if (Math.max(c.snap ?? 0, P.snapBase) > 0.01 && this.insects) this.eatInsects(c, k);
+      if (this.fish && (c.swim ?? 0) > 0.01 && !sp.unique) this.eatFish(c, k); // (fish) a swimmer fishes its own cell // (insects) snap: the swarm on its own cell
       if (sp.filter) this.gulp(c, sp);
       else if (!this.digestFull(c) && this.hasJaws(c) && !(c.digesting > 0)) {
         let prey = null;
@@ -3007,7 +3051,8 @@ export class World {
     // The recent diet: older meals fade (time constant nicheRecent), so it shows how the body lives now.
     const r = c.recent ??= { ate: 0, meat: 0, browse: 0, t: this.tick }, fade = Math.exp(-(this.tick - r.t) / P.nicheRecent);
     r.ate = r.ate * fade + energy; r.meat *= fade; r.browse *= fade; r.carrion = (r.carrion ?? 0) * fade; r.t = this.tick;
-    if (kind === 'flesh' || kind === 'carrion') r.meat += energy; else if (kind === 'browse' || treeFood) r.browse += energy;
+    if (kind === 'flesh' || kind === 'carrion' || kind === 'fish') r.meat += energy; else if (kind === 'browse' || treeFood) r.browse += energy;
+    if (kind === 'fish' || r.fish) r.fish = (r.fish ?? 0) * fade + (kind === 'fish' ? energy : 0); // (fish) its own share too
     if (kind === 'carrion') r.carrion += energy;
     r.dung = (r.dung ?? 0) * fade + (kind === 'dung' ? energy : 0); r.host = (r.host ?? 0) * fade + (kind === 'host' ? energy : 0);
     if (kind === 'insect' || r.insect) r.insect = (r.insect ?? 0) * fade + (kind === 'insect' ? energy : 0); // (insects) its own share of the recent diet
@@ -4145,6 +4190,7 @@ export class World {
       creatures: this.creatures.map(c => { const { strengthTick, strengthNow, ...body } = c; return { ...body, memory: safeMemory(c.memory) }; }),
       corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, grassLean: this.grassLean, grassRampFrozen: this.grassRampFrozen, grassRampLast: this.grassRampLast, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       speciate: this.speciate ?? null,
+      ...(this.fish ? { fish: Array.from(this.fish, v => Math.round(v * 1e4) / 1e4), fishLedger: this.fishLedger } : {}),
       ...(this.isoBox ? { isoBox: this.isoBox, isoBlocked: this.isoBlocked ?? 0 } : {}),
       ...(this.tune ? { tune: this.tune } : {}), // (s2235) the split counters survive restarts
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
@@ -4179,6 +4225,7 @@ export class World {
     if (s.aqua?.length) this.aqua = Float32Array.from(s.aqua);
     if (s.lichen?.length) this.lichen = Float32Array.from(s.lichen);
     if (s.insects?.length) this.insects = Float32Array.from(s.insects);
+    if (s.fish?.length) { this.fish = Float32Array.from(s.fish); this.fishLedger = s.fishLedger ?? {}; }
     if (s.bloom?.length) this.bloom = Float32Array.from(s.bloom);
     if (s.trees?.length) { this.trees = Float32Array.from(s.trees); this.treeKind = Uint8Array.from(s.treeKind ?? []); this.fruit = Float32Array.from(s.fruit ?? []); this.nuts = Float32Array.from(s.nuts ?? []); this.cones = Float32Array.from(s.cones ?? []); }
     this.nextQuake = s.nextQuake; this.lastBigQuake = s.lastBigQuake; this.quakeNow = null; this.quakeLog = s.quakeLog ?? [];
