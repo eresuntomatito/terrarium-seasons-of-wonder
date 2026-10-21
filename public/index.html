@@ -107,7 +107,7 @@
   .egg { padding: 4px 0; color: hsl(35 85% 55%); font-weight: 600; }
   #extinct button { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; text-decoration: underline dotted; }
   #extinct s { text-decoration-color: var(--strike); }
-  .bands { margin:2px 0 8px 22px; font-size:11px; } .band { display:grid; grid-template-columns:1fr 70px 32px; gap:6px; align-items:center; padding:1px 4px; border-radius:4px; cursor:default; } .band:hover { background:color-mix(in srgb, var(--fg) 8%, transparent); }
+  .bands { margin:2px 0 8px 22px; font-size:11px; } .bandstoggle { font:inherit; font-size:11px; background:none; border:0; padding:0; cursor:pointer; text-align:left; } .bandstoggle:hover { color:var(--fg); } .sppin,.identity .bandfit { margin-left:6px; font-size:10px; } .band { display:grid; grid-template-columns:1fr 70px 32px; gap:6px; align-items:center; padding:1px 4px; border-radius:4px; cursor:default; } .band:hover { background:color-mix(in srgb, var(--fg) 8%, transparent); }
   .band { grid-template-columns:1fr 70px 32px 22px; } .band.pinned { background:color-mix(in srgb, var(--fg) 6%, transparent); } .swatch { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
   .gate { font-size:10px; padding:0 3px; border-radius:3px; } .gate.ok { color:var(--fg); background:color-mix(in srgb, #5a9b53 35%, transparent); } .gate.no { color:var(--dim); background:color-mix(in srgb, var(--fg) 7%, transparent); }
   .bandfit { font:inherit; font-size:12px; line-height:1; padding:1px 3px; border:1px solid var(--line); border-radius:4px; background:none; color:var(--fg); cursor:pointer; } .bandfit:hover,.bandfit:focus-visible { border-color:var(--warm); }
@@ -1429,6 +1429,9 @@ $('species').addEventListener('mousemove',e=>{if(e.target.closest('[data-niche]'
 $('species').addEventListener('mouseleave',()=>{highlight=null;bandHover=null;hideEcoTip();});
 // Pin a band (click its row) or frame it on the map (⌖).
 $('species').addEventListener('click',e=>{
+ const tog=e.target.closest('[data-bandstoggle]');if(tog){const n=tog.dataset.bandstoggle;bandsClosed.has(n)?bandsClosed.delete(n):bandsClosed.add(n);try{localStorage.setItem('bandsClosed',JSON.stringify([...bandsClosed]))}catch{}renderSpecies(true);return;}
+ const spfit=e.target.closest('[data-spfit]');if(spfit){e.preventDefault();e.stopPropagation();const n=spfit.dataset.spfit;fitBand(new Set([...cur.values()].filter(c=>species[c.s]?.name===n).map(c=>c.id)));return;}
+ const sppin=e.target.closest('[data-sppin]');if(sppin){e.preventDefault();e.stopPropagation();const n=sppin.dataset.sppin,key='species|'+n;if(bandPins.has(key))bandPins.delete(key);else{const used=new Set([...bandPins.values()].map(q=>q.color));bandPins.set(key,{color:BAND_COLORS.find(c=>!used.has(c))??BAND_COLORS[bandPins.size%BAND_COLORS.length],test:(c,sp)=>sp.name===n});}renderSpecies(true);return;}
  const fit=e.target.closest('[data-fit]');if(fit){e.stopPropagation();const row=fit.closest('[data-band]');fitBand(new Set(row.dataset.band.split(',').map(Number)));return;}
  const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number),key=`niche|${r}|${p}`;
   if(bandPins.has(key))bandPins.delete(key);else{const used=new Set([...bandPins.values()].map(q=>q.color));bandPins.set(key,{color:BAND_COLORS.find(c=>!used.has(c))??BAND_COLORS[bandPins.size%BAND_COLORS.length],test:nicheTest(r,p)});fitBand(new Set([...cur.values()].filter(c=>species[c.s]&&nicheTest(r,p)(c,species[c.s])).map(c=>c.id)));}
@@ -2489,6 +2492,7 @@ function placeOf(x,y){return places.names[placeIndex(x,y)]??'unknown place';}
 // (s2261, Luis) Bands inside a species: groups living or thinking differently, from the world's own split test. The bar is how far
 // their bodies stand from the rest beyond what random founders of the same size would (0 … the split bar); hover lights them on the map.
 const BAND_WORDS={highland:'highland band',aquatic:'water band','mixed feeder':'mixed feeders',decomposer:'dung eaters',omnivore:'omnivores',scavenger:'scavengers',browser:'browsers',insectivore:'insect eaters',hunter:'hunters',parasite:'parasites',apex:'apex'};
+let bandsClosed = new Set((()=>{try{return JSON.parse(localStorage.getItem('bandsClosed')??'[]')}catch{return []}})()); // species whose bands block is folded (remembered per browser)
 let bandPrev = {}, bandTrend = {}; // readiness at the previous 'bands' message, for a trend arrow
 function bandsHtml(name){
  const b=bands[name];if(!b?.bands?.length)return '';
@@ -2500,9 +2504,10 @@ function bandsHtml(name){
    `in one place (within ${x.range} units): ${x.together} of ${x.needTogether} needed`+(x.needRest?` · elsewhere ${x.rest} of ${x.needRest} needed`:''),
    x.needSeen?`held as a way of life: ${x.seen} daily checks in a row (${x.needSeen} needed)`:'',
    `difference: ${x.rms} · random groups: ${x.nul} · bar: ${x.need} (${pct}% of the way)`,
-   'click to pin · ⌖ frames it on the map'].filter(Boolean).join('\n');
-  return `<div class="band${pin?' pinned':''}" data-band="${x.ids.join(',')}" data-key="${esc(key)}" title="${esc(tip)}"><span class="bandname">${pin?`<i class="swatch" style="background:${pin.color}"></i>`:''}${esc(label)} <b>${x.n}</b><br><span class="gate ${placeOk?'ok':'no'}">⌂ ${x.together}/${x.needTogether}</span> <span class="gate ${diffOk?'ok':'no'}">≠ ${pct}%${trend}</span></span><span class="readybar"><i style="width:${pct}%"></i></span><span class="dim">${pct}%</span><button class="bandfit" data-fit="${esc(key)}" title="Show me: frame this band on the map" aria-label="Show ${esc(label)} on the map">⌖</button></div>`;}).join('');
- return `<div class="bands"><div class="dim">inside the ${esc(name)}s · ⌂ together · ≠ difference · click to pin${tried||passed?` · ${tried} tries blocked${passed?`, ${passed} passed`:''}`:''}</div>${rows}</div>`;
+   'click to pin · ⌖ targets it on the map'].filter(Boolean).join('\n');
+  return `<div class="band${pin?' pinned':''}" data-band="${x.ids.join(',')}" data-key="${esc(key)}" title="${esc(tip)}"><span class="bandname">${pin?`<i class="swatch" style="background:${pin.color}"></i>`:''}${esc(label)} <b>${x.n}</b><br><span class="gate ${placeOk?'ok':'no'}">⌂ ${x.together}/${x.needTogether}</span> <span class="gate ${diffOk?'ok':'no'}">≠ ${pct}%${trend}</span></span><span class="readybar"><i style="width:${pct}%"></i></span><span class="dim">${pct}%</span><button class="bandfit" data-fit="${esc(key)}" title="Target: find this band on the map" aria-label="Show ${esc(label)} on the map">⌖</button></div>`;}).join('');
+ const open=!bandsClosed.has(name),best=Math.max(...b.bands.map(x=>x.ready));
+ return `<div class="bands"><button type="button" class="bandstoggle dim" data-bandstoggle="${esc(name)}" aria-expanded="${open}">${open?'▾':'▸'} inside the ${esc(name)}s · ${b.bands.length} bands · closest ${Math.round(best*100)}%${tried||passed?` · ${tried} tries blocked${passed?`, ${passed} passed`:''}`:''}</button>${open?`<div class="dim">⌂ together · ≠ difference · click to pin</div>${rows}`:''}</div>`;
 }
 // Every body in a hovered or pinned band, with its colour (pins keep their colour; a hover alone is warm white). Ids come from the
 // latest 'bands' message, so a pin follows its band as members are born and die.
@@ -2740,7 +2745,7 @@ function renderSpecies(force) {
     const progress = Math.max(0, (records[sp.name]?.generation ?? 0) - (sp.lastBranchGen ?? 0));
     if(lifeLens==='Family'&&sp.parent&&living.some(s=>s.name===sp.parent))story.text=`split from the ${sp.parent}s in s${sp.born} · ${story.text}`;
     return [sp.name,`<details style="margin-left:${lifeLens==='Family'?Math.min(depth,4)*10:0}px" data-name="${sp.name}"${open.has(sp.name) ? ' open' : ''}><summary>
-      <img class="portrait" src="${portraitOf(sp)}" alt=""><span class="identity">${sp.name}s <b data-count="${sp.name}">${n[sp.name] ?? 0}</b> ${story.arrow} <span class="dim"><span class="role-${tr.role}">${tr.label ?? tr.role ?? ''}</span>${food ? ' · lives on ' + food : ''}</span></span>
+      <img class="portrait" src="${portraitOf(sp)}" alt=""><span class="identity">${(p=>p?`<i class="swatch" style="background:${p.color}"></i>`:'')(bandPins.get('species|'+sp.name))}${sp.name}s <b data-count="${sp.name}">${n[sp.name] ?? 0}</b><button type="button" class="bandfit sppin" data-sppin="${sp.name}" title="Pin the ${sp.name}s in a colour on the map" aria-label="Pin the ${sp.name}s">◎</button><button type="button" class="bandfit" data-spfit="${sp.name}" title="Target: find the ${sp.name}s on the map" aria-label="Show the ${sp.name}s on the map">⌖</button> ${story.arrow} <span class="dim"><span class="role-${tr.role}">${tr.label ?? tr.role ?? ''}</span>${food ? ' · lives on ' + food : ''}</span></span>
       <span class="popbar"><i data-popbar="${sp.name}" style="width:${(n[sp.name]??0)/maxPop*100}%;background:hsl(${sp.hue} 55% 50%)"></i></span><small>${esc(story.text)}</small></summary><div class="speciesbody">
       <span class="dim">${sp.lineage ?? ''}${sideFoods(tr)}${sp.variant ? ' · variant' : ''}</span><br>
       ${tr.food ? 'lives on: ' + Object.entries(tr.food).filter(([, v]) => v >= 0.05).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${Math.round(v * 100)}%`).join(' · ') + '<br>' : ''}${dietBreakdown(tr)}${origin}${fresh} · next branch ${progress}/${meta.GENERATIONS_PER_MUTATION} generations<br>
