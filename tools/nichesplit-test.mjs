@@ -1,5 +1,5 @@
 // Stable-band niche splits (s2315, Luis): old vs new (lifeDiffNiche, held 10 checks, 20 founders), with what happens to new species.
-// Run: node tools/nichesplit-test.mjs <save> <seasons> [outDir]   (worker: --worker <old|new> <save> <seasons> <out>)
+// Run: [ROLLOUT=key] node tools/nichesplit-test.mjs <save> <seasons> [outDir]   (worker: --worker <old|new> <save> <seasons> <out>)
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { World, PHYSICS as P, SEASON_TICKS } from '../sim/world.mjs';
 if (process.argv[2] === '--worker') {
   const [v, save, seasons, out] = process.argv.slice(3), raw = JSON.parse(fs.readFileSync(save));
-  if (v === 'new') raw.tune = { ...(raw.tune ?? {}), lifeDiffNiche: 1, nicheDays: 9, nicheFounders: 20 };
+  if (v === 'new') { if (process.env.ROLLOUT) raw.rollout[process.env.ROLLOUT] = raw.season; else raw.tune = { ...(raw.tune ?? {}), lifeDiffNiche: 1, nicheDays: 9, nicheFounders: 20 }; } // ROLLOUT=key tests a rollout key instead (s2369: genebands)
   const w = new World(raw); w.log = () => {}; const deaths = {}, born = {}, splits = [];
   const die = w.die.bind(w); w.die = (c, cause) => { if (!c.dead) { const d = deaths[c.species] ??= {}; d[cause] = (d[cause] ?? 0) + 1; d[cause + (c.age < P.growTicks ? ':young' : '')] = (d[cause + (c.age < P.growTicks ? ':young' : '')] ?? 0) + 0; } return die(c, cause); };
   const split = w.splitSpecies.bind(w); w.splitSpecies = (...a) => { splits.push({ season: w.season, parent: a[0], founders: a[1].length, why: a[4] ?? 'drift' }); return split(...a); };

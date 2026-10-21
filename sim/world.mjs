@@ -169,6 +169,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  geneBandZ: 1, geneFounders: 15, // (genebands) a gene band: ≥ this many SDs from the mean; founders needed together
   nicheFounders: 0,      // (s2315) founders a niche split needs together (0 = speciateMin)
   lifeDiffNiche: false, // (lifediff) also weigh ways of life in niche splits (circular: off until Luis decides)
   skillCost: 0.03, skillRamp: 10, // (s2235, skillcost) breadth cost: a typical body today (S ≈ 1.8) pays ~10% more upkeep at full ramp, a one-skill specialist (S ≈ 0.8) ~2%
@@ -3348,6 +3349,7 @@ export class World {
         if (founders.length === carriers.length) delete this.registry[name].morphs[id]; // (the carriers left behind keep the mind)
       }
       if (this.rolled('niche')) this.nicheSplit(name);
+      if (this.rolled('genebands')) this.geneSplit(name);
       const group = this.creatures.filter(c => c.species === name && !c.morph && c.k?.length);
       if (group.length < P.splitMin * 2) continue;
       const logs = group.map(c => ({ l: c.k.map(Math.log), g: c.gut, s: Math.log(c.size),
@@ -3412,6 +3414,26 @@ export class World {
   }
   // A local group of splitMin bodies of a species living differently (browsing, or eating meat), seen on nicheDays daily
   // checks in a row, becomes a kind of its own.
+  // (genebands, Luis s2369: option A) Bands by inherited genes, not passing behaviour: meat-leaning guts (gut ≥ jaws), and the
+  // top of a skill or the ends of size (≥ geneBandZ SDs from the species' mean). Genes run in families, so these bands are
+  // lineages; they still need geneFounders together, nicheMin left behind and a real difference (a syndrome, not one trait).
+  geneBands(name, group) {
+    const z = (get, sign = 1) => { const v = group.map(get), m = v.reduce((a, x) => a + x, 0) / v.length, sd = Math.sqrt(v.reduce((a, x) => a + (x - m) ** 2, 0) / v.length) || 1; return c => sign * (get(c) - m) / sd >= P.geneBandZ; };
+    const tests = [['meat-leaning guts', c => c.gut >= P.valleyJaws], ['top climbers', z(c => c.climb ?? 0)], ['top swimmers', z(c => c.swim ?? 0)], ['top browsers', z(c => c.browse ?? 0)],
+      ['top dung-eaters', z(c => c.decomp ?? 0)], ['insect catchers', z(c => c.snap ?? 0)], ['hard biters', z(c => c.bite ?? 0)], ['small bodies', z(c => c.sizeGene ?? c.size, -1)], ['big bodies', z(c => c.sizeGene ?? c.size)]];
+    return tests.map(([label, t]) => [label, group.filter(t)]);
+  }
+  geneSplit(name) {
+    const group = this.creatures.filter(c => !c.dead && c.species === name && !c.morph && c.k?.length); if (group.length < P.speciateMin * 2) return;
+    for (const [label, them] of this.geneBands(name, group)) {
+      if (them.length < P.geneFounders || group.length - them.length < P.nicheMin) continue;
+      const local = this.gather(them, P.nicheRange);
+      if (local.length < P.geneFounders || !this.realDifference(name, local, 'gene')) continue;
+      const values = local[0].k.map((_, j) => Math.exp(local.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / local.length));
+      this.splitSpecies(name, local, values, name, `${local.length} ${plural(name)} with ${label} have become a kind of their own`);
+      return;
+    }
+  }
   nicheSplit(name) {
     const sp = this.registry[name], group = this.creatures.filter(c => !c.dead && c.species === name && !c.morph && c.k?.length);
     sp.nicheSeen ??= {};
@@ -3682,6 +3704,7 @@ export class World {
           range, rest: group.length - members.length, needRest: kind === 'niche' ? P.nicheMin : 0, needSeen: kind === 'niche' ? (P.nicheHold[label] ?? P.nicheDays + 1) : 0 });
       };
       for (const [label, k] of Object.entries(count)) if (label !== usual) add('niche', label, group.filter(c => of.get(c) === label), P.nicheRange);
+      if (this.rolled('genebands')) for (const [label, members] of this.geneBands(name, group)) add('gene', label, members, P.nicheRange);
       for (const [id, m] of Object.entries(this.registry[name].morphs ?? {})) add('mind', m.what ?? `mind ${id}`, group.filter(c => String(c.morph) === String(id)), P.splitRange);
       list.sort((a, b) => b.ready - a.ready || b.n - a.n);
       const tries = st.gaps.filter(g => g.name === name).slice(-20).map(({ kind, season, founders, rms, nul, ok }) => ({ kind, season, founders, rms, nul, ok }));
