@@ -10,9 +10,9 @@ for (const c of cs) { const r = c.recent; if (!r) continue; for (const k of Obje
 const pct = k => (100 * R[k] / (R.ate || 1)).toFixed(1);
 const trees = { sap: [0, 0, 0, 0], mat: [0, 0, 0, 0], canopy: [0, 0, 0, 0] };
 for (let i = 0; i < w.trees.length; i++) if (w.trees[i] > 0.01) { const k = w.treeKind[i]; (w.trees[i] >= P.treeMature ? trees.mat : trees.sap)[k]++; trees.canopy[k] += w.trees[i]; }
-const st = w.stats[cs[0]?.species] ?? {};
+const st = {}; for (const [n, v] of Object.entries(w.stats ?? {})) for (const k of ['starved', 'born']) st[k] = (st[k] ?? 0) + (v[k] ?? 0); // summed over every species ever (s2398: more than one species again)
 console.log(JSON.stringify({
-  season: w.season, bodies: cs.length, starved: st.starved, born: st.born, fat: +mean(cs.map(c => c.fat ?? 0)).toFixed(3),
+  season: w.season, bodies: cs.length, species: Object.fromEntries(Object.entries(cs.reduce((o, c) => (o[c.species] = (o[c.species] ?? 0) + 1, o), {})).sort((a, b) => b[1] - a[1])), starved: st.starved, born: st.born, fat: +mean(cs.map(c => c.fat ?? 0)).toFixed(3),
   dietPct: { carrion: +pct('carrion'), insect: +pct('insect'), meat: +pct('meat'), dung: +pct('dung'), browse: +pct('browse') },
   eaters: { carrion10: cs.filter(c => c.recent?.ate > 0.3 && (c.recent.carrion ?? 0) / c.recent.ate >= 0.1).length, insect10: cs.filter(c => c.recent?.ate > 0.3 && (c.recent.insect ?? 0) / c.recent.ate >= 0.1).length },
   genes: { gut: +mean(cs.map(c => c.gut)).toFixed(3), snap: +mean(cs.map(c => c.snap ?? 0)).toFixed(3), decomp: +mean(cs.map(c => c.decomp ?? 0)).toFixed(3) },
