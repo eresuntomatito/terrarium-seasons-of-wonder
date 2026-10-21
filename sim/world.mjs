@@ -595,6 +595,9 @@ const geneOf = (c, k) => k === 'size' ? c.sizeGene ?? c.size : k === 'gut' ? c.b
 const KIN_BODY = [['size', 'log'], ['gut', 1], ['legs', 1, 1], ['wind', 1, 0.5], ['armor', 1, 0], ['toxin', 1, 0], ['litter', 2, 1], ['mature', 2, 1],
   ['browse', 1, 0.05], ['gape', 1, 0.5], ['resist', 1, 0.3], ['eyes', 1, 0.5]];
 const kinBody = (a, b) => KIN_BODY.reduce((s, [k, sc, d]) => { const x = geneOf(a, k) ?? d, y = geneOf(b, k) ?? d; return s + (sc === 'log' ? Math.abs(Math.log(x / y)) : Math.abs(x - y) / sc); }, 0) / KIN_BODY.length;
+// (likemates, Luis s2244) the skills join the body gap for mating: climbers prefer climbers. Same scale (a mean over all traits).
+const KIN_SKILLS = [['swim', 1, 0], ['climb', 1, 0], ['bite', 1, 0], ['snap', 1, 0], ['coat', 1, 0.3]];
+const kinBodySkills = (a, b) => (kinBody(a, b) * KIN_BODY.length + KIN_SKILLS.reduce((s, [k, sc, d]) => s + Math.abs((a[k] ?? d) - (b[k] ?? d)) / sc, 0)) / (KIN_BODY.length + KIN_SKILLS.length);
 const kinGenes = (a, b) => a.genes.reduce((s, g, i) => s + Math.abs(g - (b.genes[i] ?? g)), 0) / a.genes.length;
 // The traits the selection ledger follows.
 export const LEDGER = [['size', c => c.sizeGene ?? c.size], ['gut', c => c.bornGut ?? c.gut], ['litter', c => c.litter ?? 1], ['legs', c => c.legs ?? 1],
@@ -784,7 +787,7 @@ export class World {
   // Across a slip the code numbers no longer line up, so only bodies count.
   relatedGap(a, b) {
     const code = a.species === b.species && (a.morph ?? 0) === (b.morph ?? 0) ? this.genomeGap(a.k, b.k) : 0;
-    if (this.rolled('kin')) return P.kinCode * code + P.kinBody * kinBody(a, b) + P.kinGenes * kinGenes(a, b);
+    if (this.rolled('kin')) return P.kinCode * code + P.kinBody * (this.rolled('likemates') ? kinBodySkills(a, b) : kinBody(a, b)) + P.kinGenes * kinGenes(a, b);
     return code + P.gutIsolation * Math.abs(a.gut - b.gut) + P.sizeIsolation * Math.abs(Math.log(a.size / b.size));
   }
   rolled(key) { return this.season >= (this.rollout?.[key] ?? Infinity); }
