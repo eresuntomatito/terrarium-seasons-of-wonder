@@ -79,3 +79,4 @@ Sources: `data/world.json`, `data/server.log` (the chronicle), `data/steward.md`
 | [2026-10-20_s2101](2026-10-20_s2101.md) | 2101 | Five releases (footprint, M2 physics, M3 digestion, shrubland, open-scrub browsing); swim +0.79 SD, size 5.40 → 5.59, climbing falls (−0.65) under M2; first mixed feeders (17), browse 6% of diet; first 2 mature trees |
 | [2026-10-21_s2111-m4-gut-curves-spec](2026-10-21_s2111-m4-gut-curves-spec.md) | 2111 | Spec for M4: one overlapping fit curve per food along the gut axis (key `gutcurves`) |
 | [2026-10-21_s2151](2026-10-21_s2151.md) | 2151 | M4 gut curves live; climbing reversed to +1.01 SD and swimming +1.55 SD under M2; scrub back to ~10%, dense thicket 364; 7 mature trees; skills-cost talk next |
+| [2026-10-21_s2189](2026-10-21_s2189.md) | 2189 | No rule changes; browse +1.11 SD and swim +0.85 rising, dung-eating −1.26, size turns down (big bodies starved); 11 mature trees; scrub steady ~10% |
