@@ -169,7 +169,8 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
-  geneBandZ: 1, geneFounders: 15, geneGap: 0, // geneGap: gene bands' split bar above random (0 = speciateGap)
+  geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
+  // geneGap: gene bands' split bar above random (0 = speciateGap)
   habitGain: 0.5,        // (habits, Luis s2383: option B) side-food intake × (1 + habitGain × that food's share of the recent diet); newborns inherit a faded copy of the parent's recent diet
   habitBirth: 0.5,       // … the imprint's size (the 'ate' total a newborn starts with, fading as it eats)
  // (genebands) a gene band: ≥ this many SDs from the mean; founders needed together
@@ -3431,9 +3432,11 @@ export class World {
     const group = this.creatures.filter(c => !c.dead && c.species === name && !c.morph && c.k?.length); if (group.length < P.speciateMin * 2) return;
     for (const [label, them] of this.geneBands(name, group)) {
       if (them.length < P.geneFounders || group.length - them.length < P.nicheMin) continue;
+      if (P.splitCooldown && this.tick - (this.registry[name].geneSplitAt?.[label] ?? -Infinity) < P.splitCooldown) continue; // (s2408, Luis) the same kind of band rests after a split
       const local = this.gather(them, P.nicheRange);
       if (local.length < P.geneFounders || !this.realDifference(name, local, 'gene')) continue;
       const values = local[0].k.map((_, j) => Math.exp(local.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / local.length));
+      (this.registry[name].geneSplitAt ??= {})[label] = this.tick;
       this.splitSpecies(name, local, values, name, `${local.length} ${plural(name)} with ${label} have become a kind of their own`);
       return;
     }
