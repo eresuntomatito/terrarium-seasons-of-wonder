@@ -168,6 +168,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  skillCost: 0.03, skillRamp: 10, // (s2235, skillcost) breadth cost: a typical body today (S ≈ 1.8) pays ~10% more upkeep at full ramp, a one-skill specialist (S ≈ 0.8) ~2%
   shrubFloor: 0.15,      // (s2093, rollout.shrubbrowse) away from reef, browsers eat scrub down to this, not browseFloor
   shrubHold: 0.35,       // (s2085) away from reef, scrub holds on only at this moisture; drier, it wears back (it ran past 9% of the map at 0.12)
   waves: 3, waveShare: 0.4, // returns come in this many waves, each this share of the species' seed base
@@ -761,6 +762,14 @@ export class World {
     const mixes = r => (r.slip || r.variant) && !r.graduated;
     if (this.rolled('speciate2') && ((ra.parent === b && this.graceOn(ra)) || (rb.parent === a && this.graceOn(rb)) || (ra.parent && ra.parent === rb.parent && (this.graceOn(ra) || this.graceOn(rb))))) return true; // (speciate2) a new species may still mate with its parent and sisters through its first season
     return !!((mixes(ra) && ra.parent === b) || (mixes(rb) && rb.parent === a) || (mixes(ra) && mixes(rb) && ra.parent === rb.parent));
+  }
+  // (Luis, s2244; rollout.graceheir) "a little help": a cross between a new species in its grace season and its parent or a
+  // sister belongs to the newer species (the later-born), not to a coin-flip parent. Other crosses (slips, variants) unchanged.
+  graceHeir(a, b) {
+    if (!this.rolled('graceheir') || a.species === b.species) return null;
+    const ra = this.registry[a.species], rb = this.registry[b.species];
+    if (!(this.graceOn(ra) || this.graceOn(rb))) return null;
+    return (ra.bornAt ?? -1) >= (rb.bornAt ?? -1) ? a : b;
   }
   graceOn(r) { return r.bornAt !== undefined && this.tick - r.bornAt < P.graceTicks; }
 
@@ -2456,7 +2465,7 @@ export class World {
       if (c.cooldown > 0) c.cooldown -= c.pulse;
       if (this.rolled('homerange') && c.homeSeen && !c.homeDispersed && this.fertile(c)) this.disperseHome(c); // maturity can arrive on this heartbeat, before breeding
       const upkeep = Math.max(0.4, 1 + P.legUpkeep * (c.legs - 1) + P.windUpkeep * (c.wind - 0.5)) * (1 + P.fatUpkeep * this.fatLoad(c))
-        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0)) * this.climateCost(c);
+        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0)) * this.climateCost(c) * this.breadthCost(c);
       if (c.aversion) { c.aversion.s *= P.aversionFade; if (c.aversion.s < 0.3) c.aversion = null; }
       const drag = 1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c));
       if (this.rolled('growon') && !sp.unique && c.age > P.growTicks && (c.grown ?? 1) < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) c.grown = Math.min(P.growOnMax, (c.grown ?? 1) + P.growOnRate); // a well-fed adult keeps growing
@@ -2548,6 +2557,15 @@ export class World {
     return sp.maxSpeed * (c.legs ?? 1) * (sp.grows ? Math.sqrt(sp.size / Math.max(sp.size, c.size)) : 1);
   }
 
+  // SKILLS COST (Luis, s2101 "not everyone can be a master of everything"; s2235; rollout.skillcost): keeping many skills costs
+  // more than the sum of each: upkeep × (1 + k × S²), S = climb + swim + browse + snap + bite + decomp + parasitism, so a
+  // generalist pays more than a specialist. k ramps from 0 to skillCost over skillRamp seasons from the rollout season.
+  breadthCost(c) {
+    if (!this.rolled('skillcost') || this.registry[c.species].unique) return 1;
+    const k = P.skillCost * clamp01((this.season - this.rollout.skillcost + 1) / P.skillRamp);
+    const S = (c.climb ?? 0) + (c.swim ?? 0) + (c.browse ?? 0) + (c.snap ?? 0) + (c.bite ?? 0) + (c.decomp ?? 0) + (c.parasitism ?? 0);
+    return 1 + k * S * S;
+  }
   isClimbing(c) { return this.rolled('physics') && !this.registry[c.species].unique && (c.climbing?.left ?? 0) > 0; }
 
   strength(c) {
@@ -2998,7 +3016,7 @@ export class World {
       for (let i = 0; i < n; i++) {
         const genes = c.genes.map((g, j) => drift(pick(g, partner.genes[j])));
         // Same kind: code numbers mix. Across a slip: the child takes one parent's whole mind.
-        const mind = mixed ? pick(c, partner) : c;
+        const mind = mixed ? this.graceHeir(c, partner) ?? pick(c, partner) : c; // (graceheir) a grace-season cross belongs to the new species
         const k = mixed ? mind.k.map(driftK) : c.k.map((v, j) => driftK(pick(v, partner.k[j])));
         born.push(this.child(mind, (c.x + partner.x) / 2, (c.y + partner.y) / 2, gift / n, genes, (mixed ? mind.gen : Math.max(c.gen, partner.gen)) + 1,
           driftSize(pick(c.sizeGene ?? c.size, partner.sizeGene ?? partner.size), this.rolled('sizevar') ? P.sizeDriftWide : P.sizeDrift), driftGut(pick(this.heritableGut(c), this.heritableGut(partner))), k,
@@ -3557,7 +3575,7 @@ export class World {
     return best.sort((a, b) => d(a) - d(b)).slice(0, P.speciateMax);
   }
   // The body traits a new species must differ in (the 11 the great divide used).
-  bodyTraits(c) { return [this.bodySize(c), c.gut, this.armorOf(c), this.toxinOf(c), c.legs ?? 1, c.wind ?? 0.5, c.mature ?? 1, c.browse ?? 0, c.gape ?? 0.5, c.resist ?? P.resistStart, c.litter ?? 1]; }
+  bodyTraits(c) { return [this.bodySize(c), c.gut, this.armorOf(c), this.toxinOf(c), c.legs ?? 1, c.wind ?? 0.5, c.mature ?? 1, c.browse ?? 0, c.gape ?? 0.5, c.resist ?? P.resistStart, c.litter ?? 1, ...(this.rolled('bodytest2') ? [c.swim ?? 0, c.climb ?? 0, c.bite ?? 0, c.snap ?? 0, c.coat ?? P.coatStart] : [])]; } // (s2235, bodytest2) the skills the newest rules select on
   // Do these founders differ from the rest of their species in body, beyond chance? The rms over the traits of (founders' mean − rest's mean) in the species' SDs,
   // against the median of speciateNull random groups of the same size; it must beat the null by speciateGap.
   realDifference(name, founders, kind) {
@@ -3572,6 +3590,7 @@ export class World {
     for (let r = 0; r < P.speciateNull; r++) { for (let i = 0; i < f; i++) { const j = i + Math.floor(Math.random() * (n - i)); [idx[i], idx[j]] = [idx[j], idx[i]]; } nulls.push(rms(idx.slice(0, f))); }
     nulls.sort((a, b) => a - b); const nul = nulls[nulls.length >> 1], ok = n > f && real >= nul + P.speciateGap;
     st.gaps.push({ kind, season: this.season, name, founders: f, of: n, rms: +real.toFixed(3), nul: +nul.toFixed(3), ok });
+    if (st.gaps.length > 200) st.gaps.splice(0, st.gaps.length - 200); // (s2235) keep the latest 200 in the save
     (ok ? st.passed : st.blocked)[kind] = ((ok ? st.passed : st.blocked)[kind] ?? 0) + 1;
     return ok;
   }
@@ -3987,6 +4006,7 @@ export class World {
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
       creatures: this.creatures.map(c => { const { strengthTick, strengthNow, ...body } = c; return { ...body, memory: safeMemory(c.memory) }; }),
       corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, grassLean: this.grassLean, grassRampFrozen: this.grassRampFrozen, grassRampLast: this.grassRampLast, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
+      speciate: this.speciate ?? null, // (s2235) the split counters survive restarts
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -3998,6 +4018,7 @@ export class World {
       stats: s.stats, records: s.records, diet: s.diet, lastCounts: s.lastCounts, since: s.since, lessons: s.lessons ?? [], pendingStudies: s.pendingStudies ?? [],
     });
     this.climbTicks = s.climbTicks ?? 0;
+    if (s.speciate) this.speciate = s.speciate;
     this.plants = Float32Array.from(s.plants);
     this.fertility = Float32Array.from(s.fertility);
     if (s.thicket?.length) this.thicket = Float32Array.from(s.thicket);
