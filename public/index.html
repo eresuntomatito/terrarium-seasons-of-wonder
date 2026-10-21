@@ -108,6 +108,8 @@
   #extinct button { background: none; border: 0; color: inherit; font: inherit; padding: 0; cursor: pointer; text-decoration: underline dotted; }
   #extinct s { text-decoration-color: var(--strike); }
   .bands { margin:2px 0 8px 22px; font-size:11px; } .band { display:grid; grid-template-columns:1fr 70px 32px; gap:6px; align-items:center; padding:1px 4px; border-radius:4px; cursor:default; } .band:hover { background:color-mix(in srgb, var(--fg) 8%, transparent); }
+  .band { grid-template-columns:1fr 70px 32px 22px; } .band.pinned { background:color-mix(in srgb, var(--fg) 6%, transparent); } .swatch { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .bandfit { font:inherit; font-size:12px; line-height:1; padding:1px 3px; border:1px solid var(--line); border-radius:4px; background:none; color:var(--fg); cursor:pointer; } .bandfit:hover,.bandfit:focus-visible { border-color:var(--warm); }
   .readybar { height:5px; background:color-mix(in srgb, var(--fg) 12%, transparent); border-radius:3px; overflow:hidden; } .readybar i { display:block; height:100%; background:var(--warm); }
   .lenses { display:flex; flex-wrap:wrap; gap:4px; margin:8px 0 6px; }
   .lenses button { font:inherit; font-size:10px; padding:2px 5px; border:1px solid var(--line); border-radius:10px; background:none; color:var(--dim); cursor:pointer; }
@@ -182,6 +184,8 @@ const headings = new Map(); // id → the heading drawn, turned smoothly toward 
 const SCALE = 2;
 let meta, frameMs, cur = null, prev = null, recvAt = 0, rain = 0, tick = 0, season = 1;
 let species = [], history = [], events = [], stats = {}, records = {}, traits = {}, corpses = [], highlight = null, bands = {};
+// (s2268, Luis's picks) a hovered band, and pinned bands in their own colours: the land dims, the bands shine with screen-sized rings.
+let bandHover = null; const bandPins = new Map(), BAND_COLORS = ['#f0c25a', '#5fb7d6', '#e47f6b', '#9fd36a', '#c79bf0'];
 // The camera eases toward a wrapped target; zoom keeps its chosen world point under the pointer.
 const camera = { z: 1, cx: 0, cy: 0 }, target = { ...camera }, pointers = new Map();
 let pileBadges = [], peakMarks = [], summits = [], peakHistory = [], peakRise = 0, summitKey = null;
@@ -1416,11 +1420,19 @@ on('history', ({ h, stats: s, records: r, traits: tr }) => {
 });
 $('species').addEventListener('mouseover', e => {
  const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number);highlight=(c,sp)=>ecoRole(sp)===ECO_ROLES[r]&&placeIndex(c.x,c.y)===p;showEcoTip(e,cell.title);return;}
- const band=e.target.closest('[data-band]');if(band){const ids=new Set(band.dataset.band.split(',').map(Number));highlight=c=>ids.has(c.id);hideEcoTip();return;}
+ const band=e.target.closest('[data-band]');if(band){bandHover={key:band.dataset.key,ids:new Set(band.dataset.band.split(',').map(Number))};highlight=null;hideEcoTip();return;}
+ bandHover=null;
  hideEcoTip();highlight=e.target.closest('details')?.dataset.name??null;
 });
 $('species').addEventListener('mousemove',e=>{if(e.target.closest('[data-niche]'))positionEcoTip(e);});
-$('species').addEventListener('mouseleave',()=>{highlight=null;hideEcoTip();});
+$('species').addEventListener('mouseleave',()=>{highlight=null;bandHover=null;hideEcoTip();});
+// Pin a band (click its row) or frame it on the map (⌖).
+$('species').addEventListener('click',e=>{
+ const fit=e.target.closest('[data-fit]');if(fit){e.stopPropagation();const row=fit.closest('[data-band]');fitBand(new Set(row.dataset.band.split(',').map(Number)));return;}
+ const band=e.target.closest('[data-band]');if(!band)return;const key=band.dataset.key;
+ if(bandPins.has(key))bandPins.delete(key);else{const used=new Set([...bandPins.values()].map(p=>p.color));bandPins.set(key,{color:BAND_COLORS.find(c=>!used.has(c))??BAND_COLORS[bandPins.size%BAND_COLORS.length]});}
+ renderSpecies(true);
+});
 $('species').addEventListener('click',e=>{const b=e.target.closest('[data-lens]');if(!b||b.disabled)return;lifeLens=b.dataset.lens;try{localStorage.setItem('lifeLens',lifeLens);}catch{}highlight=null;chartHover=null;hideEcoTip();renderSpecies(true);drawChart();});
 es.onerror = () => { $('clock').textContent = 'the glass is dark (server stopped?)'; };
 
@@ -2075,6 +2087,8 @@ function draw() {
   if(treesBitmap){g.imageSmoothingEnabled=false;g.drawImage(treesBitmap,0,0,meta.W,meta.H);}
   g.restore();}
   drawInsects(now,tiles,view,ux,uy);
+  const bandSet=bandBodies();
+  if(bandSet){g.save();g.setTransform(1,0,0,1,0,0);g.fillStyle='rgba(14,16,12,.55)';g.fillRect(0,0,canvas.width,canvas.height);g.restore();} // (picks) dim the land under a band
   for(const {ox,oy} of objectTiles){g.save();g.translate(ox,oy);
     drawTreeFire(now);
     const left=view.left-ox,top=view.top-oy,right=view.right-ox,bottom=view.bottom-oy;
@@ -2109,7 +2123,7 @@ function draw() {
       // The body trails behind the head along the exact path it took (like the snake game), seven of its sizes long.
       const t = trails.get(id) ?? [], want = s * 7;
       let len = 0, px = x, py = y;
-      g.globalAlpha = (highlight && !bodyHighlighted(c,sp) ? 0.12 : 1)*lod.spriteAlpha;
+      g.globalAlpha = (bandSet ? (bandSet.has(id) ? 1 : 0.3) : highlight && !bodyHighlighted(c,sp) ? 0.12 : 1)*lod.spriteAlpha;
       for (let j = t.length - 1; j >= 0 && len < want; j--) {
         const dx=wrappedDelta(px,t[j].x,meta.W),dy=wrappedDelta(py,t[j].y,meta.H),distance=Math.hypot(dx,dy),fraction=distance?Math.min(1,(want-len)/distance):0,tx=px+dx*fraction,ty=py+dy*fraction;
         len += distance*fraction;
@@ -2129,7 +2143,7 @@ function draw() {
     const margin = 40 + s * Math.max(4, 2 * (c.l ?? 1), 2 * (1 + 0.35 * (c.f ?? 0)) / Math.sqrt(c.l ?? 1));
     if (x < left - margin || x > right + margin || y < top - margin || y > bottom + margin) continue;
     const ci = cellOf(x, y), hid = (plantBytes && plantBytes[ci * 3] / 255 > 0.6) || (thicketBytes && thicketBytes[ci] / 255 > 0.4 && c.z < 7) || (worldInputs.canopy?.[ci]>=128);
-    g.globalAlpha = highlight && !bodyHighlighted(c,sp) ? 0.12 : hid ? 0.5 : 1;
+    g.globalAlpha = bandSet ? (bandSet.has(id) ? 1 : 0.3) : highlight && !bodyHighlighted(c,sp) ? 0.12 : hid ? 0.5 : 1;
     const spriteDrawn=!sp.unique&&creatureSprites.has(sp.name),bodySize=drawnLength/2;
     const baseAlpha=g.globalAlpha;
     drawn.push({x:x+ox,y:y+oy,s:bodySize,id,hitRadius:creatureHitRadius(Math.max(bodySize,lod.dotRadius*Math.max(ux,uy)),ux,uy)});
@@ -2201,6 +2215,8 @@ function draw() {
   }
 
   if (quakeSeen && qAge < 6) { const q = quakeSeen; g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); } // the quake's dust
+  // (picks) band rings: ~18 screen px at any zoom, drawn for every band body whatever its sprite size.
+  if(bandSet){const pulse=0.5+0.5*Math.sin(now/450),u=Math.max(ux,uy);g.save();g.lineWidth=2.2*u;g.globalAlpha=0.6+0.4*pulse;for(const {id,x,y} of bodies){const col=bandSet.get(id);if(!col)continue;g.strokeStyle=col;g.beginPath();g.arc(x,y,(9+4*pulse)*u,0,Math.PI*2);g.stroke();}g.restore();}
   // Badge dimensions and strokes stay in CSS pixels at every camera zoom.
   for(const {p,counts,label,y,w,h} of badges){
     if(p.x+w*ux/2<left||p.x-w*ux/2>right||y+h*uy/2<top||y-h*uy/2>bottom)continue;
@@ -2473,8 +2489,28 @@ function bandsHtml(name){
  const b=bands[name];if(!b?.bands?.length)return '';
  const tried=Object.values(b.blocked??{}).reduce((a,x)=>a+x,0),passed=Object.values(b.passed??{}).reduce((a,x)=>a+x,0);
  const rows=b.bands.map(x=>{const pct=Math.round(x.ready*100),label=x.kind==='mind'?`thinkers: “${x.label}”`:(BAND_WORDS[x.label]??x.label),gather=x.together>=x.needTogether?`${x.together} together`:`${x.together}/${x.needTogether} together`;
-  return `<div class="band" data-band="${x.ids.join(',')}" title="${esc(`${label}: ${x.n} bodies, ${gather} (a split needs ${x.needTogether} in one place).\nBody difference ${x.rms} vs ${x.nul} for random groups; the split bar is ${x.need}.`)}"><span class="bandname">${esc(label)} <b>${x.n}</b> <span class="dim">· ${gather}</span></span><span class="readybar"><i style="width:${pct}%"></i></span><span class="dim">${pct}%</span></div>`;}).join('');
- return `<div class="bands"><div class="dim">inside the ${esc(name)}s · split readiness${tried||passed?` · ${tried} tries blocked${passed?`, ${passed} passed`:''}`:''}</div>${rows}</div>`;
+  const key=`${name}|${x.kind}|${x.label}`,pin=bandPins.get(key);
+  return `<div class="band${pin?' pinned':''}" data-band="${x.ids.join(',')}" data-key="${esc(key)}" title="${esc(`${label}: ${x.n} bodies, ${gather} (a split needs ${x.needTogether} in one place).\nBody difference ${x.rms} vs ${x.nul} for random groups; the split bar is ${x.need}.\nClick to pin in its own colour; ⌖ frames it on the map.`)}"><span class="bandname">${pin?`<i class="swatch" style="background:${pin.color}"></i>`:''}${esc(label)} <b>${x.n}</b> <span class="dim">· ${gather}</span></span><span class="readybar"><i style="width:${pct}%"></i></span><span class="dim">${pct}%</span><button class="bandfit" data-fit="${esc(key)}" title="Show me: frame this band on the map" aria-label="Show ${esc(label)} on the map">⌖</button></div>`;}).join('');
+ return `<div class="bands"><div class="dim">inside the ${esc(name)}s · split readiness · click to pin${tried||passed?` · ${tried} tries blocked${passed?`, ${passed} passed`:''}`:''}</div>${rows}</div>`;
+}
+// Every body in a hovered or pinned band, with its colour (pins keep their colour; a hover alone is warm white). Ids come from the
+// latest 'bands' message, so a pin follows its band as members are born and die.
+function bandBodies(){
+ if(!bandHover&&!bandPins.size)return null;const m=new Map();
+ for(const [name,b] of Object.entries(bands))for(const x of b.bands??[]){const key=`${name}|${x.kind}|${x.label}`,pin=bandPins.get(key);if(pin)for(const id of x.ids)m.set(id,pin.color);}
+ if(bandHover)for(const id of bandHover.ids)m.set(id,bandPins.get(bandHover.key)?.color??'#fff4c8');
+ return m;
+}
+// Glide the camera to frame a band's bodies on the wrapping map (circular centre, then the widest offset either way).
+function fitBand(ids){
+ if(!meta||!cur)return;let pts=[...ids].map(id=>cur.get(id)).filter(Boolean);if(!pts.length)return;
+ // A widely spread band is framed at its densest gathering (the 'together' group), not across the whole map.
+ const near=(p,q)=>Math.hypot(wrappedDelta(p.x,q.x,meta.W),wrappedDelta(p.y,q.y,meta.H))<150;
+ if(pts.length>3){const best=pts.map(p=>pts.filter(q=>near(p,q))).sort((a,b)=>b.length-a.length)[0];if(best.length>=Math.min(3,pts.length))pts=best;}
+ const circ=(v,n)=>{const a=v.map(x=>x/n*2*Math.PI),s=a.reduce((t,x)=>t+Math.sin(x),0),c=a.reduce((t,x)=>t+Math.cos(x),0);return wrap(Math.atan2(s,c)/(2*Math.PI)*n,n);};
+ const cx=circ(pts.map(p=>p.x),meta.W),cy=circ(pts.map(p=>p.y),meta.H);
+ const dx=Math.max(...pts.map(p=>Math.abs(wrappedDelta(cx,p.x,meta.W)))),dy=Math.max(...pts.map(p=>Math.abs(wrappedDelta(cy,p.y,meta.H))));
+ following=null;anchor=null;target.cx=cx;target.cy=cy;target.z=Math.max(1,Math.min(8,0.85*Math.min(meta.W/(2*dx+60),meta.H/(2*dy+60))));clampCamera(target);cameraCursor();
 }
 function bodyHighlighted(c,sp){return typeof highlight==='function'?highlight(c,sp):sp.name===highlight;}
 const ECO_ROLES=['grazer','browser','mixed feeder','decomposer','omnivore','scavenger','hunter','apex','parasite','insectivore'];
