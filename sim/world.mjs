@@ -255,6 +255,7 @@ export const PHYSICS = {
   openMin: 0.15, openDiet: 0.25, openBite: 1, openRot: 0.4, openHold: 100, insArrive: 0.3,
   // SNAP (insect-eating), a new inherited skill, dormant at 0 like bite and climb: a body takes snapBite × snap × √size of the insects on its cell
   // a tick; insects (tl ~2.5, fed at level 3) are digested best by a middle gut: efficiency snapEff × e^(−((gut − snapGut)/snapWidth)²).
+  snapBase: 0,           // (s2307, food-loop directive) every body snaps insects as if its snap were at least this (0 = off)
   snapDrift: 0.02, snapUpkeep: 0.05, snapBite: 0.15, snapEff: 0.8, snapGut: 0.4, snapWidth: 0.25,
   // Browse (Phase 2): thicket shoots as a second plant food, reachable only by big bodies with a browsing gut.
   gapeMin: 0.15, gapeMax: 0.9, gapeDrift: 0.03, gapeWidth: 0.2, gapeFloor: 0.35, // Phase 3a: jaws suit prey near gape × own size
@@ -1935,7 +1936,7 @@ export class World {
   eatInsects(c, k) {
     if (this.digestFull(c) || (this.digests(c) && this.isClimbing(c))) return;
     const i = cellAt(c.x, c.y), I = this.insects, d = I[i]; if (!(d > 0.01)) return;
-    const take = d * Math.min(1, P.snapBite * c.snap * Math.sqrt(k)), L = this.insLedger ??= {};
+    const take = d * Math.min(1, P.snapBite * Math.max(c.snap ?? 0, P.snapBase) * Math.sqrt(k)), L = this.insLedger ??= {}; // (snapBase) any mouth takes a few insects
     I[i] -= take; const raw = take * P.insScale, dig = raw * this.insectGut(c.gut, c);
     L.eaten = (L.eaten ?? 0) + raw; L.eatenGot = (L.eatenGot ?? 0) + dig;
     this.feed(c, dig, 2, 'insect'); // insects eat plants (level 2), so their eater sits at ~3
@@ -2822,7 +2823,7 @@ export class World {
           c.toxStock = Math.min(1, (c.toxStock ?? 1) + (this.rolled('carcass2') ? P.toxinShoot * shoots : P.toxinGain * 2 * this.thicket[i]));
         }
       }
-      if ((c.snap ?? 0) > 0.01 && this.insects) this.eatInsects(c, k); // (insects) snap: the swarm on its own cell
+      if (Math.max(c.snap ?? 0, P.snapBase) > 0.01 && this.insects) this.eatInsects(c, k); // (insects) snap: the swarm on its own cell
       if (sp.filter) this.gulp(c, sp);
       else if (!this.digestFull(c) && this.hasJaws(c) && !(c.digesting > 0)) {
         let prey = null;
