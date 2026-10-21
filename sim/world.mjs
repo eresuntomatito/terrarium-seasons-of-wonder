@@ -169,6 +169,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
   // geneGap: gene bands' split bar above random (0 = speciateGap)
   habitGain: 0.5,        // (habits, Luis s2383: option B) side-food intake × (1 + habitGain × that food's share of the recent diet); newborns inherit a faded copy of the parent's recent diet
@@ -2718,6 +2719,11 @@ export class World {
       const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
       fx += pull[0] * share; fy += pull[1] * share;
     }
+    if (this.rolled('flock') && !sp.unique) { // (flock) kin seek kin, giving way to danger like the home pull
+      const pull = this.flockForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
     c.vx += fx;
     c.vy += fy;
     const s = Math.hypot(c.vx, c.vy);
@@ -2736,6 +2742,18 @@ export class World {
     }
   }
 
+  // FLOCK (Luis, s2425: "make them flock together… groups of 6 or 8, so small species replace themselves"): a body with fewer than
+  // flockSize kin within flockNear is pulled toward the centre of the kin it sees within flockRange; the pull fades as the group
+  // fills, and is strongest for small species (full under flockRare bodies, flockBase of it for a big one). Cached species counts.
+  flockForce(c, maxForce) {
+    if (this._flockT !== this.tick) { this._flockT = this.tick; const n = this._flockN = {}; for (const o of this.creatures) if (!o.dead) n[o.species] = (n[o.species] ?? 0) + 1; }
+    const count = this._flockN[c.species] ?? 0, rare = Math.max(P.flockBase, Math.min(1, (P.flockRare * 2 - count) / P.flockRare));
+    let close = 0, sx = 0, sy = 0, seen = 0;
+    this.near(c.x, c.y, P.flockRange, (o, dx, dy) => { if (o === c || o.dead || o.species !== c.species) return; seen++; sx += dx; sy += dy; if (dx * dx + dy * dy < P.flockNear * P.flockNear) close++; });
+    if (!seen || close >= P.flockSize) return [0, 0];
+    const mx = sx / seen, my = sy / seen, l = Math.hypot(mx, my) || 1, k = P.flockPull * maxForce * rare * (1 - close / P.flockSize);
+    return [mx / l * k, my / l * k];
+  }
   homeForce(c, maxForce) {
     if (!c.homeSeen) {
       c.home ??= { x: c.x, y: c.y };
