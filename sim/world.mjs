@@ -170,6 +170,7 @@ export const PHYSICS = {
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
   callRange: 120, callPull: 0.4, guardRange: 20, guardEach: 0.15, guardMax: 6, // (calls, guard) mate calls; safety in numbers
+  founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
   // geneGap: gene bands' split bar above random (0 = speciateGap)
@@ -2322,6 +2323,7 @@ export class World {
     // A creature that was sickened by prey of some colour shuns that colour until the memory fades.
     if (c.aversion?.s > 0.3 && hueApart(shownHue(o), c.aversion.hue) < P.aversionRange) return false;
     const hungry = c.energy < P.cannibalHunger * this.registry[c.species].maxEnergy;
+    if (o.species !== c.species && this.rolled('founders') && this.registry[o.species].speciated && this.graceOn(this.registry[o.species]) && this.sameBranch(c.species, o.species)) { this.spStat().spared++; return false; } // (founders) a new kind is never eaten by its own branch through grace, hungry or not
     if (o.species !== c.species && !hungry && this.rolled('speciate2') && (this.graceOn(this.registry[c.species]) || this.graceOn(this.registry[o.species])) && this.sameBranch(c.species, o.species)) { // (speciate2) no hunting of kin through a new species' first season
       this.spStat().spared++; return false;
     }
@@ -2762,9 +2764,10 @@ export class World {
   callForce(c, maxForce) {
     if (!this.fertile(c)) return [0, 0];
     let best = null, bd = Infinity;
-    this.near(c.x, c.y, P.callRange, (o, dx, dy) => { if (o === c || o.dead || !o.willing || !this.interbreeds(c.species, o.species) || !this.fertile(o)) return; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [dx, dy]; } });
+    const gb = this.graceBoost(c);
+    this.near(c.x, c.y, P.callRange * gb.reach, (o, dx, dy) => { if (o === c || o.dead || !o.willing || !this.interbreeds(c.species, o.species) || !this.fertile(o)) return; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [dx, dy]; } });
     if (!best || Math.sqrt(bd) <= P.mateReach) return [0, 0];
-    const l = Math.sqrt(bd), k = P.callPull * maxForce * this.rarity(c); return [best[0] / l * k, best[1] / l * k];
+    const l = Math.sqrt(bd), k = P.callPull * maxForce * (gb.pull > 1 ? 1 : this.rarity(c)) * gb.pull; return [best[0] / l * k, best[1] / l * k];
   }
   // SAFETY IN NUMBERS (Luis, s2427, option D): each kin within guardRange of a prey cuts a hunter's catch by guardEach, up to guardMax kin.
   groupGuard(o) {
@@ -2772,13 +2775,14 @@ export class World {
     let n = 0; this.near(o.x, o.y, P.guardRange, k => { if (k !== o && !k.dead && k.species === o.species) n++; });
     return 1 / (1 + P.guardEach * Math.min(n, P.guardMax));
   }
+  graceBoost(c) { const r = this.registry[c.species]; return this.rolled('founders') && r.speciated && this.graceOn(r) ? { pull: P.graceFlock, reach: P.graceReach } : { pull: 1, reach: 1 }; } // (founders) a new kind gathers hard through its grace
   flockForce(c, maxForce) {
     if (this._flockT !== this.tick) { this._flockT = this.tick; const n = this._flockN = {}; for (const o of this.creatures) if (!o.dead) n[o.species] = (n[o.species] ?? 0) + 1; }
     const count = this._flockN[c.species] ?? 0, rare = Math.max(P.flockBase, Math.min(1, (P.flockRare * 2 - count) / P.flockRare));
-    let close = 0, sx = 0, sy = 0, seen = 0;
-    this.near(c.x, c.y, P.flockRange, (o, dx, dy) => { if (o === c || o.dead || o.species !== c.species) return; seen++; sx += dx; sy += dy; if (dx * dx + dy * dy < P.flockNear * P.flockNear) close++; });
+    let close = 0, sx = 0, sy = 0, seen = 0; const gb = this.graceBoost(c);
+    this.near(c.x, c.y, P.flockRange * gb.reach, (o, dx, dy) => { if (o === c || o.dead || o.species !== c.species) return; seen++; sx += dx; sy += dy; if (dx * dx + dy * dy < P.flockNear * P.flockNear) close++; });
     if (!seen || close >= P.flockSize) return [0, 0];
-    const mx = sx / seen, my = sy / seen, l = Math.hypot(mx, my) || 1, k = P.flockPull * maxForce * rare * (1 - close / P.flockSize);
+    const mx = sx / seen, my = sy / seen, l = Math.hypot(mx, my) || 1, k = P.flockPull * maxForce * (gb.pull > 1 ? 1 : rare) * gb.pull * (1 - close / P.flockSize);
     return [mx / l * k, my / l * k];
   }
   homeForce(c, maxForce) {
@@ -3530,7 +3534,7 @@ export class World {
     for (const [label, them] of this.geneBands(name, group)) {
       if (them.length < P.geneFounders || group.length - them.length < P.nicheMin) continue;
       if (P.splitCooldown && this.tick - (this.registry[name].geneSplitAt?.[label] ?? -Infinity) < P.splitCooldown) continue; // (s2408, Luis) the same kind of band rests after a split
-      const local = this.gather(them, P.nicheRange);
+      const local = this.gather(them, this.foundRange());
       if (local.length < P.geneFounders || !this.realDifference(name, local, 'gene')) continue;
       const values = local[0].k.map((_, j) => Math.exp(local.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / local.length));
       (this.registry[name].geneSplitAt ??= {})[label] = this.tick;
@@ -3553,7 +3557,7 @@ export class World {
       for (const centre of them) { const here = them.filter(c => near(centre, c)); if (here.length > local.length) local = here; }
       if (local.length < floor) { delete sp.nicheSeen[niche]; continue; }
       if ((sp.nicheSeen[niche] = (sp.nicheSeen[niche] ?? 0) + 1) < (P.nicheHold[niche] ?? P.nicheDays + 1)) continue;
-      if (s2) { local = this.gather(them, P.nicheRange); if (local.length < floor || !this.realDifference(name, local, 'niche')) continue; } // (the count keeps running: it is tried again on the next check)
+      if (s2) { local = this.gather(them, this.foundRange()); if (local.length < floor || !this.realDifference(name, local, 'niche')) continue; } // (the count keeps running: it is tried again on the next check)
       const values = local[0].k.map((_, j) => Math.exp(local.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / local.length));
       this.splitSpecies(name, local, values, name, `${local.length} ${plural(name)} that live as ${niche === 'omnivore' ? 'omnivores' : niche === 'apex' ? 'apex predators' : niche + 's'} have become a kind of their own`);
       delete sp.nicheSeen[niche];
@@ -3743,6 +3747,7 @@ export class World {
   // (speciate2) The counters of the speciation rule (not saved): splits let through and blocked by kind, merges, kin spared, and the body gaps seen.
   spStat() { return (this.speciate ??= { passed: {}, blocked: {}, merged: 0, spared: 0, gaps: [] }); }
   // The densest spot of a pool (within range; 80 random centres at most), and the speciateMax members nearest to it.
+  foundRange() { return this.rolled('founders') ? P.founderRange : P.nicheRange; } // (founders) how close a split's founders must live
   gather(pool, range) {
     let best = [], at = null;
     for (const centre of pool.length > 80 ? Array.from({ length: 80 }, () => pool[Math.floor(Math.random() * pool.length)]) : pool) {
@@ -3811,8 +3816,8 @@ export class World {
           ready: +Math.max(0, Math.min(1, (d.real - d.nul) / this.splitGap(kind))).toFixed(3), ids: members.map(c => c.id), seen: this.registry[name].nicheSeen?.[label] ?? 0,
           range, rest: group.length - members.length, needRest: kind === 'niche' ? P.nicheMin : 0, needSeen: kind === 'niche' ? (P.nicheHold[label] ?? P.nicheDays + 1) : 0 });
       };
-      for (const [label, k] of Object.entries(count)) if (label !== usual) add('niche', label, group.filter(c => of.get(c) === label), P.nicheRange);
-      if (this.rolled('genebands')) for (const [label, members] of this.geneBands(name, group)) add('gene', label, members, P.nicheRange);
+      for (const [label, k] of Object.entries(count)) if (label !== usual) add('niche', label, group.filter(c => of.get(c) === label), this.foundRange());
+      if (this.rolled('genebands')) for (const [label, members] of this.geneBands(name, group)) add('gene', label, members, this.foundRange());
       for (const [id, m] of Object.entries(this.registry[name].morphs ?? {})) add('mind', m.what ?? `mind ${id}`, group.filter(c => String(c.morph) === String(id)), P.splitRange);
       list.sort((a, b) => b.ready - a.ready || b.n - a.n);
       const tries = st.gaps.filter(g => g.name === name).slice(-20).map(({ kind, season, founders, rms, nul, ok }) => ({ kind, season, founders, rms, nul, ok }));
