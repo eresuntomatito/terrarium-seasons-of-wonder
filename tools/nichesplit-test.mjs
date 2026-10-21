@@ -8,9 +8,9 @@ import { fileURLToPath } from 'node:url';
 import { World, PHYSICS as P, SEASON_TICKS } from '../sim/world.mjs';
 if (process.argv[2] === '--worker') {
   const [v, save, seasons, out] = process.argv.slice(3), raw = JSON.parse(fs.readFileSync(save));
-  if (v === 'new') { if (process.env.ROLLOUT) raw.rollout[process.env.ROLLOUT] = raw.season; else raw.tune = { ...(raw.tune ?? {}), lifeDiffNiche: 1, nicheDays: 9, nicheFounders: 20 }; } // ROLLOUT=key tests a rollout key instead (s2369: genebands)
+  if (v === 'new') { if (process.env.ROLLOUT) { for (const k of process.env.ROLLOUT.split(',')) raw.rollout[k] = raw.season; if (process.env.TUNE) raw.tune = { ...(raw.tune ?? {}), ...JSON.parse(process.env.TUNE) }; } else raw.tune = { ...(raw.tune ?? {}), lifeDiffNiche: 1, nicheDays: 9, nicheFounders: 20 }; } // ROLLOUT=k1,k2 [TUNE='{...}'] tests rollout keys instead (s2369: genebands; s2383: + habits, geneGap)
   const w = new World(raw); w.log = () => {}; const deaths = {}, born = {}, splits = [];
-  const die = w.die.bind(w); w.die = (c, cause) => { if (!c.dead) { const d = deaths[c.species] ??= {}; d[cause] = (d[cause] ?? 0) + 1; d[cause + (c.age < P.growTicks ? ':young' : '')] = (d[cause + (c.age < P.growTicks ? ':young' : '')] ?? 0) + 0; } return die(c, cause); };
+  const die = w.die.bind(w); w.die = (c, cause) => { if (!c.dead) { const d = deaths[c.species] ??= {}; d[cause] = (d[cause] ?? 0) + 1; if (c.age < P.growTicks) d[cause + ':young'] = (d[cause + ':young'] ?? 0) + 1; } return die(c, cause); };
   const split = w.splitSpecies.bind(w); w.splitSpecies = (...a) => { splits.push({ season: w.season, parent: a[0], founders: a[1].length, why: a[4] ?? 'drift' }); return split(...a); };
   const rows = []; let errors = 0;
   for (let s = 1; s <= +seasons; s++) {
