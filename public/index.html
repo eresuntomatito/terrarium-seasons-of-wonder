@@ -1419,7 +1419,7 @@ on('history', ({ h, stats: s, records: r, traits: tr }) => {
   drawChart();
 });
 $('species').addEventListener('mouseover', e => {
- const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number);highlight=(c,sp)=>ecoRole(sp)===ECO_ROLES[r]&&placeIndex(c.x,c.y)===p;showEcoTip(e,cell.title);return;}
+ const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number);bandHover={key:`niche|${r}|${p}`,test:nicheTest(r,p)};highlight=null;showEcoTip(e,cell.title);return;}
  const band=e.target.closest('[data-band]');if(band){bandHover={key:band.dataset.key,ids:new Set(band.dataset.band.split(',').map(Number))};highlight=null;hideEcoTip();return;}
  bandHover=null;
  hideEcoTip();highlight=e.target.closest('details')?.dataset.name??null;
@@ -1429,6 +1429,9 @@ $('species').addEventListener('mouseleave',()=>{highlight=null;bandHover=null;hi
 // Pin a band (click its row) or frame it on the map (⌖).
 $('species').addEventListener('click',e=>{
  const fit=e.target.closest('[data-fit]');if(fit){e.stopPropagation();const row=fit.closest('[data-band]');fitBand(new Set(row.dataset.band.split(',').map(Number)));return;}
+ const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number),key=`niche|${r}|${p}`;
+  if(bandPins.has(key))bandPins.delete(key);else{const used=new Set([...bandPins.values()].map(q=>q.color));bandPins.set(key,{color:BAND_COLORS.find(c=>!used.has(c))??BAND_COLORS[bandPins.size%BAND_COLORS.length],test:nicheTest(r,p)});fitBand(new Set([...cur.values()].filter(c=>species[c.s]&&nicheTest(r,p)(c,species[c.s])).map(c=>c.id)));}
+  renderSpecies(true);return;}
  const band=e.target.closest('[data-band]');if(!band)return;const key=band.dataset.key;
  if(bandPins.has(key))bandPins.delete(key);else{const used=new Set([...bandPins.values()].map(p=>p.color));bandPins.set(key,{color:BAND_COLORS.find(c=>!used.has(c))??BAND_COLORS[bandPins.size%BAND_COLORS.length]});}
  renderSpecies(true);
@@ -2498,10 +2501,14 @@ function bandsHtml(name){
 function bandBodies(){
  if(!bandHover&&!bandPins.size)return null;const m=new Map();
  for(const [name,b] of Object.entries(bands))for(const x of b.bands??[]){const key=`${name}|${x.kind}|${x.label}`,pin=bandPins.get(key);if(pin)for(const id of x.ids)m.set(id,pin.color);}
- if(bandHover)for(const id of bandHover.ids)m.set(id,bandPins.get(bandHover.key)?.color??'#fff4c8');
+ const tested=[...bandPins.values()].filter(q=>q.test);if(bandHover?.test)tested.push({test:bandHover.test,color:bandPins.get(bandHover.key)?.color??'#fff4c8'});
+ if(tested.length&&cur)for(const c of cur.values()){const sp=species[c.s];if(!sp)continue;for(const q of tested)if(q.test(c,sp))m.set(c.id,q.color);}
+ if(bandHover?.ids)for(const id of bandHover.ids)m.set(id,bandPins.get(bandHover.key)?.color??'#fff4c8');
  return m;
 }
 // Glide the camera to frame a band's bodies on the wrapping map (circular centre, then the widest offset either way).
+// A niche-grid cell as a live test: a way of life in one of the world's places.
+const nicheTest=(r,p)=>(c,sp)=>ecoRole(sp)===ECO_ROLES[r]&&placeIndex(c.x,c.y)===p;
 function fitBand(ids){
  if(!meta||!cur)return;let pts=[...ids].map(id=>cur.get(id)).filter(Boolean);if(!pts.length)return;
  // A widely spread band is framed at its densest gathering (the 'together' group), not across the whole map.
@@ -2562,7 +2569,8 @@ function nicheGrid(living){
   if(!living.some(sp=>ecoRole(sp)===r))return [];
   return `<span class="nicherole" title="${rolePlural(r)}">${rolePlural(r)}</span>`+columns.map(({name:p,index:pi})=>{
    const c=cells.get(r+':'+pi),names=[...(c?.names??[])].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])),dominant=byName.get(names[0]?.[0]),title=`${rolePlural(r)} on the ${p}: ${c?.n??0}${c?' ('+names.map(([n,v])=>`${n}s ${v}`).join(', ')+')':''}`,d=c?14*Math.sqrt(c.n/max):0;
-   return `<button type="button" data-niche="${ri}:${pi}" title="${attr(title)}" aria-label="${attr(title)}">${c?`<i style="width:${d}px;height:${d}px;background:hsl(${dominant?.hue??0} 55% 50%)"></i>`:'·'}</button>`;
+   const pin=bandPins.get(`niche|${ri}|${pi}`);
+   return `<button type="button" data-niche="${ri}:${pi}" title="${attr(title+' · click to pin and frame on the map')}" aria-label="${attr(title)}"${pin?` style="outline:2px solid ${pin.color};outline-offset:1px;border-radius:50%"`:''}>${c?`<i style="width:${d}px;height:${d}px;background:hsl(${dominant?.hue??0} 55% 50%)"></i>`:'·'}</button>`;
   }).join('');
  }).join('')+'</div>'+absentRoles(living);
 }
