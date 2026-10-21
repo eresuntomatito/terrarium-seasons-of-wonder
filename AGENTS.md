@@ -10,6 +10,18 @@
 - Luis expects actionable work to be executed during the active session, not merely proposed. Advance ready backlog tasks without asking him to reconfirm existing authorization. Ask only for missing decisions that materially affect the result, and continue independent work where possible.
 - Write in your own attributed voice when speaking on Luis's behalf. Do not invent first-person statements, quotes, intentions, or contributions for Luis or another collaborator.
 
+## Authorship is always disclosed (Luis, 2026-10-20; one of the project's highest principles)
+
+Added by Claude (Opus 5.5, social media session) at Luis's request.
+
+- **Text an LLM writes is published as that LLM's, never as Luis's.** The first person ("I") in a post, wiki page, README, issue reply or report is the agent that wrote it, named with its model (for example "Claude Opus 5.5" or "Codex, GPT-6.1-sol"). Luis has asked that nobody pretend he wrote what a model wrote.
+- **Disclose bluntly and up front,** not in a footer. Say it at the start of the post or page: who wrote it, and that it is AI-written. Luis's own words appear only as quotes he actually wrote or approved, marked as his.
+- **This applies everywhere the project speaks:** social media (Instagram, LinkedIn), the wiki and docs Codex is building, the GitHub README, issue replies and release notes. Existing pages should be brought in line at their next ordinary revision.
+- **Images: disclose in the text, not inside the picture** (Luis, 2026-10-20). The post's caption or the page's text says which images are AI-generated (and by which tool) and which are real screenshots (with date and season). Don't ask image generators to draw disclaimers. An on-image label is optional, and only as a small tagline we add ourselves afterwards, so it stays exact.
+- **Credit footnote on slides** (Luis, 2026-10-20): since the posts speak of Luis in the third person, each slide may carry a small footnote, added by us afterwards, crediting the model and harness for its words and its picture, for example "Words: Claude Sonnet 5.5 · Claude Code. Picture: Codex image_gen · Codex CLI".
+
+**Claude (social media session) → Codex, 2026-10-20:** Luis asked for the social media drafts to be readable in the existing wiki reader. I appended entries under a new section, "Social media (drafts)", at the end of `docs/library.json`; I made no other change to your file. The pages live in `docs/social/`, which is mine. Their images live in `docs/assets/social/`, because the reader only displays images from `docs/assets/` and `reports/status/img/`; I didn't change the reader. The round keys were unlisted until the reveal on 2026-10-20 and are now in the catalog. If you would rather own the catalog entries yourself, move or reword them as you like.
+
 ## Protect the ongoing work
 
 - For publication work, limit edits to `AGENTS.md`, `README.md`, the explicitly requested MIT `LICENSE`, and new documentation under `docs/` unless Luis explicitly broadens the scope. Check for concurrent edits before changing a file.
@@ -554,3 +566,19 @@ The world runs on its own: server plus watchdog. If Claude is still active, noth
 - *Still asked of Codex:* measure `~/.codex` and your `/tmp/terrarium-*` and `/var/folders/…/T/terrarium-*` (~1.1 GB together), and remove what is yours and safe.
 
 **World steward, disk alert ALL-CLEAR (Oct 20):** the Data volume has **34 GB free**. On Luis's word to continue, the world is running again from its clean s2031 save (`tools/restart.sh`; watchdog back). Agents may resume normal work. Please stay modest with world copies, browser profiles and checkouts, and clear your own scratch when done.
+
+**Request → viewer session (world steward, Claude Opus 5.5, s2068; Luis asked: "this is odd looking, please review"): a giant blurred figure on the map.**
+- *Seen by Luis:* a pale, blurred, human-looking shape lying on the ground, about 10× a body's drawn length, next to a summit mark (▲ 1.11) on snowy heights. Screenshot: `reports/status/img/2026-10-20_s2064-viewer-giant-figure.png`.
+- *Not the world:* no unique giant is alive, the biggest body is size 7.0, nothing is burning, and no world field changed shape. The world-side changes today are M2 physics (`rollout.physics`: a timed climbing state, `c.climbing`), M3 digestion and the footprint. The frame format is unchanged.
+- *Steward's guess (unverified):* a quilike sprite stamped at the wrong scale, blurred by upscaling. The shape fits the creature art (legs spread, climbing tail), and a tiny red body sits at its "knee" at normal size. A headless follow at 16× drew bodies normally (~20 px), so I couldn't reproduce it. Possible triggers: a zoom transition, the torus wrap, or the sprite cache after a species refresh.
+- Please judge and fix as you see fit; no world change is needed.
+
+**Request → viewer session (world steward, Claude Opus 5.5, s2088; Luis asked "what are the circles?"): the lupa draws thicket as a grid.**
+- *Seen:* inside the lupa, a regular 8-unit grid of identical round green bushes (screenshot `reports/status/img/2026-10-20_s2088-lupa-bush-grid.png`). It's the lupa's thicket pass, `index.html` ~1074: one `blob` per cell centre where `hedge > .25`.
+- *Why it shows now:* shrubland went live at s2074 (thicket spreads on moist soil; it levels near 8% of the map after the s2087 adjustment). Wide continuous thicket now fills whole lens crops, so the cell grid reads plainly. Before, thicket was a few cells beside the reef.
+- *Suggestion (yours to decide):* match the main map's merged bushes. Jitter positions and sizes by a cell hash, use 2–4 overlapping blobs per cell scaled by density, and let neighbours merge into one mass. That's the same idea as the tree stands (`949c9a6`).
+- No world change is needed. The giant-figure request above is still open.
+
+**Viewer ownership → world steward (Luis, Oct 20, s2090).** The viewer session isn't open, so Luis asked the world steward (Claude Opus 5.5) to take over its work. Until a viewer session returns, the steward owns `public/index.html` too, and viewer items join the steward's backlog in `STEWARD.md`.
+- *Done:* the lupa thicket grid, commit `4a603ed` (jittered merged clumps, checked in a live page load, 0 errors).
+- *Open:* the giant blurred figure (s2068 request above). It couldn't be reproduced headless, so the steward needs Luis's context (zoom, follow/lens, whether it persists).
