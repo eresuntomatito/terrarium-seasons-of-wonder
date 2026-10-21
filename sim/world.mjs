@@ -3677,7 +3677,8 @@ export class World {
         if (members.length < 5) return;
         const together = members.length >= P.speciateMin ? this.gather(members, range) : members, d = this.bodyDifference(name, together, rand, this.wayCounts(kind));
         list.push({ kind, label, n: members.length, together: together.length, needTogether: P.speciateMin, rms: +d.real.toFixed(3), nul: +d.nul.toFixed(3), need: +(d.nul + P.speciateGap).toFixed(3),
-          ready: +Math.max(0, Math.min(1, (d.real - d.nul) / P.speciateGap)).toFixed(3), ids: members.map(c => c.id), seen: this.registry[name].nicheSeen?.[label] ?? 0 });
+          ready: +Math.max(0, Math.min(1, (d.real - d.nul) / P.speciateGap)).toFixed(3), ids: members.map(c => c.id), seen: this.registry[name].nicheSeen?.[label] ?? 0,
+          range, rest: group.length - members.length, needRest: kind === 'niche' ? P.nicheMin : 0, needSeen: kind === 'niche' ? (P.nicheHold[label] ?? P.nicheDays + 1) : 0 });
       };
       for (const [label, k] of Object.entries(count)) if (label !== usual) add('niche', label, group.filter(c => of.get(c) === label), P.nicheRange);
       for (const [id, m] of Object.entries(this.registry[name].morphs ?? {})) add('mind', m.what ?? `mind ${id}`, group.filter(c => String(c.morph) === String(id)), P.splitRange);

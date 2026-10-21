@@ -109,6 +109,7 @@
   #extinct s { text-decoration-color: var(--strike); }
   .bands { margin:2px 0 8px 22px; font-size:11px; } .band { display:grid; grid-template-columns:1fr 70px 32px; gap:6px; align-items:center; padding:1px 4px; border-radius:4px; cursor:default; } .band:hover { background:color-mix(in srgb, var(--fg) 8%, transparent); }
   .band { grid-template-columns:1fr 70px 32px 22px; } .band.pinned { background:color-mix(in srgb, var(--fg) 6%, transparent); } .swatch { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .gate { font-size:10px; padding:0 3px; border-radius:3px; } .gate.ok { color:var(--fg); background:color-mix(in srgb, #5a9b53 35%, transparent); } .gate.no { color:var(--dim); background:color-mix(in srgb, var(--fg) 7%, transparent); }
   .bandfit { font:inherit; font-size:12px; line-height:1; padding:1px 3px; border:1px solid var(--line); border-radius:4px; background:none; color:var(--fg); cursor:pointer; } .bandfit:hover,.bandfit:focus-visible { border-color:var(--warm); }
   .readybar { height:5px; background:color-mix(in srgb, var(--fg) 12%, transparent); border-radius:3px; overflow:hidden; } .readybar i { display:block; height:100%; background:var(--warm); }
   .lenses { display:flex; flex-wrap:wrap; gap:4px; margin:8px 0 6px; }
@@ -1305,7 +1306,7 @@ on('meta', m => {
   reefCanvas.width = meta.GW; reefCanvas.height = meta.GH;
 });
 on('species', list => { species = list; refreshCreatureSprites(); renderSpecies(true); });
-on('bands', b => { bands = b ?? {}; renderSpecies(true); });
+on('bands', b => { bands = b ?? {}; for (const [name, v] of Object.entries(bands)) for (const x of v.bands ?? []) { const key = `${name}|${x.kind}|${x.label}`, prev = bandPrev[key]; bandTrend[key] = prev === undefined ? '' : x.ready > prev + 0.02 ? ' ▲' : x.ready < prev - 0.02 ? ' ▼' : ''; bandPrev[key] = x.ready; } renderSpecies(true); });
 on('god', s => {
   $('god').className = s.state;
   const waiting = s.queue?.length ? ` (waiting: ${s.queue.join(', ')})` : '';
@@ -2488,13 +2489,20 @@ function placeOf(x,y){return places.names[placeIndex(x,y)]??'unknown place';}
 // (s2261, Luis) Bands inside a species: groups living or thinking differently, from the world's own split test. The bar is how far
 // their bodies stand from the rest beyond what random founders of the same size would (0 … the split bar); hover lights them on the map.
 const BAND_WORDS={highland:'highland band',aquatic:'water band','mixed feeder':'mixed feeders',decomposer:'dung eaters',omnivore:'omnivores',scavenger:'scavengers',browser:'browsers',insectivore:'insect eaters',hunter:'hunters',parasite:'parasites',apex:'apex'};
+let bandPrev = {}, bandTrend = {}; // readiness at the previous 'bands' message, for a trend arrow
 function bandsHtml(name){
  const b=bands[name];if(!b?.bands?.length)return '';
  const tried=Object.values(b.blocked??{}).reduce((a,x)=>a+x,0),passed=Object.values(b.passed??{}).reduce((a,x)=>a+x,0);
- const rows=b.bands.map(x=>{const pct=Math.round(x.ready*100),label=x.kind==='mind'?`thinkers: “${x.label}”`:(BAND_WORDS[x.label]??x.label),gather=x.together>=x.needTogether?`${x.together} together`:`${x.together}/${x.needTogether} together`;
-  const key=`${name}|${x.kind}|${x.label}`,pin=bandPins.get(key);
-  return `<div class="band${pin?' pinned':''}" data-band="${x.ids.join(',')}" data-key="${esc(key)}" title="${esc(`${label}: ${x.n} bodies, ${gather} (a split needs ${x.needTogether} in one place).\nBody difference ${x.rms} vs ${x.nul} for random groups; the split bar is ${x.need}.\nClick to pin in its own colour; ⌖ frames it on the map.`)}"><span class="bandname">${pin?`<i class="swatch" style="background:${pin.color}"></i>`:''}${esc(label)} <b>${x.n}</b> <span class="dim">· ${gather}</span></span><span class="readybar"><i style="width:${pct}%"></i></span><span class="dim">${pct}%</span><button class="bandfit" data-fit="${esc(key)}" title="Show me: frame this band on the map" aria-label="Show ${esc(label)} on the map">⌖</button></div>`;}).join('');
- return `<div class="bands"><div class="dim">inside the ${esc(name)}s · split readiness · click to pin${tried||passed?` · ${tried} tries blocked${passed?`, ${passed} passed`:''}`:''}</div>${rows}</div>`;
+ const rows=b.bands.map(x=>{
+  const pct=Math.round(x.ready*100),label=x.kind==='mind'?`thinkers: “${x.label}”`:(BAND_WORDS[x.label]??x.label),key=`${name}|${x.kind}|${x.label}`,pin=bandPins.get(key);
+  const placeOk=x.together>=x.needTogether&&(!x.needRest||x.rest>=x.needRest),diffOk=x.ready>=1,trend=bandTrend[key]??'';
+  const tip=[`${label}: ${x.n} bodies`,
+   `in one place (within ${x.range} units): ${x.together} of ${x.needTogether} needed`+(x.needRest?` · elsewhere ${x.rest} of ${x.needRest} needed`:''),
+   x.needSeen?`held as a way of life: ${x.seen} daily checks in a row (${x.needSeen} needed)`:'',
+   `difference: ${x.rms} · random groups: ${x.nul} · bar: ${x.need} (${pct}% of the way)`,
+   'click to pin · ⌖ frames it on the map'].filter(Boolean).join('\n');
+  return `<div class="band${pin?' pinned':''}" data-band="${x.ids.join(',')}" data-key="${esc(key)}" title="${esc(tip)}"><span class="bandname">${pin?`<i class="swatch" style="background:${pin.color}"></i>`:''}${esc(label)} <b>${x.n}</b><br><span class="gate ${placeOk?'ok':'no'}">⌂ ${x.together}/${x.needTogether}</span> <span class="gate ${diffOk?'ok':'no'}">≠ ${pct}%${trend}</span></span><span class="readybar"><i style="width:${pct}%"></i></span><span class="dim">${pct}%</span><button class="bandfit" data-fit="${esc(key)}" title="Show me: frame this band on the map" aria-label="Show ${esc(label)} on the map">⌖</button></div>`;}).join('');
+ return `<div class="bands"><div class="dim">inside the ${esc(name)}s · ⌂ together · ≠ difference · click to pin${tried||passed?` · ${tried} tries blocked${passed?`, ${passed} passed`:''}`:''}</div>${rows}</div>`;
 }
 // Every body in a hovered or pinned band, with its colour (pins keep their colour; a hover alone is warm white). Ids come from the
 // latest 'bands' message, so a pin follows its band as members are born and die.
