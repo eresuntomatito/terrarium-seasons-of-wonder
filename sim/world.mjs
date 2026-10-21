@@ -169,6 +169,7 @@ export const PHYSICS = {
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
   // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
   shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  callRange: 120, callPull: 0.4, guardRange: 20, guardEach: 0.15, guardMax: 6, // (calls, guard) mate calls; safety in numbers
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
   // geneGap: gene bands' split bar above random (0 = speciateGap)
@@ -2719,6 +2720,11 @@ export class World {
       const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
       fx += pull[0] * share; fy += pull[1] * share;
     }
+    if (this.rolled('calls') && !sp.unique && c.willing) { // (calls) a willing body heads for willing kin it can see
+      const pull = this.callForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
     if (this.rolled('flock') && !sp.unique) { // (flock) kin seek kin, giving way to danger like the home pull
       const pull = this.flockForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
       const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
@@ -2745,6 +2751,26 @@ export class World {
   // FLOCK (Luis, s2425: "make them flock together… groups of 6 or 8, so small species replace themselves"): a body with fewer than
   // flockSize kin within flockNear is pulled toward the centre of the kin it sees within flockRange; the pull fades as the group
   // fills, and is strongest for small species (full under flockRare bodies, flockBase of it for a big one). Cached species counts.
+  // How rare a species is (1 under flockRare bodies, fading to flockBase for a common one), cached per tick.
+  rarity(c) {
+    if (this._flockT !== this.tick) { this._flockT = this.tick; const n = this._flockN = {}; for (const o of this.creatures) if (!o.dead) n[o.species] = (n[o.species] ?? 0) + 1; }
+    const count = this._flockN[c.species] ?? 0; return Math.max(P.flockBase, Math.min(1, (P.flockRare * 2 - count) / P.flockRare));
+  }
+  // CALLS (Luis, s2427, option B): a willing, fertile body senses willing, fertile kin within callRange (song, scent) and steers to
+  // the nearest, stronger for small species; off when one is already within mating reach.
+  callForce(c, maxForce) {
+    if (!this.fertile(c)) return [0, 0];
+    let best = null, bd = Infinity;
+    this.near(c.x, c.y, P.callRange, (o, dx, dy) => { if (o === c || o.dead || !o.willing || !this.interbreeds(c.species, o.species) || !this.fertile(o)) return; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [dx, dy]; } });
+    if (!best || Math.sqrt(bd) <= P.mateReach) return [0, 0];
+    const l = Math.sqrt(bd), k = P.callPull * maxForce * this.rarity(c); return [best[0] / l * k, best[1] / l * k];
+  }
+  // SAFETY IN NUMBERS (Luis, s2427, option D): each kin within guardRange of a prey cuts a hunter's catch by guardEach, up to guardMax kin.
+  groupGuard(o) {
+    if (!this.rolled('guard')) return 1;
+    let n = 0; this.near(o.x, o.y, P.guardRange, k => { if (k !== o && !k.dead && k.species === o.species) n++; });
+    return 1 / (1 + P.guardEach * Math.min(n, P.guardMax));
+  }
   flockForce(c, maxForce) {
     if (this._flockT !== this.tick) { this._flockT = this.tick; const n = this._flockN = {}; for (const o of this.creatures) if (!o.dead) n[o.species] = (n[o.species] ?? 0) + 1; }
     const count = this._flockN[c.species] ?? 0, rare = Math.max(P.flockBase, Math.min(1, (P.flockRare * 2 - count) / P.flockRare));
@@ -2905,7 +2931,7 @@ export class World {
         this.near(c.x, c.y, me + 8, (o, dx, dy) => {
           const reach = (me + this.bodySize(o)) * 0.6 * (this.rolled('footprint') ? P.footprint : 1) + 2;
           if (!prey && o !== c && !o.dead && dx * dx + dy * dy <= reach * reach && this.canCatch(c, o) && this.wouldEat(c, o) && this.canOverpower(c, o)) { // cheap checks first
-            if (Math.random() < this.gapeFit(c, o)) prey = o;
+            if (Math.random() < this.gapeFit(c, o) * this.groupGuard(o)) prey = o; // (guard) kin around the prey make it harder to take
             else if (this.rolled('lunge')) c.energy -= P.lungeCost; // it slipped away: a failed attack costs
           } // ill-fitting prey often slip away
         });
