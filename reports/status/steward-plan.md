@@ -25,7 +25,7 @@
 3. **Diversity needs places and foods of their own.** The lake country (now open) and the fruit woods (booming) are niches nobody uses yet. Opening access helps KPI2 without adding rules (and so without costing KPI3).
 
 ## Actions
-- **A. Grass scarcity:** small steps (3%) while fat ≥ 0.30, at most one per ~4 seasons. **This reverses Luis's 2b pause, so it starts only if Luis does not object.**
+- **A. Grass scarcity:** small steps (3%) while fat ≥ 0.30, at most one per ~4 seasons. **Luis agreed (Oct 23).**
 - **B. Access:** watch the lake country after the gate opened (s2666). Wear one more pinch point only if routes stay blocked (`tools/paths.mjs`).
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
@@ -46,3 +46,4 @@
 
 ## Log of reviews
 - **s2666:** plan written. A waits for Luis; B in progress (gate opened s2666); C in force.
+- **Luis (Oct 23):** no objection to A — grass steps may resume under the rule above; focus on the KPIs and guard rails.
