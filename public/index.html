@@ -219,6 +219,7 @@ let bandHover = null; const bandPins = new Map(), BAND_COLORS = ['#f0c25a', '#5f
 // The camera eases toward a wrapped target; zoom keeps its chosen world point under the pointer.
 const camera = { z: 1, cx: 0, cy: 0 }, target = { ...camera }, pointers = new Map();
 let pileBadges = [], peakMarks = [], summits = [], peakHistory = [], peakRise = 0, summitKey = null;
+let framing = null; // (s2655, Luis) a framed group stays framed as it moves, until the view is moved by hand
 let following = null, drawn = [], anchor = null, gesture = null, viewShakeX = 0, viewShakeY = 0;
 // Hover shares the click's nearest-body test.
 const tip = $('tip'); let hovered = null, hoverPoint = null;
@@ -285,11 +286,11 @@ function canvasPoint(e) { const r = canvas.getBoundingClientRect(); return { u: 
 function worldPoint(q) { return { x: camera.cx + (q.u - 0.5) * meta.W / camera.z - viewShakeX, y: camera.cy + (q.v - 0.5) * meta.H / camera.z - viewShakeY }; }
 function zoomTo(z, q = { u: 0.5, v: 0.5 }, at = null) {
   if (!meta) return;
-  following = null;
+  following = null; framing = null;
   const w = at || worldPoint(q); anchor = { ...w, ...q }; target.z = Math.max(1, Math.min(16, z));
   target.cx = w.x - (q.u - 0.5) * meta.W / target.z; target.cy = w.y - (q.v - 0.5) * meta.H / target.z; clampCamera(target); cameraCursor();
 }
-function fitWorld() { if (!meta) return; following = null; anchor = null; Object.assign(target, { z: 1, cx: meta.W / 2, cy: meta.H / 2 }); cameraCursor(); }
+function fitWorld() { if (!meta) return; following = null; framing = null; anchor = null; Object.assign(target, { z: 1, cx: meta.W / 2, cy: meta.H / 2 }); cameraCursor(); }
 canvas.addEventListener('wheel', e => { e.preventDefault(); zoomTo(target.z * Math.exp(-e.deltaY * 0.0015), canvasPoint(e)); }, { passive: false });
 canvas.addEventListener('dblclick', e => { e.preventDefault(); zoomTo(target.z * 2, canvasPoint(e)); });
 function pinchInfo() { const [a, b] = [...pointers.values()]; return { distance: Math.hypot(a.x - b.x, a.y - b.y), q: canvasPoint({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }) }; }
@@ -298,7 +299,7 @@ canvas.addEventListener('pointerdown', e => {
   if(lensArmed&&meta&&e.button===0){placeLens(worldPoint(canvasPoint(e)));return;}
   if (!meta || e.button !== 0 || pointers.size >= 2) return;
   canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 2) { const p = pinchInfo(); following = null; gesture = { pinch: true, drag: true, distance: Math.max(1, p.distance), z: camera.z, at: worldPoint(p.q) }; }
+  if (pointers.size === 2) { const p = pinchInfo(); following = null; framing = null; gesture = { pinch: true, drag: true, distance: Math.max(1, p.distance), z: camera.z, at: worldPoint(p.q) }; }
   else gesture = { x: e.clientX, y: e.clientY, q: canvasPoint(e), at: worldPoint(canvasPoint(e)), drag: false };
   cameraCursor();
 });
@@ -309,7 +310,7 @@ canvas.addEventListener('pointermove', e => {
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 2) { const p = pinchInfo(); zoomTo(gesture.z * p.distance / gesture.distance, p.q, gesture.at); return; }
   if (!gesture || gesture.pinch) return;
-  if (!gesture.drag && Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 3) { gesture.drag = true; following = null; anchor = null; target.z = camera.z; }
+  if (!gesture.drag && Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > 3) { gesture.drag = true; following = null; framing = null; anchor = null; target.z = camera.z; }
   if (gesture.drag) { anchor = null; following = null; const q = canvasPoint(e); target.cx = gesture.at.x - (q.u - 0.5) * meta.W / target.z; target.cy = gesture.at.y - (q.v - 0.5) * meta.H / target.z; clampCamera(target); cameraCursor(); }
 });
 function releasePointer(e) {
@@ -326,7 +327,7 @@ for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) canvas.
 $('zoomin').onclick = () => zoomTo(target.z * 1.5); $('zoomout').onclick = () => zoomTo(target.z / 1.5); $('zoomfit').onclick = fitWorld;
 window.addEventListener('keydown', e => {
   if (e.target.closest?.('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return;
-  if (e.key === 'Escape') { closeLens(); following = null; anchor = null; }
+  if (e.key === 'Escape') { closeLens(); following = null; framing = null; anchor = null; }
   else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomTo(target.z * 1.5); }
   else if (e.key === '-') { e.preventDefault(); zoomTo(target.z / 1.5); }
   else if (e.key.toLowerCase() === 'l') { e.preventDefault();toggleLens(); }
@@ -1404,6 +1405,7 @@ on('reef', paintReef);
 on('frame', f => {
   prev = cur; cur = unpack(f.c); recvAt = performance.now();
   flowAdd(prev, cur, f.t);
+  if(framing&&performance.now()-framing.at>1000){framing.at=performance.now();const ids=framing.get();if([...ids].some(id=>cur.has(id)))fitBand(ids,null,true);else framing=null;}
   updateSwimDepth(cur,recvAt);
   for (const [id, c] of cur) {
     const p = prev?.get(id);
@@ -1473,9 +1475,9 @@ $('species').addEventListener('mouseleave',()=>{highlight=null;bandHover=null;hi
 // Pin a band (click its row) or frame it on the map (⌖).
 $('species').addEventListener('click',e=>{
  const tog=e.target.closest('[data-bandstoggle]');if(tog){const n=tog.dataset.bandstoggle;bandsClosed.has(n)?bandsClosed.delete(n):bandsClosed.add(n);try{localStorage.setItem('bandsClosed',JSON.stringify([...bandsClosed]))}catch{}renderSpecies(true);return;}
- const spfit=e.target.closest('[data-spfit]');if(spfit){e.preventDefault();e.stopPropagation();const n=spfit.dataset.spfit;fitBand(new Set([...cur.values()].filter(c=>species[c.s]?.name===n).map(c=>c.id)));return;}
+ const spfit=e.target.closest('[data-spfit]');if(spfit){e.preventDefault();e.stopPropagation();const n=spfit.dataset.spfit;const get=()=>new Set([...cur.values()].filter(c=>species[c.s]?.name===n).map(c=>c.id));fitBand(get(),get);return;}
  const sppin=e.target.closest('[data-sppin]');if(sppin){e.preventDefault();e.stopPropagation();const n=sppin.dataset.sppin,key='species|'+n;if(bandPins.has(key))bandPins.delete(key);else{const used=new Set([...bandPins.values()].map(q=>q.color));bandPins.set(key,{color:BAND_COLORS.find(c=>!used.has(c))??BAND_COLORS[bandPins.size%BAND_COLORS.length],test:(c,sp)=>sp.name===n});}renderSpecies(true);return;}
- const fit=e.target.closest('[data-fit]');if(fit){e.stopPropagation();const row=fit.closest('[data-band]');fitBand(new Set(row.dataset.band.split(',').map(Number)));return;}
+ const fit=e.target.closest('[data-fit]');if(fit){e.stopPropagation();const row=fit.closest('[data-band]');const ids=new Set(row.dataset.band.split(',').map(Number));fitBand(ids,()=>ids);return;}
  const cell=e.target.closest('[data-niche]');if(cell){const [r,p]=cell.dataset.niche.split(':').map(Number),key=`niche|${r}|${p}`;
   if(bandPins.has(key))bandPins.delete(key);else{const used=new Set([...bandPins.values()].map(q=>q.color));bandPins.set(key,{color:BAND_COLORS.find(c=>!used.has(c))??BAND_COLORS[bandPins.size%BAND_COLORS.length],test:nicheTest(r,p)});fitBand(new Set([...cur.values()].filter(c=>species[c.s]&&nicheTest(r,p)(c,species[c.s])).map(c=>c.id)));}
   renderSpecies(true);return;}
@@ -2567,15 +2569,15 @@ function bandBodies(){
 // Glide the camera to frame a band's bodies on the wrapping map (circular centre, then the widest offset either way).
 // A niche-grid cell as a live test: a way of life in one of the world's places.
 const nicheTest=(r,p)=>(c,sp)=>ecoRole(sp)===ECO_ROLES[r]&&placeIndex(c.x,c.y)===p;
-function fitBand(ids){
- if(!meta||!cur)return;let pts=[...ids].map(id=>cur.get(id)).filter(Boolean);if(!pts.length)return;
+function fitBand(ids,get=null,keep=false){
+ if(!meta||!cur)return;if(!keep)framing=get?{get,at:performance.now()}:null;let pts=[...ids].map(id=>cur.get(id)).filter(Boolean);if(!pts.length)return;
  // A widely spread band is framed at its densest gathering (the 'together' group), not across the whole map.
  const near=(p,q)=>Math.hypot(wrappedDelta(p.x,q.x,meta.W),wrappedDelta(p.y,q.y,meta.H))<150;
  if(pts.length>3){const best=pts.map(p=>pts.filter(q=>near(p,q))).sort((a,b)=>b.length-a.length)[0];if(best.length>=Math.min(3,pts.length))pts=best;}
  const circ=(v,n)=>{const a=v.map(x=>x/n*2*Math.PI),s=a.reduce((t,x)=>t+Math.sin(x),0),c=a.reduce((t,x)=>t+Math.cos(x),0);return wrap(Math.atan2(s,c)/(2*Math.PI)*n,n);};
  const cx=circ(pts.map(p=>p.x),meta.W),cy=circ(pts.map(p=>p.y),meta.H);
  const dx=Math.max(...pts.map(p=>Math.abs(wrappedDelta(cx,p.x,meta.W)))),dy=Math.max(...pts.map(p=>Math.abs(wrappedDelta(cy,p.y,meta.H))));
- following=null;anchor=null;target.cx=cx;target.cy=cy;target.z=Math.max(1,Math.min(8,0.85*Math.min(meta.W/(2*dx+60),meta.H/(2*dy+60))));clampCamera(target);cameraCursor();
+ following=null;anchor=null;target.cx=cx;target.cy=cy;const z=Math.max(1,Math.min(8,0.85*Math.min(meta.W/(2*dx+60),meta.H/(2*dy+60))));target.z=keep?Math.min(target.z,z):z;clampCamera(target);cameraCursor();
 }
 function bodyHighlighted(c,sp){return typeof highlight==='function'?highlight(c,sp):sp.name===highlight;}
 const ECO_ROLES=['grazer','browser','mixed feeder','decomposer','omnivore','scavenger','hunter','apex','parasite','insectivore'];
