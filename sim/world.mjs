@@ -198,6 +198,9 @@ export const PHYSICS = {
   // RARE HEADS (Luis, s2590; rollout.rarehead): a species under rareHeadShare of all bodies may breed past the head ceiling, up to
   // rareHeadExtra × cap more, the extra shrinking to nothing as it nears rareHeadShare; common species keep the ceiling.
   rareHeadShare: 0.15, rareHeadExtra: 0.1,
+  // (dietroom, Luis s2593) the rare species' extra room scales with how differently it eats: half the L1 distance between its recent
+  // diet shares and the commonest species' (grass, browse, meat, insects, dung, fish), full at rareDietFull — a grazer copy gets none.
+  rareDietFull: 0.3,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1156,7 +1159,7 @@ export class World {
       for (const c of this.creatures) if (!c.dead) this.families[c.species] = (this.families[c.species] ?? 0) + 1;
     }
     const spShare = (this.families[name] ?? 0) / Math.max(1, total);
-    const rareHead = this.rolled('rarehead') && spShare < P.rareHeadShare && total < cap * (P.massHeads + P.rareHeadExtra * (1 - spShare / P.rareHeadShare)); // (rarehead) a rare species' own extra room
+    const rareHead = this.rolled('rarehead') && spShare < P.rareHeadShare && total < cap * (P.massHeads + P.rareHeadExtra * (1 - spShare / P.rareHeadShare) * (this.rolled('dietroom') ? Math.min(1, this.dietDiff(name) / P.rareDietFull) : 1)); // (rarehead) a rare species' own extra room
     let crowd;
     if (this.rolled('massroom')) { // room by body mass (the giant apart): small bodies take less room, big ones more
       if (total >= cap * P.massHeads && !rareNiche && !rareHead) { this.ceilingAt = this.tick; return false; } // the machine's limit, in heads
@@ -3821,6 +3824,17 @@ export class World {
   // (speciate2) The counters of the speciation rule (not saved): splits let through and blocked by kind, merges, kin spared, and the body gaps seen.
   spStat() { return (this.speciate ??= { passed: {}, blocked: {}, merged: 0, spared: 0, gaps: [] }); }
   // The densest spot of a pool (within range; 80 random centres at most), and the speciateMax members nearest to it.
+  // How differently a species eats from the commonest one (0 = the same, 1 = nothing in common), from recent diets; cached 30 ticks.
+  dietDiff(name) {
+    if (!this._dietT || this.tick - this._dietT >= 30) {
+      this._dietT = this.tick; const sums = {}, count = {};
+      for (const c of this.creatures) { if (c.dead || !c.recent || !(c.recent.ate > 0)) continue; const r = c.recent, s = (sums[c.species] ??= [0, 0, 0, 0, 0, 0, 0]);
+        const o = [r.browse ?? 0, r.meat ?? 0, r.insect ?? 0, r.dung ?? 0, r.fish ?? 0]; s[1] += o[0]; s[2] += o[1]; s[3] += o[2]; s[4] += o[3]; s[5] += o[4]; s[0] += Math.max(0, r.ate - o.reduce((a, b) => a + b, 0)); s[6] += r.ate; count[c.species] = (count[c.species] ?? 0) + 1; }
+      const top = Object.keys(count).sort((a, b) => count[b] - count[a])[0], v = n => sums[n] ? sums[n].slice(0, 6).map(x => x / (sums[n][6] || 1)) : null, T = v(top);
+      this._diet = {}; for (const n of Object.keys(sums)) { const V = v(n); this._diet[n] = T && V ? 0.5 * V.reduce((a, x, i) => a + Math.abs(x - T[i]), 0) : 0; }
+    }
+    return this._diet?.[name] ?? 0;
+  }
   foundRange() { return this.rolled('founders') ? P.founderRange : P.nicheRange; } // (founders) how close a split's founders must live
   gather(pool, range) {
     let best = [], at = null;
