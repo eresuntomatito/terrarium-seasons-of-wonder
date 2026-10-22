@@ -210,6 +210,9 @@ export const PHYSICS = {
   // scents); a body steers up the carrion scent by nosePull × nose, and pays noseUpkeep × nose. Sociability (starts at 1): scales the
   // flock pull and how strongly the young follow their mother; it drifts, so lines can become solitary roamers if roaming pays.
   noseDrift: 0.02, noseUpkeep: 0.05, nosePull: 0.6, noseScent: 0.5, socialDrift: 0.03,
+  // LEAF BROWSING (Luis, s2597; rollout.leafbrowse): browsers eat the leaves of mature trees down to leafFloor of canopy (the tree
+  // survives and regrows); bite × browse × reach (taller crowns need size or climb); energy leafEnergy per unit, by the browse gut.
+  leafFloor: 0.6, leafBite: 0.002, leafEnergy: 3,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1636,7 +1639,8 @@ export class World {
   // The best tree food at a cell as a body sees it (0 … 1, comparable to a grass patch): store × access × 2.
   treeFood(c, ci) {
     const a = this.fruit[ci] * this.treeAccess(c, 1), b = this.nuts[ci] * this.treeAccess(c, 2), d = this.cones[ci] * this.treeAccess(c, 3);
-    return Math.min(1, 2 * Math.max(a, b, d));
+    const l = this.rolled('leafbrowse') && this.browses(c) ? Math.max(0, this.trees[ci] - P.leafFloor) * (c.browse ?? 0) * 3 : 0; // (leafbrowse) leaves above the floor
+    return Math.min(1, 2 * Math.max(a, b, d, l));
   }
   updateTrees() {
     const tr = this.trees, kd = this.treeKind, fr = this.fruit, nu = this.nuts, co = this.cones, th = this.thicket, n = GW * GH, F = this.flow, era = this.tempEra(), N = this.climbNeed();
@@ -2446,7 +2450,7 @@ export class World {
         if (patches.length >= ATTENTION && enough === Infinity) enough = ring + 1.5;
         const gx = gx0 + dx, gy = gy0 + dy;
         const ci = (gy < 0 ? gy + GH : gy >= GH ? gy - GH : gy) * GW + (gx < 0 ? gx + GW : gx >= GW ? gx - GW : gx), b = Math.max(this.plants[ci], aquaOn ? this.aqua[ci] * (0.4 + 0.6 * (c.swim ?? 0)) : 0, highOn ? this.lichen[ci] * 0.8 : 0, snapW > 0.03 ? Math.min(1, 2 * snapW * P.insSeen * INS[ci]) : 0, swimW > 0.05 ? Math.min(1, swimW * P.fishSeen * FISH[ci]) : 0); // water plants, lichen, swarms and (s2428) fish are food to see too
-        const th = this.thicket[ci], shoots = browser ? (th - P.browseFloor) * (c.browse ?? 0) * 2 : 0;
+        const th = this.thicket[ci], shoots = browser ? (th - (this.rolled('shrubbrowse') && this.reefNear(ci) === 0 ? P.shrubFloor : P.browseFloor)) * (c.browse ?? 0) * 2 : 0; // (s2597 fix) a browser sees shoots down to the floor it can eat them to
         if (tOn && TR[ci] > 0.1) { const tf = this.treeFood(c, ci); if (tf > 0.25 && tf >= b && !(this.burning?.[ci] > 0)) { const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2; if (d2 <= r * r) patches.push({ fx, fy, b: tf, d2 }); continue; } }
         if (shoots > 0.25 && shoots >= b) { const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2; if (d2 <= r * r) patches.push({ fx, fy, b: Math.min(1, shoots), d2 }); continue; }
         if (b < 0.25 || th >= 0.5) continue; // grass guarded by dense thicket is not food: it cannot be reached
@@ -3098,6 +3102,10 @@ export class World {
       if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
       c.dung = (c.dung ?? 0) + bite * P.dungShare;
       if (kind === 1) { c.tseeds = 1; c.tkind = this.treeKind[i]; }
+    }
+    if (this.rolled('leafbrowse') && !this.digestFull(c) && this.browses(c) && this.trees[i] > P.leafFloor) { // (leafbrowse) leaves of a mature tree, above the floor
+      const reach = clamp01(0.4 + 0.5 * (c.climb ?? 0) + (this.bodySize(c) - 4) / 8), d = Math.min(this.trees[i] - P.leafFloor, P.leafBite * Math.sqrt(k) * c.browse * reach * this.habit(c, 'browse'));
+      if (d > 0) { this.trees[i] -= d; this.leavesBrowsed = (this.leavesBrowsed ?? 0) + d; this.feed(c, d * P.leafEnergy * this.browseGut(c) * c.browse, 1, 'browse'); }
     }
     if (!this.digestFull(c) && this.browses(c) && this.trees[i] < P.treeSapling) { // browsing saplings
       const d = Math.min(this.trees[i], P.treeBrowse * Math.sqrt(k) * c.browse * (this.rolled('trees2') ? Math.max(0, 1 - this.thicket[i] / P.nurseThicket) : 1)); // (trees2) thorny thicket nurses its saplings
