@@ -51,9 +51,12 @@ function clock() {
   if (nextTick < now - 4 * 1000 / TICKS_PER_SEC) nextTick = now;
   setTimeout(clock, Math.max(0, nextTick - now));
 }
+let stepMs = 0, tpsT = performance.now(), tpsK = 0, tps = 0;
+function kpiSpeed() { return { tps: +tps.toFixed(1), stepMs: +stepMs.toFixed(1) }; }
 function tickOnce() {
   try {
-    world.step();
+    const t0 = performance.now(); world.step(); stepMs = stepMs * 0.98 + (performance.now() - t0) * 0.02;
+    if (++tpsK >= 300) { const now = performance.now(); tps = tpsK * 1000 / (now - tpsT); tpsT = now; tpsK = 0; }
   } catch (e) {
     console.error(`tick ${world.tick}:`, e);
     return;
@@ -63,7 +66,8 @@ function tickOnce() {
   if (world.tick % 60 === 0) { const wf = world.waterFrame(); if (wf) broadcast('water', wf); }
   if (world.tick % 60 === 0) broadcast('reef', { map: world.reefMap(), thicket: world.thicketMap(), trees: world.treeMap(), insects: world.insectMap(), fish: world.fishMap(), climate: world.climate() });
   if (world.tick % 900 === 0) broadcast('species', world.speciesList()); // evolved code and drift
-  if (world.tick % 900 === 450) broadcast('bands', world.bands()); // (s2261) bands inside each species and how near a split they are
+  if (world.tick % 900 === 450) broadcast('bands', world.bands());
+  if (world.tick % 900 === 0) { world.kpi(); broadcast('kpi', { log: world.kpiLog.slice(-120), speed: kpiSpeed() }); } // (s2653) the KPI cards // (s2261) bands inside each species and how near a split they are
   if (world.tick % 300 === 0) stewardRelease();
 }
 setTimeout(clock, 0);
@@ -91,6 +95,7 @@ function stream(req, res) {
   res.write(message('meta', { W, H, CELL, GW, GH, TICKS_PER_DAY, TICKS_PER_SEC, SEASON_TICKS, GENERATIONS_PER_MUTATION, FRAME_STRIDE }));
   res.write(message('species', world.speciesList()));
   res.write(message('bands', world.bands()));
+  res.write(message('kpi', { log: (world.kpiLog ?? []).slice(-120), speed: kpiSpeed() }));
   res.write(message('reef', { map: world.reefMap(), thicket: world.thicketMap(), trees: world.treeMap(), insects: world.insectMap(), fish: world.fishMap(), climate: world.climate() }));
   res.write(message('god', god));
   res.write(message('past', { history: world.history, events: world.events, stats: world.stats, records: world.records, traits: world.traits() }));

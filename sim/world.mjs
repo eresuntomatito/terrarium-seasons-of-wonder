@@ -3916,6 +3916,20 @@ export class World {
       this.onSpecies?.();
     }
   }
+  // KPIs (Luis, s2653): (1) up the food chain — mean trophic level of the energy eaten (2 = all plants; meat, carrion, fish and insects
+  // count one level up) and the share of bodies with gut ≥ 0.3; (2) real diversity — mean diet difference between species and the ways
+  // of life holding ≥ 10 bodies; (3) cost is measured by the server. A point every call; the last kpiKeep points are kept in the save.
+  kpi() {
+    const cs = this.creatures.filter(c => !c.dead && !this.registry[c.species].unique); let ate = 0, up = 0;
+    for (const c of cs) { const r = c.recent; if (!r) continue; ate += r.ate ?? 0; up += (r.meat ?? 0) + (r.insect ?? 0); }
+    const names = [...new Set(cs.map(c => c.species))], vec = n => { const S = [0, 0, 0, 0, 0, 0]; let t = 0; for (const c of cs) { if (c.species !== n || !c.recent?.ate) continue; const r = c.recent, o = [r.browse ?? 0, r.meat ?? 0, r.insect ?? 0, r.dung ?? 0, r.fish ?? 0]; o.forEach((v, j) => S[j + 1] += v); S[0] += Math.max(0, r.ate - o.reduce((a, b) => a + b, 0)); t += r.ate; } return S.map(v => v / (t || 1)); };
+    const V = Object.fromEntries(names.map(n => [n, vec(n)])); let dsum = 0, dn = 0;
+    for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) { dsum += 0.5 * V[names[i]].reduce((a, x, k) => a + Math.abs(x - V[names[j]][k]), 0); dn++; }
+    const ways = {}; for (const c of cs) { const n = this.nicheOf(c); ways[n] = (ways[n] ?? 0) + 1; }
+    const point = { season: this.season, t: this.tick, tl: +(2 + up / (ate || 1)).toFixed(3), gut3: +(cs.filter(c => c.gut >= 0.3).length / (cs.length || 1)).toFixed(3), diet: +(dn ? dsum / dn : 0).toFixed(3), ways: Object.values(ways).filter(n => n >= 10).length, wayNames: Object.entries(ways).filter(([, n]) => n >= 10).map(([k]) => k), species: names.length };
+    (this.kpiLog ??= []).push(point); if (this.kpiLog.length > 400) this.kpiLog.splice(0, this.kpiLog.length - 400);
+    return point;
+  }
   foundRange() { return this.rolled('founders') ? P.founderRange : P.nicheRange; } // (founders) how close a split's founders must live
   gather(pool, range) {
     let best = [], at = null;
@@ -4411,6 +4425,7 @@ export class World {
       corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, grassLean: this.grassLean, grassRampFrozen: this.grassRampFrozen, grassRampLast: this.grassRampLast, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
       speciate: this.speciate ?? null,
       ...(this.fish ? { fish: Array.from(this.fish, v => Math.round(v * 1e4) / 1e4), fishLedger: this.fishLedger } : {}),
+      ...(this.kpiLog ? { kpiLog: this.kpiLog } : {}),
       ...(this.isoBox ? { isoBox: this.isoBox, isoBlocked: this.isoBlocked ?? 0, isoIn: this.isoIn ?? 0, isoOut: this.isoOut ?? 0 } : {}),
       ...(this.tune ? { tune: this.tune } : {}), // (s2235) the split counters survive restarts
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
@@ -4427,6 +4442,7 @@ export class World {
     this.climbTicks = s.climbTicks ?? 0;
     if (s.tune) { this.tune = s.tune; Object.assign(P, s.tune); } // (s2303, Luis's food-loop directive) live tuning saved with the world: parameter overrides, set by tools/restart.sh key=value
     if (s.speciate) this.speciate = s.speciate;
+    if (s.kpiLog) this.kpiLog = s.kpiLog;
     if (s.isoBox) { this.isoBox = s.isoBox; this.isoBlocked = s.isoBlocked ?? 0; this.isoIn = s.isoIn ?? 0; this.isoOut = s.isoOut ?? 0; }
     this.plants = Float32Array.from(s.plants);
     this.fertility = Float32Array.from(s.fertility);

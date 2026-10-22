@@ -129,12 +129,14 @@
   #events li span { color: var(--dim); margin-right: 6px; }
   a { color: var(--dim); }
   @media (max-width: 760px) { body { grid-template-columns: 1fr; height: auto; } aside { border-left: 0; border-top: 1px solid var(--line); } }
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.kpi{border:1px solid var(--line,rgba(127,127,127,.3));border-radius:6px;padding:6px 7px;font-size:11px;line-height:1.35}.kpi b{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;opacity:.75}.kpi .v{font-size:15px;font-weight:600}.kpi .ok{color:#4caf6e}.kpi .bad{color:#d9534f}.kpi .flat{opacity:.7}.kpi svg{display:block;width:100%;height:22px;margin-top:3px}
 </style>
 </head>
 <body>
 <main><canvas id="world"></canvas><div id="zoom"><button id="lensbtn" title="Place magnifier (l)" aria-label="Magnifier" aria-pressed="false">🔍</button><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><button id="flowbtn" title="Movement: where bodies travel and which way (f)" aria-pressed="false">Flow</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit" title="recenter: whole world, original framing (0)">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="lenshint" role="status" hidden>click to place the magnifier · esc to cancel</div><div id="magnifier" hidden><canvas id="lensglass"></canvas><button id="lensclose" aria-label="Close magnifier">×</button><div id="lenslabel"></div></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
 <aside>
   <div><div id="head"><h1>The Terrarium</h1><nav id="tools"><a id="wikilink" href="/reports.html?section=wiki" title="the world's wiki: guides, concepts, species and history">wiki</a><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="theme" title="theme: auto, light, dark">auto</button></nav></div><div class="dim" id="clock">connecting…</div><div id="weatherwrap"><div id="weather" tabindex="0" aria-controls="climatebox" aria-expanded="false">Waiting for the weather.</div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div></div><div id="god"></div></div>
+  <section id="kpisec"><h2>KPIs</h2><div id="kpis" class="kpis"><div class="dim">waiting for the first reading…</div></div></section>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart" aria-describedby="ecotip"></canvas></section>
   <section><h2>Life</h2><div id="species"></div><p id="extinct"></p></section>
   <section><h2>Chronicle</h2><ul id="events"></ul></section>
@@ -1335,6 +1337,17 @@ on('meta', m => {
   reefCanvas.width = meta.GW; reefCanvas.height = meta.GH;
 });
 on('species', list => { species = list; refreshCreatureSprites(); renderSpecies(true); });
+on('kpi', k => renderKpi(k));
+function renderKpi(k){
+  const L=k?.log??[];if(!L.length)return;const now=L.at(-1),past=L.find(p=>p.season>=now.season-30)??L[0];
+  const trend=(a,b,eps)=>a-b>eps?'<span class="ok">▲</span>':b-a>eps?'<span class="bad">▼</span>':'<span class="flat">→</span>';
+  const spark=(f,col)=>{const v=L.map(f),lo=Math.min(...v),hi=Math.max(...v),r=hi-lo||1;return `<svg viewBox="0 0 100 22" preserveAspectRatio="none"><polyline fill="none" stroke="${col}" stroke-width="1.5" points="${v.map((y,i)=>`${(i/(Math.max(1,v.length-1))*100).toFixed(1)},${(20-(y-lo)/r*18).toFixed(1)}`).join(' ')}"/></svg>`;};
+  const sp=k.speed??{},fast=(sp.tps??0)>=15;
+  document.getElementById('kpis').innerHTML=
+   `<div class="kpi" title="Mean trophic level of the energy eaten (2 = all plants; meat, carrion, fish and insects count one level up), and the share of bodies with a gut of 0.3 or more. Should rise over ~30 seasons."><b>1 · Up the food chain</b><span class="v">${now.tl.toFixed(3)}</span> ${trend(now.tl,past.tl,0.005)}<br>gut ≥ 0.3: ${(now.gut3*100).toFixed(0)}% ${trend(now.gut3,past.gut3,0.01)}${spark(p=>p.tl,'#e0a040')}</div>`+
+   `<div class="kpi" title="Mean diet difference between species (0 = they all eat the same) and the ways of life held by 10+ bodies: ${(now.wayNames??[]).join(', ')}. Should rise."><b>2 · Real diversity</b><span class="v">${now.diet.toFixed(3)}</span> ${trend(now.diet,past.diet,0.005)}<br>ways of life: ${now.ways} ${trend(now.ways,past.ways,0.5)} · species ${now.species}${spark(p=>p.diet,'#5aa0e0')}</div>`+
+   `<div class="kpi" title="Live speed: ticks per second (floor 15) and the average step time. A budget, not a goal."><b>3 · Cost</b><span class="v ${fast?'ok':'bad'}">${(sp.tps??0).toFixed(1)}</span> ticks/s<br>step ${(sp.stepMs??0).toFixed(0)} ms · floor 15/s</div>`;
+}
 on('bands', b => { bands = b ?? {}; for (const [name, v] of Object.entries(bands)) for (const x of v.bands ?? []) { const key = `${name}|${x.kind}|${x.label}`, prev = bandPrev[key]; bandTrend[key] = prev === undefined ? '' : x.ready > prev + 0.02 ? ' ▲' : x.ready < prev - 0.02 ? ' ▼' : ''; bandPrev[key] = x.ready; } renderSpecies(true); });
 on('god', s => {
   $('god').className = s.state;
