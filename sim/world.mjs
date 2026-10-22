@@ -213,6 +213,11 @@ export const PHYSICS = {
   // LEAF BROWSING (Luis, s2597; rollout.leafbrowse): browsers eat the leaves of mature trees down to leafFloor of canopy (the tree
   // survives and regrows); bite × browse × reach (taller crowns need size or climb); energy leafEnergy per unit, by the browse gut.
   leafFloor: 0.6, leafBite: 0.002, leafEnergy: 3,
+  // HYBRIDS (Luis, s2605, option B — the "reverse" of a split; rollout.hybrid): two bodies of different species may mate when they are
+  // as related as kin may be (gap < isolation), at hybridOdds the chance of a same-species pair; the young take one parent's kind.
+  // At each season's end, two kinds that hybridised (≥ hybridMergeMin young) and are no more different across than within are counted
+  // as one: the smaller blends into the larger.
+  hybridOdds: 0.3, hybridMergeMin: 5, mergeRatio: 1.0,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -3244,7 +3249,7 @@ export class World {
   breed(c, sp, k, born) {
     let partner = null;
     this.near(c.x, c.y, (this.rolled('footprint') ? Math.max(P.mateFloor, Math.max(P.mateReach, c.size * 2) * P.footprint) : Math.max(P.mateReach, c.size * 2)), o => { // tiny bodies still need a little room to find each other
-      if (!partner && o !== c && !o.dead && this.interbreeds(c.species, o.species) && o.willing && this.fertile(o)) {
+      if (!partner && o !== c && !o.dead && (this.interbreeds(c.species, o.species) || (this.rolled('hybrid') && !this.registry[o.species].unique && !this.registry[c.species].unique && Math.random() < P.hybridOdds)) && o.willing && this.fertile(o)) {
         // Choosy mating: the more two differ (genes, body, colour), the less likely they pair; past isolation, never.
         // The wish to mate comes first: the longer a body waits, the less it minds, and after a long wait any of its kind will do.
         const gap = this.relatedGap(c, o), hue = Math.abs((c.hueShift ?? 0) - (o.hueShift ?? 0)) / 180 * P.hueChoice;
@@ -3255,6 +3260,7 @@ export class World {
     });
     if (partner) {
       c.longing = 0; partner.longing = 0;
+      if (c.species !== partner.species && !this.interbreeds(c.species, partner.species)) { const key = [c.species, partner.species].sort().join('|'); (this.hybrids ??= {})[key] = (this.hybrids[key] ?? 0) + 1; } // (hybrid) counted per pair
       let gift = c.give * c.energy + partner.give * partner.energy;
       const fats = this.rolled('condbreed') ? [c, partner].map(q => Math.max(0, (q.fat ?? 0) * q.give * P.condFatGift)) : [0, 0]; // (condbreed) reserves become young
       gift += (fats[0] + fats[1]) * P.fatEfficiency;
@@ -3873,6 +3879,23 @@ export class World {
     if (!bk || best <= 0 || G[bk](c) < s.g[bk]) return 1; // leaning on a food it is not built for: no edge
     return Math.min(P.edgeMax, 1 + P.edgeGain * diff);
   }
+  // (hybrid) at a season's end: pairs of kinds that hybridised and are no more different across than within become one kind.
+  mergeKinds() {
+    const H = this.hybrids ?? {}; this.hybrids = {};
+    for (const [key, n] of Object.entries(H).sort((a, b) => b[1] - a[1])) {
+      if (n < P.hybridMergeMin) continue;
+      const [a, b] = key.split('|'), A = this.creatures.filter(c => !c.dead && c.species === a), B = this.creatures.filter(c => !c.dead && c.species === b);
+      if (!A.length || !B.length) continue;
+      const kin = (X, Y, m = 120) => { let s = 0, k = 0; for (let i = 0; i < m; i++) { const x = X[Math.random() * X.length | 0], y = Y[Math.random() * Y.length | 0]; if (x === y) continue; s += this.relatedGap(x, y); k++; } return k ? s / k : 0; };
+      const across = kin(A, B), within = (kin(A, A) + kin(B, B)) / 2;
+      if (across > within * P.mergeRatio) continue;
+      const [big, small] = A.length >= B.length ? [a, b] : [b, a], from = this.registry[small], to = this.registry[big];
+      for (const c of this.creatures) if (!c.dead && c.species === small) { c.species = big; c.hue = to.hue; }
+      from.extinct = this.season; from.blended = true; from.mergedInto = big; this.touchRegistry(); delete this.behaviors[small]; delete this.lastCounts[small];
+      this.log(`The ${plural(small)} and the ${plural(big)} have become one kind again: ${n} young between them this season, and no more different across than within.`);
+      this.onSpecies?.();
+    }
+  }
   foundRange() { return this.rolled('founders') ? P.founderRange : P.nicheRange; } // (founders) how close a split's founders must live
   gather(pool, range) {
     let best = [], at = null;
@@ -4235,6 +4258,7 @@ export class World {
   }
 
   endSeason() {
+    if (this.rolled('hybrid')) this.mergeKinds();
     this.leanSeason();
     this.grassRampSeason();
     this.quakeSeason();
