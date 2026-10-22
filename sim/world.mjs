@@ -177,6 +177,10 @@ export const PHYSICS = {
   foodValue: { fruit: 2.0, nut: 3.0, cone: 1.5 }, foodFit: { insect: [0.30, 0.15, 0.50], fish: [0.40, 0.15, 0.50] }, foodSnapEff: 0.9, foodRich: { fruit: 1.3 },
   // FOLLOW (Luis, s2448; rollout.follow): a young body keeps near its mother until it matures, so it eats where she eats and is guarded by her.
   followNear: 12, followRange: 160, followPull: 0.35,
+  // NICHE FOOD (Luis, s2568, option 1a; rollout.nichefood): each way of life has food of its own that the grass's worth does not touch.
+  // Lichen on the heights is for climbers (access rises from climb nicheClimb0 to full at +nicheClimbSpan) and richer; water plants
+  // feed waders and swimmers richer. Neither shrinks with grass cuts (they are not grass).
+  nicheLichen: 1.6, nicheClimb0: 0.35, nicheClimbSpan: 0.35, nicheAqua: 1.5,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -2929,10 +2933,12 @@ export class World {
         }
         if (!this.digestFull(c) && this.rolled('waterfood') && this.aqua[i] > 0.02) { const acc = this.aquaAccess(c, i); if (acc > 0) { // water plants, for waders and swimmers
           const b2 = Math.min(this.aqua[i], P.aquaBite * Math.sqrt(k) * acc * (1 - c.gut)); this.aqua[i] -= b2;
-          this.feed(c, b2 * P.aquaEnergy * P.plantEnergy * this.grassGut(c.gut, c) * (this.grassFood ?? 1), 1, 'plant'); } }
+          const nf = this.rolled('nichefood'); // (nichefood) water plants are the waders' and swimmers' own: richer, and not grass
+          this.feed(c, b2 * (nf ? P.nicheAqua : P.aquaEnergy) * P.plantEnergy * this.grassGut(c.gut, c) * (nf ? 1 : this.grassFood ?? 1), 1, 'plant'); } }
         if (!this.digestFull(c) && this.rolled('highfood') && this.lichen[i] > 0.02) { // lichen on the heights, worth more to a thick coat
-          const b3 = Math.min(this.lichen[i], P.lichenBite * Math.sqrt(k) * (1 - c.gut)); this.lichen[i] -= b3;
-          this.feed(c, b3 * P.lichenEnergy * (0.5 + (c.coat ?? P.coatStart)) * P.plantEnergy * this.grassGut(c.gut, c) * (this.grassFood ?? 1), 1, 'plant'); }
+          const nf = this.rolled('nichefood'), acc = nf ? clamp01(((c.climb ?? 0) - P.nicheClimb0) / P.nicheClimbSpan) : 1; // (nichefood) lichen is the climbers' own
+          const b3 = Math.min(this.lichen[i], P.lichenBite * Math.sqrt(k) * (1 - c.gut) * acc); this.lichen[i] -= b3;
+          this.feed(c, b3 * (nf ? P.nicheLichen : P.lichenEnergy) * (0.5 + (c.coat ?? P.coatStart)) * P.plantEnergy * this.grassGut(c.gut, c) * (nf ? 1 : this.grassFood ?? 1), 1, 'plant'); }
         if (this.trees[i] > 0.05 && this.rolled('trees')) this.eatTrees(c, sp, k, i); // fruit, nuts and cones; saplings
         // Defences from food: hedge plants carry toxin, ground by the reef carries minerals for a shell.
         // Toxin: a body in the hedge nibbles its leaves whether or not there is grass to bite.
