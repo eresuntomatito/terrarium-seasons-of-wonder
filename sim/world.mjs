@@ -195,6 +195,9 @@ export const PHYSICS = {
   // P1 alarm calls (rollout.alarm) — a body that sees a hunter able to take it calls; kin within alarmRange flee from that hunter,
   // and calling costs alarmCost energy; P2 guard (rollout.guard, built s2427) — kin near the prey cut a hunter's catch.
   alarmRange: 60, alarmPull: 0.6, alarmEvery: 5, alarmFresh: 15, alarmCost: 0.002,
+  // RARE HEADS (Luis, s2590; rollout.rarehead): a species under rareHeadShare of all bodies may breed past the head ceiling, up to
+  // rareHeadExtra × cap more, the extra shrinking to nothing as it nears rareHeadShare; common species keep the ceiling.
+  rareHeadShare: 0.15, rareHeadExtra: 0.1,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1148,13 +1151,19 @@ export class World {
       nShare = (this.nicheCount[n] ?? 0) / Math.max(1, total);
     }
     const rareNiche = byNiche && nShare < P.nicheRare && total < cap * (P.massHeads + P.nicheExtra);
+    if (this.familyTick !== this.tick) { // species counts, once per tick
+      this.familyTick = this.tick; this.families = {};
+      for (const c of this.creatures) if (!c.dead) this.families[c.species] = (this.families[c.species] ?? 0) + 1;
+    }
+    const spShare = (this.families[name] ?? 0) / Math.max(1, total);
+    const rareHead = this.rolled('rarehead') && spShare < P.rareHeadShare && total < cap * (P.massHeads + P.rareHeadExtra * (1 - spShare / P.rareHeadShare)); // (rarehead) a rare species' own extra room
     let crowd;
     if (this.rolled('massroom')) { // room by body mass (the giant apart): small bodies take less room, big ones more
-      if (total >= cap * P.massHeads && !rareNiche) { this.ceilingAt = this.tick; return false; } // the machine's limit, in heads
+      if (total >= cap * P.massHeads && !rareNiche && !rareHead) { this.ceilingAt = this.tick; return false; } // the machine's limit, in heads
       if (this.massTick !== this.tick) { this.massTick = this.tick; this.massNow = 0; this.massBy = {}; for (const c of this.creatures) if (!c.dead && !this.registry[c.species].unique) { const m = mass(this.bodySize(c)); this.massNow += m; this.massBy[c.species] = (this.massBy[c.species] ?? 0) + m; } }
       const budget = cap * P.massPerSlot;
       const rare = this.rolled('rareroom') && (this.massBy?.[name] ?? 0) < P.rareMass * this.massNow; // a rare species may breed past the mass ceiling (heads still capped)
-      if (this.massNow >= budget * P.capCeiling && !rare && !rareNiche) { this.ceilingAt = this.tick; return false; }
+      if (this.massNow >= budget * P.capCeiling && !rare && !rareNiche && !rareHead) { this.ceilingAt = this.tick; return false; }
       crowd = Math.max(0, (this.massNow / budget - P.crowdStart) / (P.capCeiling - P.crowdStart));
     } else {
       if (total >= cap * P.capCeiling) { this.ceilingAt = this.tick; return false; }
@@ -1163,10 +1172,6 @@ export class World {
     if (!crowd) return true;
     // Counted by species (Luis, 07:10 Oct 16): every species now shares one root line, so counting the root family throttled a
     // species of 15 as hard as one of 200 — small and new species could not grow out of danger and aged out.
-    if (this.familyTick !== this.tick) { // species counts, once per tick
-      this.familyTick = this.tick; this.families = {};
-      for (const c of this.creatures) if (!c.dead) this.families[c.species] = (this.families[c.species] ?? 0) + 1;
-    }
     const share = Math.min((this.families[name] ?? 0) / Math.max(1, total), nShare);
     const fit = this.rolled('condbreed') && c ? clamp01(((c.energy + (c.fat ?? 0) * P.fatEfficiency) / this.capOf(c) - P.condMin) / (P.condFull - P.condMin)) : 1; // (condbreed) the well-fed take the slot
     return Math.random() < (1 - Math.min(1, crowd) * (0.3 + 0.7 * share)) * fit;
