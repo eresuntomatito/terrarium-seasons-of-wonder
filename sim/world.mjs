@@ -184,13 +184,17 @@ export const PHYSICS = {
   // SKILL PAYS (Luis, s2573: "the more skillful, the more food and energy you get, so there is a reward to skill up"; rollout.skillpays):
   // a skill's food yields energy × (a + b × skill), up to skillPayMax — the unskilled waste more of it, a master gets most. Insects lose
   // their free floor (snapBase): access rises with snap from snapFloor. Grass stays everyone's (no skill).
-  skillPay: { insect: ['snap', 0.7, 2], fish: ['swim', 0.4, 1], nut: ['bite', 0.6, 2], cone: ['bite', 0.6, 2], browse: ['browse', 0.5, 1], fruit: ['climb', 0.5, 1], dung: ['decomp', 0.8, 2], carrion: ['decomp', 0.8, 2] },
+  skillPay: { flesh: ['hunt', 0.6, 1.2], insect: ['snap', 0.7, 2], fish: ['swim', 0.4, 1], nut: ['bite', 0.6, 2], cone: ['bite', 0.6, 2], browse: ['browse', 0.5, 1], fruit: ['climb', 0.5, 1], dung: ['decomp', 0.8, 2], carrion: ['decomp', 0.8, 2] },
   skillPayMax: 1.8, snapFloor: 0.15, snapSlope: 2,
   graceGens: 3, graceCap: 12, // (gracegen, Luis s2573) grace lasts until a new kind's third generation is born (≥ graceTicks, ≤ graceCap seasons); at its end it stays if it has grown since the split
   // CONDITION-DEPENDENT BREEDING (Luis, s2580, option A; rollout.condbreed): when the world is crowded, a birth slot goes mostly to the
   // well-fed: a body's chance to breed is scaled by its condition ((energy + fat) / capacity) from condMin (none) to condFull (all).
   // And reserves become young: each parent adds its giving share of its fat (× condFatGift) to the gift, so surplus means more young.
   condMin: 0.3, condFull: 0.8, condFatGift: 0.5,
+  // PREDATOR–PREY PACKAGE 1 (Luis, s2585): H1 hunting pays — flesh joins skill pays through the hunting build (gape and legs);
+  // P1 alarm calls (rollout.alarm) — a body that sees a hunter able to take it calls; kin within alarmRange flee from that hunter,
+  // and calling costs alarmCost energy; P2 guard (rollout.guard, built s2427) — kin near the prey cut a hunter's catch.
+  alarmRange: 60, alarmPull: 0.6, alarmEvery: 5, alarmFresh: 15, alarmCost: 0.002,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -2762,6 +2766,9 @@ export class World {
       const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
       fx += pull[0] * share; fy += pull[1] * share;
     }
+    if (this.rolled('alarm') && !sp.unique) { // (alarm) flee a hunter that kin (or itself) has called out
+      const pull = this.alarmForce(c, maxForce); fx += pull[0]; fy += pull[1];
+    }
     if (this.rolled('flock') && !sp.unique) { // (flock) kin seek kin, giving way to danger like the home pull
       const pull = this.flockForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
       const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
@@ -2808,6 +2815,18 @@ export class World {
     if (!this.rolled('guard')) return 1;
     let n = 0; this.near(o.x, o.y, P.guardRange, k => { if (k !== o && !k.dead && k.species === o.species) n++; });
     return 1 / (1 + P.guardEach * Math.min(n, P.guardMax));
+  }
+  alarmForce(c, maxForce) {
+    if (this.tick - (c.alarmLook ?? -1e9) >= P.alarmEvery) { // look for a hunter able to take it, every few ticks
+      c.alarmLook = this.tick; let best = null, bd = Infinity; const r = this.sight(c);
+      this.near(c.x, c.y, r, (o, dx, dy) => { if (o === c || o.dead || o.species === c.species || !this.hasJaws(o)) return; const d = dx * dx + dy * dy; if (d < bd && this.bodySize(o) >= this.bodySize(c)) { bd = d; best = o; } });
+      if (best) { c.alarmAt = this.tick; c.alarmX = best.x; c.alarmY = best.y; c.energy -= P.alarmCost; } // the call costs a little
+    }
+    let hx = null, hy = null, hd = Infinity;
+    if (this.tick - (c.alarmAt ?? -1e9) < P.alarmFresh) { hx = c.alarmX; hy = c.alarmY; hd = 0; }
+    else this.near(c.x, c.y, P.alarmRange, (o, dx, dy) => { if (o === c || o.dead || o.species !== c.species || this.tick - (o.alarmAt ?? -1e9) >= P.alarmFresh) return; const d = dx * dx + dy * dy; if (d < hd) { hd = d; hx = o.alarmX; hy = o.alarmY; } }); // a kin's call
+    if (hx === null) return [0, 0];
+    const dx = delta(hx, c.x, W), dy = delta(hy, c.y, H), l = Math.hypot(dx, dy) || 1, k = P.alarmPull * maxForce; return [dx / l * k, dy / l * k];
   }
   followForce(c, maxForce) {
     if (c.age >= P.maturity * (c.mature ?? 1)) { c.mom = null; return [0, 0]; } // grown: on its own
@@ -3111,7 +3130,7 @@ export class World {
 
   feed(c, energy, foodLevel, kind) {
     if (energy <= 0) return;
-    if (this.rolled('skillpays') && P.skillPay[kind] && !this.registry[c.species].unique) { const [g, a, b] = P.skillPay[kind]; energy *= Math.min(P.skillPayMax, a + b * (c[g] ?? 0)); } // (skillpays) skill extracts more
+    if (this.rolled('skillpays') && P.skillPay[kind] && !this.registry[c.species].unique) { const [g, a, b] = P.skillPay[kind]; energy *= Math.min(P.skillPayMax, a + b * (g === 'hunt' ? this.huntSkill(c) : c[g] ?? 0)); } // (skillpays) skill extracts more
     if (!this.digests(c)) return this.feedNow(c, energy, foodLevel, kind);
     // Intake is gated upstream; food already taken (a diner's share) overfills rather than vanishing.
     const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut, c) : kind === 'browse' ? P.browseEnergy * this.browseGut(c) * (c.browse ?? 0)
