@@ -132,7 +132,7 @@
 </style>
 </head>
 <body>
-<main><canvas id="world"></canvas><div id="zoom"><button id="lensbtn" title="Place magnifier (l)" aria-label="Magnifier" aria-pressed="false">🔍</button><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit" title="recenter: whole world, original framing (0)">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="lenshint" role="status" hidden>click to place the magnifier · esc to cancel</div><div id="magnifier" hidden><canvas id="lensglass"></canvas><button id="lensclose" aria-label="Close magnifier">×</button><div id="lenslabel"></div></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
+<main><canvas id="world"></canvas><div id="zoom"><button id="lensbtn" title="Place magnifier (l)" aria-label="Magnifier" aria-pressed="false">🔍</button><button id="xraybtn" title="X-ray the land (x)" aria-pressed="false">X-ray</button><button id="flowbtn" title="Movement: where bodies travel and which way (f)" aria-pressed="false">Flow</button><span class="divider" aria-hidden="true"></span><button id="zoomin" aria-label="Zoom in">+</button><button id="zoomout" aria-label="Zoom out">−</button><button id="zoomfit" title="recenter: whole world, original framing (0)">fit</button><span id="zoomlevel">1.0×</span><span id="following"></span></div><div id="lenshint" role="status" hidden>click to place the magnifier · esc to cancel</div><div id="magnifier" hidden><canvas id="lensglass"></canvas><button id="lensclose" aria-label="Close magnifier">×</button><div id="lenslabel"></div></div><div id="xraypanel" hidden><div id="xraychips"><button data-view="height">Height</button><button data-view="rock">Rock</button><button data-view="water">Water</button><button data-view="barriers">Barriers</button></div><div id="xraylegend"></div></div><div id="toasts"></div><div id="tip" hidden></div></main>
 <aside>
   <div><div id="head"><h1>The Terrarium</h1><nav id="tools"><a id="wikilink" href="/reports.html?section=wiki" title="the world's wiki: guides, concepts, species and history">wiki</a><a id="reportslink" href="/reports.html" title="status reports of the world">reports<span id="reportsbadge" hidden></span></a><button id="theme" title="theme: auto, light, dark">auto</button></nav></div><div class="dim" id="clock">connecting…</div><div id="weatherwrap"><div id="weather" tabindex="0" aria-controls="climatebox" aria-expanded="false">Waiting for the weather.</div><div id="climatebox" hidden title="the climate: wet ↔ dry across, cold ↔ hot up and down; the dot is now, the line the last 30 seasons, the bar the span from the coldest ground (the peak, or the north) to the warmest (the lowlands, or the south)"><canvas id="dial" width="264" height="264"></canvas><div id="climatetext" class="dim"></div></div></div><div id="god"></div></div>
   <section><h2>History <span id="ranges"></span></h2><div class="dim" id="span"></div><canvas id="chart" aria-describedby="ecotip"></canvas></section>
@@ -146,6 +146,32 @@
 const $ = id => document.getElementById(id);
 let showXray=false,xrayView='height',xrayRevision=0,xrayStats=null,xrayPaintedRevision=-1;
 const xrayViews=['height','rock','water','barriers'],rockNames=['hard','soft','soluble','sediment','basement'];
+// FLOW (Luis, s2613): where bodies travel and which way. Each frame, every body's step since the last frame is added to a
+// 16-unit grid (footfall, summed direction, summed speed); the grid fades with a half-life of FLOW_HALF ticks. Drawn as a glow
+// (how much traffic) and arrows (the mean direction; length and colour by how consistently bodies go that way). Viewer-only:
+// it remembers what this tab has seen.
+const FLOW_CELL=16,FLOW_HALF=1800;let flowOn=false,flowN=null,flowX=null,flowY=null,flowS=null,flowW=0,flowH=0,flowT=null;
+try{flowOn=localStorage.getItem('flow')==='1';}catch{}
+function flowAdd(a,b,t){
+  if(!a||!b||!meta?.W)return;const W=meta.W,H=meta.H;
+  if(!flowN){flowW=Math.ceil(W/FLOW_CELL);flowH=Math.ceil(H/FLOW_CELL);flowN=new Float32Array(flowW*flowH);flowX=new Float32Array(flowW*flowH);flowY=new Float32Array(flowW*flowH);flowS=new Float32Array(flowW*flowH);}
+  if(flowT!==null&&t>flowT){const k=Math.pow(0.5,(t-flowT)/FLOW_HALF);for(let i=0;i<flowN.length;i++){flowN[i]*=k;flowX[i]*=k;flowY[i]*=k;flowS[i]*=k;}}
+  flowT=t;
+  for(const [id,c] of b){const p=a.get(id);if(!p)continue;let dx=c.x-p.x,dy=c.y-p.y;if(dx>W/2)dx-=W;else if(dx<-W/2)dx+=W;if(dy>H/2)dy-=H;else if(dy<-H/2)dy+=H;const d=Math.hypot(dx,dy);if(d>30)continue;
+    const gx=Math.min(flowW-1,Math.max(0,Math.floor(((c.x%W)+W)%W/FLOW_CELL))),gy=Math.min(flowH-1,Math.max(0,Math.floor(((c.y%H)+H)%H/FLOW_CELL))),i=gy*flowW+gx;flowN[i]+=1;flowX[i]+=dx;flowY[i]+=dy;flowS[i]+=d;}
+}
+function setFlow(on){flowOn=on;try{localStorage.setItem('flow',on?'1':'0');}catch{}const b=document.getElementById('flowbtn');if(b){b.classList.toggle('on',on);b.setAttribute('aria-pressed',on);}}
+function drawFlow(g,u){
+  if(!flowOn||!flowN)return;let max=0;for(let i=0;i<flowN.length;i++)if(flowN[i]>max)max=flowN[i];if(max<=0)return;const lm=Math.log1p(max);
+  g.save();
+  for(let gy=0;gy<flowH;gy++)for(let gx=0;gx<flowW;gx++){const i=gy*flowW+gx,n=flowN[i];if(n<0.5)continue;const heat=Math.log1p(n)/lm;g.fillStyle=`rgba(255,${Math.round(210-150*heat)},60,${(0.08+0.45*heat).toFixed(3)})`;g.fillRect(gx*FLOW_CELL,gy*FLOW_CELL,FLOW_CELL,FLOW_CELL);}
+  g.lineCap='round';
+  for(let gy=0;gy<flowH;gy++)for(let gx=0;gx<flowW;gx++){const i=gy*flowW+gx,n=flowN[i];if(n<2||flowS[i]<=0)continue;const mx=flowX[i],my=flowY[i],m=Math.hypot(mx,my),coh=m/flowS[i];if(coh<0.15)continue;
+    const L=FLOW_CELL*0.45*Math.min(1,0.3+coh),ux=mx/m,uy=my/m,cx=(gx+0.5)*FLOW_CELL,cy=(gy+0.5)*FLOW_CELL,x0=cx-ux*L,y0=cy-uy*L,x1=cx+ux*L,y1=cy+uy*L;
+    g.strokeStyle=`rgba(${Math.round(255*(1-coh))},${Math.round(180+75*coh)},255,${(0.35+0.6*coh*Math.log1p(n)/lm).toFixed(3)})`;g.lineWidth=(1+1.5*coh)*u;
+    g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.moveTo(x1,y1);g.lineTo(x1-ux*4*u+uy*2.5*u,y1-uy*4*u-ux*2.5*u);g.moveTo(x1,y1);g.lineTo(x1-ux*4*u-uy*2.5*u,y1-uy*4*u+ux*2.5*u);g.stroke();}
+  g.restore();
+}
 try { showXray=localStorage.getItem('xray')==='1';const v=localStorage.getItem('xrayView');if(xrayViews.includes(v))xrayView=v; } catch {}
 const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 // Theme: auto (system), light or dark, remembered per browser. Charts redraw in the new ink.
@@ -303,6 +329,7 @@ window.addEventListener('keydown', e => {
   else if (e.key === '-') { e.preventDefault(); zoomTo(target.z / 1.5); }
   else if (e.key.toLowerCase() === 'l') { e.preventDefault();toggleLens(); }
   else if (e.key.toLowerCase() === 'x') { e.preventDefault();setXray(!showXray); }
+  else if (e.key.toLowerCase() === 'f') { e.preventDefault();setFlow(!flowOn); }
   else if(mockTrees&&!showXray&&/^[1-6]$/.test(e.key)){e.preventDefault();treeScene=+e.key;treeMockDirty=true;applyTreeMock();}
   else if (showXray && /^[1-4]$/.test(e.key)) { e.preventDefault();setXray(true,xrayViews[+e.key-1]); }
   else if (e.key === '0') { e.preventDefault(); fitWorld(); }
@@ -1290,6 +1317,7 @@ function setXray(on,view=xrayView){
  if(on)syncXray();else{delete worldPending.xray;pumpWorld();}updateXray();
 }
 $('xraybtn').onclick=()=>setXray(!showXray);
+$('flowbtn').onclick=()=>setFlow(!flowOn);setFlow(flowOn);
 for(const b of $('xraychips').children)b.onclick=()=>setXray(true,b.dataset.view);
 updateXray();
 
@@ -1362,6 +1390,7 @@ on('water', ({ w, w2, w2Enc, snow, aqua, lichen }) => {
 on('reef', paintReef);
 on('frame', f => {
   prev = cur; cur = unpack(f.c); recvAt = performance.now();
+  flowAdd(prev, cur, f.t);
   updateSwimDepth(cur,recvAt);
   for (const [id, c] of cur) {
     const p = prev?.get(id);
@@ -2223,6 +2252,7 @@ function draw() {
   }
 
   if (quakeSeen && qAge < 6) { const q = quakeSeen; g.strokeStyle = `rgba(200,180,140,${0.6 * (1 - qAge / 6)})`; g.lineWidth = 4; g.beginPath(); g.arc(q.x, q.y, 20 + qAge * (q.big ? 70 : 35), 0, Math.PI * 2); g.stroke(); } // the quake's dust
+  drawFlow(g,Math.max(ux,uy)); // (flow) traffic and direction
   if(isoBox){const u=Math.max(ux,uy);g.save();g.setLineDash([7*u,5*u]);g.lineWidth=2*u;g.strokeStyle='rgba(240,194,90,.9)';g.strokeRect(isoBox.x0,isoBox.y0,isoBox.x1-isoBox.x0,isoBox.y1-isoBox.y0);g.setLineDash([]);g.font=`${11*u}px ui-monospace, monospace`;g.fillStyle='rgba(240,194,90,.95)';g.fillText(`sealed since s${isoBox.since}`,isoBox.x0+4*u,isoBox.y0-5*u);g.restore();} // (isolation) the boundary
   // (picks) band rings: ~18 screen px at any zoom, drawn for every band body whatever its sprite size.
   if(bandSet){const pulse=0.5+0.5*Math.sin(now/450),u=Math.max(ux,uy);g.save();g.lineWidth=2.2*u;g.globalAlpha=0.6+0.4*pulse;for(const {id,x,y} of bodies){const col=bandSet.get(id);if(!col)continue;g.strokeStyle=col;g.beginPath();g.arc(x,y,(9+4*pulse)*u,0,Math.PI*2);g.stroke();}g.restore();}
