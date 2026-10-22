@@ -186,6 +186,7 @@ export const PHYSICS = {
   // their free floor (snapBase): access rises with snap from snapFloor. Grass stays everyone's (no skill).
   skillPay: { insect: ['snap', 0.7, 2], fish: ['swim', 0.4, 1], nut: ['bite', 0.6, 2], cone: ['bite', 0.6, 2], browse: ['browse', 0.5, 1], fruit: ['climb', 0.5, 1], dung: ['decomp', 0.8, 2], carrion: ['decomp', 0.8, 2] },
   skillPayMax: 1.8, snapFloor: 0.15, snapSlope: 2,
+  graceGens: 3, graceCap: 12, // (gracegen, Luis s2573) grace lasts until a new kind's third generation is born (≥ graceTicks, ≤ graceCap seasons); at its end it stays if it has grown since the split
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -814,7 +815,12 @@ export class World {
     if (!(this.graceOn(ra) || this.graceOn(rb))) return null;
     return (ra.bornAt ?? -1) >= (rb.bornAt ?? -1) ? a : b;
   }
-  graceOn(r) { return r.bornAt !== undefined && this.tick - r.bornAt < P.graceTicks; }
+  graceOn(r) {
+    if (r.bornAt === undefined) return false;
+    const age = this.tick - r.bornAt;
+    if (this.rolled('gracegen') && r.founders !== undefined) return age < P.graceTicks || ((r.maxGen ?? 0) < P.graceGens && age < P.graceCap * SEASON_TICKS); // (gracegen) at least graceTicks, then until graceGens generations are born (cap graceCap seasons)
+    return age < P.graceTicks;
+  }
 
   // A line born of a slip or a god's edit is a variant of its parent species, not a species of its own,
   // until it cannot breed with them any more (bodies too different) or they are gone.
@@ -3290,6 +3296,7 @@ export class World {
     const kid = this.spawn(parent.species, x + Math.random() * 8 - 4, y + Math.random() * 8 - 4, gen, genes, size, gut);
     Object.assign(kid, traits);
     kid.mom = parents[0]?.id; // (follow) who it keeps near while young
+    { const r = this.registry[kid.species]; if (r?.founders !== undefined && (kid.gen ?? 0) > (r.maxGen ?? 0)) r.maxGen = kid.gen; } // (gracegen) generations born since the split
     // Birth variation: the body differs by chance from the genes it carries (sizeGene, bornGut, gapeGene pass on; the luck does not).
     kid.sizeGene = size; kid.size = Math.min(P.maxSize, Math.max(P.minSize, size * (1 + gauss() * P.birthSize)));
     kid.bornGut = gut; kid.gut = clamp01(gut + gauss() * P.birthGut);
@@ -3867,7 +3874,7 @@ export class World {
       const sp = this.registry[name]; if (!sp.speciated || this.graceOn(sp)) continue;
       delete sp.speciated;
       const mine = this.creatures.filter(c => !c.dead && c.species === name), parent = this.registry[sp.parent];
-      if (!mine.length || mine.length >= P.speciateMin || sp.mindBorn || !parent || parent.extinct !== null || parent.waiting) continue;
+      if (!mine.length || mine.length >= P.speciateMin || (this.rolled('gracegen') && sp.founders !== undefined && mine.length >= sp.founders) || sp.mindBorn || !parent || parent.extinct !== null || parent.waiting) continue; // (gracegen) one that has grown since its split stays
       for (const c of mine) { c.species = sp.parent; c.hue = parent.hue; }
       this.lastCounts[sp.parent] = (this.lastCounts[sp.parent] ?? 0) + mine.length;
       sp.extinct = this.season; sp.blended = true; this.touchRegistry();
@@ -3889,7 +3896,7 @@ export class World {
       // would make a split pay more upkeep per meal than its parents, beside them, and starve.
       morphs: undefined, morphSeq: 0, size: p.size, gut: r2(members.reduce((a, c) => a + c.gut, 0) / members.length),
       avgSize: undefined, avgGut: undefined, slip: undefined, variant: false, graduated: undefined,
-      ...(this.rolled('speciate2') ? { bornAt: this.tick, speciated: true, mindBorn: mindKey !== parent } : {}) };
+      ...(this.rolled('speciate2') ? { bornAt: this.tick, speciated: true, mindBorn: mindKey !== parent, founders: members.length, maxGen: 0 } : {}) };
     this.code[name] = fillTemplate(g.template, values); // its own evolved numbers become its written code
     this.compile(name);
     this.ensureBooks();
