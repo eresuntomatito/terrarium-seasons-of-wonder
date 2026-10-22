@@ -218,6 +218,11 @@ export const PHYSICS = {
   // At each season's end, two kinds that hybridised (≥ hybridMergeMin young) and are no more different across than within are counted
   // as one: the smaller blends into the larger.
   hybridOdds: 0.3, hybridMergeMin: 5, mergeRatio: 1.0,
+  // GUT VALLEY (Luis, s2626; rollout.gutvalley): (1) fresh meat's fit peaks at gut 0.7 with wide shoulders (was 0.8, narrow), so a
+  // halfway gut is not punished at both ends; (2) a body's gut drifts within its life toward what it eats (target 0.05 + 0.8 × its
+  // recent meat share, at gutFlex × plasticity per tick, at most gutFlexMax from its born gut; half of the drift is inherited).
+  // NO CANNIBALS (Luis: "let it be killing, just prevent killing their own"; rollout.nocannibal): no body eats its own species.
+  gutFlex: 0.00004, gutFlexMax: 0.15,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1091,6 +1096,7 @@ export class World {
   // the same curve squeezed onto what is left — so the first steps toward meat cost nothing.
   // M4 (Codex): Gaussian shoulders begin at the flat top's edge, so fits stay continuous.
   gutFit(g, kind) {
+    if (kind === 'flesh' && this.rolled('gutvalley')) return Math.exp(-((Math.max(0, Math.abs(g - 0.7) - 0.1) / 0.4) ** 2)); // (gutvalley) wide shoulders for fresh meat
     const ff = this.rolled('foodvalues') && P.foodFit[kind]; if (ff) return Math.exp(-((Math.max(0, Math.abs(g - ff[0]) - ff[1]) / ff[2]) ** 2)); // (foodvalues) insects and fish suit most guts
     const [peak, top, width] = kind === 'plant' ? [0.05, 0.10, 0.35]
       : kind === 'browse' ? [0.25, 0.10, 0.35]
@@ -2390,6 +2396,7 @@ export class World {
     if (o.species !== c.species && !hungry && this.rolled('speciate2') && (this.graceOn(this.registry[c.species]) || this.graceOn(this.registry[o.species])) && this.sameBranch(c.species, o.species)) { // (speciate2) no hunting of kin through a new species' first season
       this.spStat().spared++; return false;
     }
+    if (o.species === c.species && this.rolled('nocannibal') && !this.registry[c.species].unique) return false; // (nocannibal) no body eats its own kind
     return o.species !== c.species || hungry;
   }
 
@@ -2704,6 +2711,11 @@ export class World {
       const d = Math.min(P.shiftRate, P.maxShift - c.shift);
       c.shift += d;
       c.gut = clamp01(c.gut + d);
+    }
+    if (!c.turning && this.rolled('gutvalley') && !sp.unique && c.recent?.ate > 0.3) { // (gutvalley) the gut follows the diet, a little, within a life
+      const target = clamp01(0.05 + 0.8 * (c.recent.meat ?? 0) / c.recent.ate), lo = c.bornGut - P.gutFlexMax, hi = c.bornGut + P.gutFlexMax;
+      const step = Math.sign(target - c.gut) * Math.min(Math.abs(target - c.gut), P.gutFlex * (c.plastic ?? 0.2) * 5);
+      const g2 = Math.max(lo, Math.min(hi, c.gut + step)); c.shift = (c.shift ?? 0) + (g2 - c.gut); c.gut = clamp01(g2);
     }
   }
 
