@@ -223,6 +223,10 @@ export const PHYSICS = {
   // recent meat share, at gutFlex × plasticity per tick, at most gutFlexMax from its born gut; half of the drift is inherited).
   // NO CANNIBALS (Luis: "let it be killing, just prevent killing their own"; rollout.nocannibal): no body eats its own species.
   gutFlex: 0.00004, gutFlexMax: 0.15,
+  // TRACKERS (Luis, s2634; rollout.track): (1) a jawed body's nose also follows the prey scent left by plant-eaters (same nose gene);
+  // (2) stride (inherited, dormant at 0): movement costs less by strideSave × stride, paid by strideUpkeep × stride; (3) (isocalls) mate
+  // calls pull by how isolated a body is (few kin near), not by how rare its species is; (4) every body keeps an odometer (c.odo).
+  strideDrift: 0.02, strideSave: 0.5, strideUpkeep: 0.04,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -685,6 +689,7 @@ const driftAbility = (v, start) => clamp01((v ?? start) + wobble(P.abilityDrift)
 const driftCoat = v => clamp01((v ?? P.coatStart) + wobble(P.coatDrift) + leap() * 0.3);
 const driftWater = v => clamp01((v ?? P.waterStart) + wobble(P.waterDrift) + leap() * 0.3);
 const driftSwim = v => clamp01((v ?? 0) + wobble(P.swimDrift) + leap() * 0.3); // dormant at 0; drifts, and selection may lift it
+const driftStride = v => clamp01((v ?? 0) + wobble(P.strideDrift) + leap() * 0.3); // (track) dormant at 0
 const driftNose = v => clamp01((v ?? 0) + wobble(P.noseDrift) + leap() * 0.3); // (nose) dormant at 0
 const driftSocial = v => Math.max(0, Math.min(1.5, (v ?? 1) + wobble(P.socialDrift))); // (social) starts at 1
 const driftSnap = v => clamp01((v ?? 0) + wobble(P.snapDrift) + leap() * 0.3); // snap (insect-eating): dormant at 0, like bite
@@ -2619,6 +2624,7 @@ export class World {
       const climbing = this.isClimbing(c);
       if (climbing) { this.climbTicks = (this.climbTicks ?? 0) + 1; c.energy -= P.climbHold * mass(this.bodySize(c)) / mass(7); }
       const z0 = this.reliefRise() ? this.elevAt(c.x, c.y) : 0;
+      if (this.rolled('track')) c.odo = (c.odo ?? 0) + Math.hypot(c.vx, c.vy); // (track) distance travelled
       c.x = wrap(c.x + c.vx, W);
       c.y = wrap(c.y + c.vy, H);
       if (z0 || this.reliefRise()) { const climb = this.elevAt(c.x, c.y) - z0; // climbing costs: heavier, fatter and short-legged bodies pay more
@@ -2643,11 +2649,11 @@ export class World {
       if (c.cooldown > 0) c.cooldown -= c.pulse;
       if (this.rolled('homerange') && c.homeSeen && !c.homeDispersed && this.fertile(c)) this.disperseHome(c); // maturity can arrive on this heartbeat, before breeding
       const upkeep = Math.max(0.4, 1 + P.legUpkeep * (c.legs - 1) + P.windUpkeep * (c.wind - 0.5)) * (1 + P.fatUpkeep * this.fatLoad(c))
-        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0) + P.noseUpkeep * (c.nose ?? 0)) * this.climateCost(c) * this.breadthCost(c);
+        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0) + P.noseUpkeep * (c.nose ?? 0) + P.strideUpkeep * (c.stride ?? 0)) * this.climateCost(c) * this.breadthCost(c);
       if (c.aversion) { c.aversion.s *= P.aversionFade; if (c.aversion.s < 0.3) c.aversion = null; }
       const drag = 1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c));
       if (this.rolled('growon') && !this.tissueOn(c) && !sp.unique && c.age > P.growTicks && (c.grown ?? 1) < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) c.grown = Math.min(P.growOnMax, (c.grown ?? 1) + P.growOnRate); // a well-fed adult keeps growing
-      c.energy -= sp.metabolism * k ** 0.75 * upkeep + sp.moveCost * k * drag * (c.vx * c.vx + c.vy * c.vy);
+      c.energy -= sp.metabolism * k ** 0.75 * upkeep + sp.moveCost * k * drag * (c.vx * c.vx + c.vy * c.vy) * (this.rolled('track') ? 1 - P.strideSave * (c.stride ?? 0) : 1); // (track) a long stride travels cheaper
       if (c.fat > 0 && c.energy < this.capOf(c) * 0.3) { const d = Math.min(c.fat, P.fatBurn); c.fat -= d; c.energy += d * P.fatEfficiency; }
       if (!climbing) this.eat(c, sp, k);
       this.plasticity(c, sp);
@@ -2729,7 +2735,7 @@ export class World {
   heartRate(c) {
     const speed = Math.min(1, Math.hypot(c.vx, c.vy) / (this.cruise(c) || 1));
     const bulk = Math.max(0.4, 1 + P.legUpkeep * ((c.legs ?? 1) - 1) + P.windUpkeep * ((c.wind ?? 0.5) - 0.5))
-      * (1 + P.fatUpkeep * this.fatLoad(c)) * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0) + P.noseUpkeep * (c.nose ?? 0)) * this.climateCost(c);
+      * (1 + P.fatUpkeep * this.fatLoad(c)) * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0) + P.noseUpkeep * (c.nose ?? 0) + P.strideUpkeep * (c.stride ?? 0)) * this.climateCost(c);
     return (mass(this.bodySize(c)) / mass(P.heartSize)) ** -P.heartPower * (P.idleHeart + P.runHeart * speed) * (c.sprinting ? P.sprintHeart : 1) * Math.sqrt(bulk);
   }
 
@@ -2810,6 +2816,7 @@ export class World {
     }
     if (this.rolled('nose') && !sp.unique && (c.nose ?? 0) > 0.01 && !this.digestFull(c)) { // (nose) follow the carrion scent
       const sm = this.smellOf(this.scentCarrion, c.x, c.y); if (sm.strength > 0.001) { const k = P.nosePull * maxForce * c.nose; fx += sm.x * k; fy += sm.y * k; }
+      if (this.rolled('track') && this.hasJaws(c)) { const sp2 = this.smellOf(this.scentPrey, c.x, c.y); if (sp2.strength > 0.001) { const k = P.nosePull * maxForce * c.nose; fx += sp2.x * k; fy += sp2.y * k; } } // (track) a hunter follows prey trails
     }
     if (this.rolled('alarm') && !sp.unique) { // (alarm) flee a hunter that kin (or itself) has called out
       const pull = this.alarmForce(c, maxForce); fx += pull[0]; fy += pull[1];
@@ -2853,7 +2860,7 @@ export class World {
     const gb = this.graceBoost(c);
     this.near(c.x, c.y, P.callRange * gb.reach, (o, dx, dy) => { if (o === c || o.dead || !o.willing || !this.interbreeds(c.species, o.species) || !this.fertile(o)) return; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [dx, dy]; } });
     if (!best || Math.sqrt(bd) <= P.mateReach) return [0, 0];
-    const l = Math.sqrt(bd), k = P.callPull * maxForce * (gb.pull > 1 ? 1 : this.rarity(c)) * gb.pull; return [best[0] / l * k, best[1] / l * k];
+    const iso = this.rolled('isocalls') ? this.isolation(c) : null, l = Math.sqrt(bd), k = P.callPull * maxForce * (gb.pull > 1 ? 1 : iso ?? this.rarity(c)) * gb.pull; return [best[0] / l * k, best[1] / l * k];
   }
   // SAFETY IN NUMBERS (Luis, s2427, option D): each kin within guardRange of a prey cuts a hunter's catch by guardEach, up to guardMax kin.
   groupGuard(o) {
@@ -2881,6 +2888,7 @@ export class World {
     if (d <= P.followNear || d > P.followRange) return [0, 0];
     const k = P.followPull * maxForce * Math.min(1, (d - P.followNear) / P.followNear) * (this.rolled('social') ? c.social ?? 1 : 1); return [dx / d * k, dy / d * k];
   }
+  isolation(c) { let n = 0; this.near(c.x, c.y, P.flockNear, o => { if (o !== c && !o.dead && o.species === c.species) n++; }); return Math.max(0, 1 - n / P.flockSize); } // (isocalls) 1 alone … 0 among a full group
   graceBoost(c) { const r = this.registry[c.species]; return this.rolled('founders') && r.speciated && this.graceOn(r) ? { pull: P.graceFlock, reach: P.graceReach } : { pull: 1, reach: 1 }; } // (founders) a new kind gathers hard through its grace
   flockForce(c, maxForce) {
     if (this._flockT !== this.tick) { this._flockT = this.tick; const n = this._flockN = {}; for (const o of this.creatures) if (!o.dead) n[o.species] = (n[o.species] ?? 0) + 1; }
@@ -3328,7 +3336,7 @@ export class World {
       legs: driftLegs(pick(a.legs, b.legs)), wind: driftWind(pick(a.wind, b.wind)), plastic: driftPlastic(pick(a.plastic, b.plastic)),
       thrift: driftThrift(pick(a.thrift, b.thrift)), armor: driftArmor(pick(a.armor, b.armor)), toxin: driftToxin(pick(a.toxin, b.toxin)),
       litter: driftLitter(pick(a.litter, b.litter)), hueShift: driftHue(pick(a.hueShift, b.hueShift)),
-      mature: driftMature(pick(a.mature, b.mature)), browse: driftBrowse(pick(a.browse, b.browse)), gape: driftGape(pick(a.gapeGene ?? a.gape, b.gapeGene ?? b.gape)), resist: driftResist(pick(a.resist, b.resist)), eyes: driftEyes(pick(a.eyes, b.eyes)), nose: driftNose(pick(a.nose, b.nose)), social: driftSocial(pick(a.social, b.social)), decomp: driftAbility(pick(a.decomp, b.decomp), P.decompStart), parasitism: driftAbility(pick(a.parasitism, b.parasitism), P.parasiteStart), coat: driftCoat(pick(a.coat, b.coat)), swim: driftSwim(pick(a.swim, b.swim)), climb: driftClimb(pick(a.climb, b.climb)), bite: driftBite(pick(a.bite, b.bite)), ...(this.rolled('insects') ? { snap: driftSnap(pick(a.snap, b.snap)) } : {}), water: driftWater(pick(a.water, b.water)),
+      mature: driftMature(pick(a.mature, b.mature)), browse: driftBrowse(pick(a.browse, b.browse)), gape: driftGape(pick(a.gapeGene ?? a.gape, b.gapeGene ?? b.gape)), resist: driftResist(pick(a.resist, b.resist)), eyes: driftEyes(pick(a.eyes, b.eyes)), nose: driftNose(pick(a.nose, b.nose)), stride: driftStride(pick(a.stride, b.stride)), social: driftSocial(pick(a.social, b.social)), decomp: driftAbility(pick(a.decomp, b.decomp), P.decompStart), parasitism: driftAbility(pick(a.parasitism, b.parasitism), P.parasiteStart), coat: driftCoat(pick(a.coat, b.coat)), swim: driftSwim(pick(a.swim, b.swim)), climb: driftClimb(pick(a.climb, b.climb)), bite: driftBite(pick(a.bite, b.bite)), ...(this.rolled('insects') ? { snap: driftSnap(pick(a.snap, b.snap)) } : {}), water: driftWater(pick(a.water, b.water)),
       toxStock: P.storeBirth * ((a.toxStock ?? 1) + (b.toxStock ?? 1)) / 2, minStock: P.storeBirth * ((a.minStock ?? 1) + (b.minStock ?? 1)) / 2,
     };
     if (sports > before) this.noteSport(a.species);
