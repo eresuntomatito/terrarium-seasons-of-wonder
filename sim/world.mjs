@@ -187,6 +187,10 @@ export const PHYSICS = {
   skillPay: { insect: ['snap', 0.7, 2], fish: ['swim', 0.4, 1], nut: ['bite', 0.6, 2], cone: ['bite', 0.6, 2], browse: ['browse', 0.5, 1], fruit: ['climb', 0.5, 1], dung: ['decomp', 0.8, 2], carrion: ['decomp', 0.8, 2] },
   skillPayMax: 1.8, snapFloor: 0.15, snapSlope: 2,
   graceGens: 3, graceCap: 12, // (gracegen, Luis s2573) grace lasts until a new kind's third generation is born (≥ graceTicks, ≤ graceCap seasons); at its end it stays if it has grown since the split
+  // CONDITION-DEPENDENT BREEDING (Luis, s2580, option A; rollout.condbreed): when the world is crowded, a birth slot goes mostly to the
+  // well-fed: a body's chance to breed is scaled by its condition ((energy + fat) / capacity) from condMin (none) to condFull (all).
+  // And reserves become young: each parent adds its giving share of its fat (× condFatGift) to the gift, so surplus means more young.
+  condMin: 0.3, condFull: 0.8, condFatGift: 0.5,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1160,7 +1164,8 @@ export class World {
       for (const c of this.creatures) if (!c.dead) this.families[c.species] = (this.families[c.species] ?? 0) + 1;
     }
     const share = Math.min((this.families[name] ?? 0) / Math.max(1, total), nShare);
-    return Math.random() < 1 - Math.min(1, crowd) * (0.3 + 0.7 * share);
+    const fit = this.rolled('condbreed') && c ? clamp01(((c.energy + (c.fat ?? 0) * P.fatEfficiency) / this.capOf(c) - P.condMin) / (P.condFull - P.condMin)) : 1; // (condbreed) the well-fed take the slot
+    return Math.random() < (1 - Math.min(1, crowd) * (0.3 + 0.7 * share)) * fit;
   }
 
 
@@ -3200,7 +3205,10 @@ export class World {
     if (partner) {
       c.longing = 0; partner.longing = 0;
       let gift = c.give * c.energy + partner.give * partner.energy;
+      const fats = this.rolled('condbreed') ? [c, partner].map(q => Math.max(0, (q.fat ?? 0) * q.give * P.condFatGift)) : [0, 0]; // (condbreed) reserves become young
+      gift += (fats[0] + fats[1]) * P.fatEfficiency;
       if (gift < P.minChild) return;
+      c.fat = (c.fat ?? 0) - fats[0]; partner.fat = (partner.fat ?? 0) - fats[1];
       if (this.tissueOn(c) && (1 - c.give) * c.energy + (1 - partner.give) * partner.energy <= 0) return;
       if (this.rolled('protein')) { // (2) protein: meat in the mother's recent diet makes her young better provisioned
         const r = c.recent, share = r?.ate > 0.3 ? (r.meat + (this.rolled('foodvalues') ? r.insect ?? 0 : 0)) / r.ate : 0; // (foodvalues) insects build young too
