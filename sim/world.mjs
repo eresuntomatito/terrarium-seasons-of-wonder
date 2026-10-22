@@ -181,6 +181,11 @@ export const PHYSICS = {
   // Lichen on the heights is for climbers (access rises from climb nicheClimb0 to full at +nicheClimbSpan) and richer; water plants
   // feed waders and swimmers richer. Neither shrinks with grass cuts (they are not grass).
   nicheLichen: 1.6, nicheClimb0: 0.35, nicheClimbSpan: 0.35, nicheAqua: 1.5,
+  // SKILL PAYS (Luis, s2573: "the more skillful, the more food and energy you get, so there is a reward to skill up"; rollout.skillpays):
+  // a skill's food yields energy × (a + b × skill), up to skillPayMax — the unskilled waste more of it, a master gets most. Insects lose
+  // their free floor (snapBase): access rises with snap from snapFloor. Grass stays everyone's (no skill).
+  skillPay: { insect: ['snap', 0.7, 2], fish: ['swim', 0.4, 1], nut: ['bite', 0.6, 2], cone: ['bite', 0.6, 2], browse: ['browse', 0.5, 1], fruit: ['climb', 0.5, 1], dung: ['decomp', 0.8, 2], carrion: ['decomp', 0.8, 2] },
+  skillPayMax: 1.8, snapFloor: 0.15, snapSlope: 2,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1966,7 +1971,7 @@ export class World {
   eatInsects(c, k) {
     if (this.digestFull(c) || (this.digests(c) && this.isClimbing(c))) return;
     const i = cellAt(c.x, c.y), I = this.insects, d = I[i]; if (!(d > 0.01)) return;
-    const take = d * Math.min(1, P.snapBite * Math.max(c.snap ?? 0, P.snapBase) * Math.sqrt(k) * this.habit(c, 'insect')), L = this.insLedger ??= {}; // (snapBase) any mouth takes a few insects
+    const take = d * Math.min(1, P.snapBite * (this.rolled('skillpays') ? Math.min(1.5, P.snapFloor + P.snapSlope * (c.snap ?? 0)) : Math.max(c.snap ?? 0, P.snapBase)) * Math.sqrt(k) * this.habit(c, 'insect')), L = this.insLedger ??= {}; // (snapBase) any mouth takes a few insects
     I[i] -= take; const raw = take * P.insScale, dig = raw * this.insectGut(c.gut, c);
     L.eaten = (L.eaten ?? 0) + raw; L.eatenGot = (L.eatenGot ?? 0) + dig;
     this.feed(c, dig, 2, 'insect'); // insects eat plants (level 2), so their eater sits at ~3
@@ -3095,6 +3100,7 @@ export class World {
 
   feed(c, energy, foodLevel, kind) {
     if (energy <= 0) return;
+    if (this.rolled('skillpays') && P.skillPay[kind] && !this.registry[c.species].unique) { const [g, a, b] = P.skillPay[kind]; energy *= Math.min(P.skillPayMax, a + b * (c[g] ?? 0)); } // (skillpays) skill extracts more
     if (!this.digests(c)) return this.feedNow(c, energy, foodLevel, kind);
     // Intake is gated upstream; food already taken (a diner's share) overfills rather than vanishing.
     const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut, c) : kind === 'browse' ? P.browseEnergy * this.browseGut(c) * (c.browse ?? 0)
