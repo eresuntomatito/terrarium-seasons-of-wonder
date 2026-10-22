@@ -30,9 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Fat:** stays ≥ 0.3 after the 2nd grass step (s2699); starvation stays low (~40/season now).
-- **KPI2:** diet difference keeps rising (0.09); the lake country keeps ~20 bodies.
-- **Nut trees:** mature count steady (22); if it falls a 3rd time, look for the cause.
+- **Fat:** settles ≥ 0.3 after two steps; no step until it does (it is at 0.31).
+- **Assumption 1 gets its first test:** if fat dips further, does the gut ≥ 0.3 share move off 0%, and does meat/carrion rise without a starvation spike (>300/season)?
+- **KPI2:** diet difference ≥ 0.11, browsing stays high in the booming woods.
 - **Speed:** ≥ 15 ticks/s.
 
 ## Riskiest assumptions, and what I'd do if each fails
@@ -49,3 +49,4 @@
 - **Luis (Oct 23):** no objection to A — grass steps may resume under the rule above; focus on the KPIs and guard rails.
 - **s2693:** expectations beaten on access — 22 bodies in the lake country, a 2nd way of life (aquatic, ≥10 bodies), diet difference 0.043 → 0.067 (KPI2 up); KPI1 flat (tl 2.009, gut≥0.3 0%). Fat 0.455 → action A: grass −3% (lean 0.474 → 0.460). Watch: mature nut trees 33 → 24 (one check).
 - **s2699:** fat held 0.453 after step 1 (assumption 1 not yet tested — no hunger yet); KPI2 diet diff 0.067 → 0.090, ways 2 (grazer + mixed feeder; aquatic dipped under 10), lake country 20; KPI1 flat. Trees boom (fruit 69 mature, conifer 53); nut mature 24 → 22 (canopy up). Action A: grass −3% (0.460 → 0.446).
+- **s2705:** fat 0.453 → 0.311 after step 2 (starvation ~45/season, fine); bodies turned to the booming woods: BROWSE 13.5% (record), diet difference 0.090 → 0.110 (KPI2 ↑), tl 2.009 → 2.016 (KPI1 ticks up), gut≥0.3 still 0%; lake country 28; nut mature recovered 22 → 28. Action: none — hold step A until fat settles ≥ 0.3.
