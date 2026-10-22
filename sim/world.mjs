@@ -201,6 +201,10 @@ export const PHYSICS = {
   // (dietroom, Luis s2593) the rare species' extra room scales with how differently it eats: half the L1 distance between its recent
   // diet shares and the commonest species' (grass, browse, meat, insects, dung, fish), full at rareDietFull — a grazer copy gets none.
   rareDietFull: 0.3,
+  // (dietedge, Luis s2593; added to dietroom, not instead) a body that eats differently from its own species' average, AND carries
+  // the skill for the food it leans on (≥ its species' mean), breeds more readily when crowded: chance × (1 + edgeGain × difference),
+  // at most edgeMax. Frequency-dependent: as more eat that way the average moves and the edge fades. Recent diet fades over a day.
+  edgeGain: 4, edgeMax: 2,
   founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
   flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
   geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
@@ -1177,7 +1181,8 @@ export class World {
     // species of 15 as hard as one of 200 — small and new species could not grow out of danger and aged out.
     const share = Math.min((this.families[name] ?? 0) / Math.max(1, total), nShare);
     const fit = this.rolled('condbreed') && c ? clamp01(((c.energy + (c.fat ?? 0) * P.fatEfficiency) / this.capOf(c) - P.condMin) / (P.condFull - P.condMin)) : 1; // (condbreed) the well-fed take the slot
-    return Math.random() < (1 - Math.min(1, crowd) * (0.3 + 0.7 * share)) * fit;
+    const edge = this.rolled('dietedge') && c ? this.dietEdge(c) : 1; // (dietedge) eating differently, with the skill for it
+    return Math.random() < (1 - Math.min(1, crowd) * (0.3 + 0.7 * share)) * fit * edge;
   }
 
 
@@ -3834,6 +3839,20 @@ export class World {
       this._diet = {}; for (const n of Object.keys(sums)) { const V = v(n); this._diet[n] = T && V ? 0.5 * V.reduce((a, x, i) => a + Math.abs(x - T[i]), 0) : 0; }
     }
     return this._diet?.[name] ?? 0;
+  }
+  dietEdge(c) {
+    const K = ['browse', 'meat', 'insect', 'dung', 'fish'], G = { browse: x => x.browse ?? 0, meat: x => this.huntSkill(x), insect: x => x.snap ?? 0, dung: x => x.decomp ?? 0, fish: x => x.swim ?? 0 };
+    const vec = x => { const r = x.recent; if (!r || !(r.ate > 0.3)) return null; const o = K.map(k => (r[k] ?? 0) / r.ate); return [Math.max(0, 1 - o.reduce((a, b) => a + b, 0)), ...o]; };
+    if (!this._edgeT || this.tick - this._edgeT >= 30) { // species means of diet shares and skills, every 30 ticks
+      this._edgeT = this.tick; const S = {};
+      for (const o of this.creatures) { if (o.dead) continue; const v = vec(o); if (!v) continue; const s = (S[o.species] ??= { n: 0, d: [0, 0, 0, 0, 0, 0], g: {} }); s.n++; v.forEach((x, i) => s.d[i] += x); for (const k of K) s.g[k] = (s.g[k] ?? 0) + G[k](o); }
+      for (const s of Object.values(S)) { s.d = s.d.map(x => x / s.n); for (const k of K) s.g[k] /= s.n; } this._edge = S;
+    }
+    const s = this._edge?.[c.species], v = vec(c); if (!s || !v) return 1;
+    const diff = 0.5 * v.reduce((a, x, i) => a + Math.abs(x - s.d[i]), 0);
+    let best = -1, bk = null; K.forEach((k, i) => { const dev = v[i + 1] - s.d[i + 1]; if (dev > best) { best = dev; bk = k; } });
+    if (!bk || best <= 0 || G[bk](c) < s.g[bk]) return 1; // leaning on a food it is not built for: no edge
+    return Math.min(P.edgeMax, 1 + P.edgeGain * diff);
   }
   foundRange() { return this.rolled('founders') ? P.founderRange : P.nicheRange; } // (founders) how close a split's founders must live
   gather(pool, range) {
