@@ -30,10 +30,10 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Step 4 of the test (s2721):** after one more step, if gut ≥ 0.3 is still ~0%, assumption 1 fails for now → take its action (measure meat's payoff; raise meat/carrion payoff, not hunger).
-- **Fat:** dips, recovers ≥ 0.3 via the woods.
-- **Lake country:** emptied (26 → 14 → 0) while 'aquatic' holds ≥ 10 elsewhere — check its water and the gate next time.
-- **Trees:** canopy recovered (fruit 73.4 record) — keep.
+- **Assumption 1 has failed for now** (4 grass steps: gut ≥ 0.3 stays 0%, max gut 0.18; the woods feed every dip). Fallback in progress: **raise carrion's payoff for low and middle guts** (rollout 'carrionfit' — carrion fits guts 0.05–0.3 well, as 'gutvalley' did for meat), delegated to Codex; review its diff and copy checks, then release.
+- **Grass steps paused** while the payoff change is tested (no more hunger; payoff instead).
+- **Expect after release:** carrion share up from ~0.6%; gut flex pulls meat-eaters' guts up → gut ≥ 0.3 share starts to move (KPI1).
+- **Lake country:** 10 bodies (liligals) — back.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -53,3 +53,4 @@
 - **s2711:** fat recovered 0.311 → 0.474 (the woods fed the dip: fruit store used up, browse back to 6.5%); KPI2 ways 2 → 3 (+ highland), diet difference 0.110 → 0.080 (eased as browse fell); KPI1: first bodies with gut ≥ 0.3 (0.4%), tl 2.010; lake country 26; trees at records (fruit canopy 71.6, conifer 68 mature). Action A: grass −3% (0.446 → 0.433).
 - **s2716:** fat 0.474 → 0.320 after step 3; bodies switched to browse 10.5% and fruit (store 26.3, record) — the woods buffer the cuts; KPI2 diet difference 0.080 → 0.102 (ways back to 2); KPI1 tl 2.012, gut≥0.3 0% (the 0.4% vanished); lake country 26 → 14; canopy dipped (fruit 66.5, conifer 44.3) under browsing. No action (fat at the threshold). Thesis note: scarcity feeds browsing (KPI2) before meat (KPI1).
 - **s2721:** fat recovered 0.320 → 0.382; canopy recovered (fruit 73.4, conifer 45.8); KPI2: 3 ways of life (aquatic back ≥ 10, grazer, mixed feeder), diet difference 0.081; KPI1 flat (tl 2.010, gut≥0.3 0%); lake country 0 bodies (from 14). Action A: grass −3% (0.433 → 0.420), step 4.
+- **s2727:** fat 0.382 → 0.514 after step 4 (woods again); KPI1 flat (tl 2.008, gut≥0.3 0%, max gut 0.18) → ASSUMPTION 1 FAILS FOR NOW: scarcity yields browsing, not meat. Action (its fallback): carrion payoff for low/middle guts (rollout 'carrionfit'), delegated to Codex; grass steps paused. KPI2 diet 0.083, ways 1–2; lake country 10 (liligals); trees records (conifer 73 mature).
