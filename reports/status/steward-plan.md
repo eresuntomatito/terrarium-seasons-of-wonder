@@ -30,9 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Step 10 (s2785):** KPI1 holds near its best (tl ≥ 2.05), carrion ≥ 4%; fat ≥ 0.3.
-- **Codex:** carcass-supply test (task2) and new KPI2 + rain belt (task3) — review both; release the KPI card; bring the rain-belt numbers to Luis; release carcass supply if carrion rose with no harm.
-- **Machine load:** two Codex jobs + copies — keep the live speed ≥ 15 ticks/s.
+- **Codex task3** finishes (new KPI2 + rain belt test): review the diff; commit the KPI; bring the rain-belt numbers to Luis.
+- **No restarts while Codex edits code** (my s2785 restart loaded its in-progress world.mjs; it runs fine — new KPI2 fields already appear live — but that was luck).
+- **KPI1** holds ≥ 2.05; carrion ≥ 4%; fat ≥ 0.3.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -64,3 +64,4 @@
 - **s2775:** KPI1 MILESTONE — first bodies with gut ≥ 0.3 (1.2%, max 0.384); carrion 3.3% (eaters 28); tl 2.038; KPI2 diet 0.109, ways 2 (grazer, aquatic); fat 0.456; trees up (mature fruit 109). Action A: grass −3% (0.383 → 0.372), step 8.
 - **s2781:** plenty again despite step 8 (fat 0.513, woods buffer); KPI1 tl 2.042, gut≥0.3 0% (max 0.243 — the 1.2% at s2775 came and went); carrion 3.5% (eaters 21), corpses 19; KPI2 diet 0.102, ways 3 (grazer, highland, mixed feeder); trees fine (mature fruit 110). Actions: grass −3% (0.372 → 0.361), step 9; carcass-supply test delegated to Codex.
 - **s2785:** KPI1 BEST — tl 2.070, carrion 4.8% (eaters 40), meat 5.9%, gut≥0.3 0.8%; KPI2 ways 4 (grazer, omnivore, mixed feeder, aquatic), diet 0.100; fat 0.531; trees fine. Step 9 worked. Action A: grass −3% (0.361 → 0.350), step 10. Codex tasks 2 and 3 running.
+- **s2789:** KPI1 strong (tl 2.058, carrion 5.2% record, eaters 32, meat 5.8%); KPI2 ways 4 incl. SCAVENGER; NEW KPI2 already live (partial Codex code loaded at my restart): proven 0, contact pairs 4, diet apart in contact 0.095, waysAvg 2.95. Carcass longevity test (Codex): carrion +0.1 pp only, no harm → NOT released (supply is limited by deaths, not by rot). No action.
