@@ -30,9 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Step 8 (s2775).** The first gut ≥ 0.3 bodies (1.2%, max 0.384) — expect that share to hold or grow (KPI1), carrion ≥ 3%, fat ≥ 0.3.
-- **Assumption 2 (meat pays) now testable:** compare fat of gut ≥ 0.25 bodies with the world mean next check.
-- **Trees:** holding (mature fruit 109, conifer 65).
+- **Step 9 (s2781):** fat dips but ≥ 0.3; carrion ≥ 3.5%; gut ≥ 0.3 bodies reappear (they come and go — max gut 0.243 now).
+- **Assumption 2 (meat pays) untestable today** (no gut ≥ 0.25 bodies at this moment) — retest when they exist.
+- **Carcass supply lever being tested by Codex** (corpseLife 12 → 20, rotHeat 1.0 → 0.6; 2 × 2 copies, 4 seasons): release next check if carrion rises with no harm.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -62,3 +62,4 @@
 - **s2764:** plenty again (fat 0.517) and KPI1 sagged: carrion 3.5% → 1.9%, eaters 25 → 11, tl 2.041 → 2.031, gut p90 0.103; KPI2 diet 0.117, ways 2 (aquatic and omnivore dipped under 10); conifers recovered (canopy 36.3, mature 53). Action A: grass −3% (0.407 → 0.395), step 6.
 - **s2769:** pattern CONFIRMED — after step 6, carrion 1.9% → 3.5% (eaters 11 → 21), tl 2.031 → 2.043, gut p90 0.117 max 0.262; fat 0.472; trees up (conifer canopy 44.2, mature 63). Gentle steps are the steady lever. Action A: grass −3% (0.395 → 0.383), step 7.
 - **s2775:** KPI1 MILESTONE — first bodies with gut ≥ 0.3 (1.2%, max 0.384); carrion 3.3% (eaters 28); tl 2.038; KPI2 diet 0.109, ways 2 (grazer, aquatic); fat 0.456; trees up (mature fruit 109). Action A: grass −3% (0.383 → 0.372), step 8.
+- **s2781:** plenty again despite step 8 (fat 0.513, woods buffer); KPI1 tl 2.042, gut≥0.3 0% (max 0.243 — the 1.2% at s2775 came and went); carrion 3.5% (eaters 21), corpses 19; KPI2 diet 0.102, ways 3 (grazer, highland, mixed feeder); trees fine (mature fruit 110). Actions: grass −3% (0.372 → 0.361), step 9; carcass-supply test delegated to Codex.
