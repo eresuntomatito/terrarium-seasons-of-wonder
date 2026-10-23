@@ -1,6 +1,16 @@
 # Publication record
 
-Maintained by Codex on eresuntomatito's behalf.
+**AI-written by Codex (GPT-6), publishing collaborator, on eresuntomatito's behalf.**
+
+## Resumed documentation update — 23 October 2026
+
+Luis requested that the repository home page introduce the world as it now exists. The new README leads with the current landscape and open ecological question, a season-2812 screenshot, and a dated observation of 243 bodies in nine species. The [current-world account](wiki/current-world.md) separates the save census, screenshot, steward observations and source availability. It also corrects the older account of Codex's contribution using later steward evidence. Authorship and image provenance are disclosed up front.
+
+The viewer guide was reviewed against committed local `7fa618c`, and [the change record](wiki/changes.md) inventories all 26 pre-existing world-wiki pages. A freshness classification is not a completed mechanism rewrite. The social-media drafts/catalog entries remain separately owned and were not swept into this documentation update.
+
+The original temporary checkout had disappeared. A separate public clone was restored at `/private/tmp/terrarium-publication-resume-20261023` (about 64 MB before these additions). Its initial public head was `446a743`. The steward recommends local `34d66d7` as the next source boundary and confirms live-save compatibility. There are 282 local commits since `d1ad73d`; independent source/history/privacy checks and full reader integration remain pending. Uncommitted world/viewer work is excluded. **The simulation source in this documentation batch remains public `370995a`; the season-1561 state is unchanged.**
+
+The current-world image is a real, unedited screenshot of the local world, including an uncommitted renderer. Capturing it neither imported that renderer nor executed a new simulation experiment. The harness recovered after an initial navigation timeout and produced the inspected image, but its nonzero exit is recorded in [provenance](assets/README.md). No world restart, state change or recurring capture service was performed.
 
 ## Static published-world artifact: 2026-10-17
 

@@ -1,6 +1,6 @@
 # Using the world viewer
 
-Written by Codex on Luis's behalf, from the active viewer session's feature handoff on 17 October 2026, including its season-1650 follow-up received at 13:25 UTC. That session reports checking these features in live page loads. This describes the local interface at those checkpoints, not every interface in the published source history. Newer changes may differ; wrap-around panning and the expanded height view are newer than viewer commit `8c2d386`.
+**AI-written by Codex (GPT-6), publishing collaborator, on Luis's behalf.** Updated 23 October 2026 from committed local viewer `7fa618c`, following the viewer session's earlier checked handoffs. This is a source review, not a new browser verification. That viewer has not yet been imported into public source, which remains at the older boundary recorded in [the publication record](../PUBLICATION.md). Uncommitted viewer changes are outside this guide.
 
 ## A first visit
 
@@ -22,7 +22,7 @@ The **wiki** button opens explanations at your own pace. **reports** opens the s
 | Follow one body | Click a body | Tap a body |
 | Stop following | Drag, **fit**, or `Esc` | Drag or **fit** |
 
-Following centres the camera on the selected body and zooms to at least 3×. The map bar says “following a … · esc”. It is a camera interaction, not a command to the creature.
+Following centres the camera on the selected body and zooms to at least **8×**. Maximum map zoom is **16×**. The map bar says “following a … · esc”. It is a camera interaction, not a command to the creature.
 
 Panning now continues around the world's wrapping edges rather than stopping at a map boundary. This is the same wrapping world, not newly generated land. **fit** recentres the whole world in its original framing.
 
@@ -30,9 +30,19 @@ With a mouse, hover a body to see its species and individual statistics. A **×N
 
 ## Read the landscape and its inhabitants
 
-The normal map draws relief as layered terraces with pixel texture. Bare slopes show rock strata; river mud is darker and greener. Water has surface-height tinting, rapids and falls. Reef looks coral- or cactus-like, while thicket merges into bushes. Rain, snow, frost, heat shimmer and quake cracks describe changing conditions.
+The normal map draws relief as layered terraces with pixel texture. Bare slopes show rock strata; river mud is darker and greener. Water has surface-height tinting, rapids and falls. Reef looks coral- or cactus-like, while thicket merges into bushes. Rain, snow, frost, heat shimmer and quake cracks describe changing conditions. Ground detail repaints at higher resolution when zoomed in; a repaint may lag behind a camera move.
+
+Mature tree cells draw as stands of overlapping crowns, with smaller saplings. Fruit, nuts and cones, drought yellowing, snow and wet foliage reflect supplied tree state. Fire is animated; scorched ground fades in the viewer's memory. Flowers and insect specks come from supplied bloom and insect fields. These conventions help you read the world; they do not turn each painted crown or speck into a separately counted organism.
 
 Creature appearance reflects diet, way of life and size; it is not a one-to-one scientific diagram of every inherited trait. Young bodies are smaller and elders muted. Hunters have jaws, parasites look wormy or larval, and toxin appears as fluorescent markings. A ring marks a body ready to mate. The [traits guide](traits/README.md) explains the underlying quantities and exceptions.
+
+At small map scales, creatures use pixel-art micro-sprites at least 7 screen pixels long, with species colour and way-of-life shapes. They blend into the full artwork from 18 pixels. The full artwork uses a drawn length of `0.45 × size`; the minimum screen size exaggerates distant bodies for legibility. A body in the overview is therefore not a ruler for its simulated footprint. Mating rings fade at micro size.
+
+### Magnifier and movement Flow
+
+Click the **magnifier** button or press `l`, then click a place on the map. Clicking a body places a lens that follows it. Dragging the lens moves its inspected place and stops its body-following mode. Close it with **×**, `Esc`, or the magnifier toggle. The lens paints a local patch with full creature art; it is unavailable while X-ray is active. This is separate from following a body with the main camera.
+
+Click **Flow**, or press `f`, to show traffic glow and arrows for the prevailing direction of movement. It accumulates the frames this tab observes and fades over time. It is not a complete historical trail or a measurement recovered from seasons before the tab opened.
 
 ### Look beneath the illustration: X-ray
 
@@ -46,13 +56,13 @@ The season-1650 follow-up adds an expanded height range for the rising dome. The
 
 ### Header, clock and weather
 
-The header contains **wiki**, **reports**, and a theme control for **auto / light / dark**. The clock line shows season, day, time to the next season and grass worth. A great divide appears there only when one is due.
+The header contains **wiki**, **reports**, and a theme control for **auto / light / dark**. The clock line shows season, day, time to the next season and grass worth. Additional clock notices depend on the frame supplied by that world; a historical great-divide label does not establish that the latest splitting rules use that mechanism.
 
 The dotted-underlined weather sentence opens a climate dial on hover or tap; the viewer handoff also reports focus activation. Wet to dry runs horizontally, cold to hot vertically. A dot is the current condition; the line traces the last 30 seasons. This is a way to read conditions, not a weather-control panel.
 
 ### History: a population at a moment is not its whole story
 
-The stacked chart shows population by species. Choose **3 seasons**, **30 seasons**, **300 seasons**, or **era** to change the range. Hover a band, or tap on touch, to identify its species, count and season; the chart and map highlight it.
+The stacked chart shows population by species. Choose **3 seasons**, **30 seasons**, **300 seasons**, or **era** to change the range. Hover a band, or tap on touch, to identify its species, count and season; the chart and map highlight it. Family, Way of life and Place lenses also affect chart ordering/group labels. Place grouping uses current membership, so an old band shown under a place is not proof that the species lived there at that past time. Change leaves the ordinary species grouping in this checked implementation.
 
 Population size alone does not establish which trait caused success. The [evidence guide](evidence.md) and [selection and variation](selection-and-variation.md) explain those limits.
 
@@ -64,7 +74,8 @@ The lens chips change how you read the species list:
 
 - **Way of life**, the default, groups species by role in the food chain.
 - **Family** shows the tree of splits.
-- **Place** and **Change** are disabled in this handoff: they are planned, not available controls.
+- **Place** groups species by section, with population shares and endemic tags.
+- **Change** groups new, rising, falling and steady species and gives comparison reasons. Trait-change summaries depend on the history this viewer has observed.
 
 Each species row combines portrait, name, count, trend, role, main food, a thin population bar and a short comparison with its kin. Hover a row to highlight that species on the map. Click to open its full card: diet, origin, kinship, traits, standout ▲ / ▼ comparisons, drift from the line's founder and its code.
 
@@ -72,12 +83,22 @@ Comparisons with kin and trend sentences are summaries, not explanations of caus
 
 The extinct list shows the newest 12 names, then **+N more**. Hovering a name reveals its lineage code. For dated examples rather than today's census, see [species and their atlas](species/atlas.md).
 
+### Bands within a species and group framing
+
+Where band data is supplied, expand **inside the …** beneath a species. Band rows show how many bodies are together (**⌂**) and their difference relative to a split threshold (**≠**). These are separate gates; a readiness percentage alone is not a forecast of a split.
+
+Click a band row to pin its highlight; click **⌖** to frame it on the map. Species target buttons also frame a group, and niche-grid buttons pin and frame a way of life in a place. Group framing adjusts as its selected group moves, until you move the view by hand, choose **fit**, or press `Esc`. For a widely scattered group, the camera may frame its densest gathering rather than every body.
+
+At this committed boundary, the three summary cards show **Up the food chain**, **Real diversity**, and **Cost**. The current local viewer has since changed the second card to **Distinct species**; that ongoing definition is described in the [current-world account](current-world.md). Runtime speed is not an ecological outcome.
+
 ### Chronicle: what just happened
 
 The Chronicle lists world events newest first. Repeated events within a season are grouped, for example “born strange ×4”. For a longer narrative, open **reports**; for a reconstructed history, read [questions and turning points](history.md).
 
 ## Accessibility and known limits
 
-Mouse hover supplies more information than touch in the current viewer. Touch equivalents are specifically reported for the weather dial and History, not for every tooltip or grid interaction. Full keyboard access is not available for the weather dial, History inspection or niche grid. The map's zoom, fit and X-ray shortcuts do not imply that the rest of the interface is keyboard-complete.
+Mouse hover supplies more information than touch. Touch equivalents were reported for the weather dial and History; not every tooltip has one. The niche grid now uses labelled buttons, but that does not establish complete keyboard access to its hover information. History inspection and the whole interface have not received a new accessibility or touch audit in this pass.
 
-Place/Change lenses, history bands that follow a lens, an optional Strangeness lens and palette refinements remain roadmap items in this account. Disabled controls are not hidden instructions you need to discover. If an interaction differs from this guide, report what you tried, what happened and which local/published version you used; do not reset a world to match an illustration.
+Place and Change are available controls in the checked version. An optional Strangeness lens is not among its four Life lenses. If an interaction differs from this guide, report what you tried, what happened and which local/published version you used.
+
+Source: committed `public/index.html` at local `7fa618c`, especially `zoomTo`, `releasePointer`, `toggleLens`, `flowAdd`, `lensChips`, `historyGeometry`, `bandsHtml` and `fitBand`. Earlier owner handoffs supplied visual and interaction checks; no world was restarted or altered for this revision. Main-viewer code remains the steward's responsibility.

@@ -1,12 +1,14 @@
 # Inside the terrarium
 
-*A growing wiki for Terrarium: Seasons of Wonder, written by Codex on Luis's behalf.*
+**AI-written by Codex (GPT-6), publishing collaborator, on Luis's behalf.** A growing wiki for Terrarium: Seasons of Wonder.
 
 The world is more than a collection of rules. A trait depends on the body carrying it, what that body can find, the other creatures around it, and the history of the place. These pages connect those levels and say what the evidence does and does not establish.
 
-Start with [the whole-world guide](world-guide.md), or read [a short history of questions and turning points](history.md).
+Start with [the world now, dated 23 October 2026](current-world.md). Then read [the whole-world guide](world-guide.md) for its older source-bounded synthesis, or [a short history of questions and turning points](history.md).
 
 For a first visit or a refresher on the map, controls, panels and interactions, read [using the viewer](using-the-viewer.md). The guide distinguishes available features from the viewer's roadmap.
+
+Read [what changed](changes.md) for world/viewer developments, wiki corrections and explanations awaiting review. A source-checked older page is not automatically a description of today's running world.
 
 For quick orientation and reporting help, see [questions a visitor might ask](questions.md).
 

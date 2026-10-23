@@ -1,6 +1,18 @@
 # Codex's working agenda
 
-Maintained by Codex on Luis's behalf. Established 2026-10-16.
+**AI-written by Codex (GPT-6), publishing collaborator, on Luis's behalf.** Established 2026-10-16.
+
+## Latest active pass — 23 October 2026
+
+Luis resumed publishing, emphasized coordination in `AGENTS.md`, requested that the GitHub home introduce today's world, and asked for small increments across several hours. Work is paced around 30-minute checkpoints, one reviewable increment at a time; the old six-hour timers remain closed. No new permanent service or stewardship activation is authorized by this publishing pass.
+
+**First increment:** restored a separate public checkout (old one was gone), read the latest owner notes, inventoried all 26 pre-existing wiki pages by freshness, and refreshed the viewer guide against committed `7fa618c`. Rewrote the README around the current world, captured/inspected a real season-2812 screenshot, and added `wiki/current-world.md` with aggregate counts and attributed evidence. Local catalog now links the new account without changing social entries. Source remains unimported; no dirty owner files are included. Screenshot limitations and source hashes are in asset provenance.
+
+**Steward reply received:** recommends `34d66d7`, confirms live-save compatibility, and excludes unfinished world/viewer edits. Leaf browsing, rain belt, home-range attraction, niche founders and longer-lasting carcasses must not be presented as live. The old sealed valley ridge was removed at s2568; insect boosts were undone; the directive now uses three KPIs and guard rails. The newest distinct-species metric lies beyond the committed boundary. A new general interview is unnecessary; ask only targeted questions if source review reveals a gap.
+
+**Next increment:** review the 282-commit delta `d1ad73d..34d66d7`, recover the exact privacy-filter mapping and verify it reproduces public ancestor `370995a`. Then isolate/test that completed boundary and integrate the full shared reader. Preserve the existing public history and original checkout/index. Later increments correct superseded food, reproduction, movement and splitting explanations against the imported boundary, without treating new source as an active rollout record.
+
+**Current publication checkout:** `/private/tmp/terrarium-publication-resume-20261023`. The older path and Oct 18 "next action" sections below are historical. Update the receipt here after pushing and verifying this increment. Keep this agenda as the sole actionable backlog.
 
 ## Purpose
 
@@ -20,7 +32,42 @@ My role is documentarian, wiki editor, publishing collaborator, and community co
 - Keep substantive updates concise. Do not create extra documents merely to record activity; prefer improving the existing artifact.
 - This is a session-based pace. No background schedule or automatic check-in has been created, and work does not continue between active sessions. A future session resumes from the next action below.
 
+## Prepared third six-hour run: world-to-wiki reconciliation
+
+Requested by Luis on 2026-10-18. **Prepared, not started:** record the actual UTC/Berlin start and end when execution begins. Review every 30 minutes for six hours, twelve slots, then report outcomes, remaining dependencies and genuine decisions. The previous run remains closed.
+
+**Priority:** world-change/obsolete-content audit → complete shared-reader publication → corrections and interface guidance → deeper content. Read `AGENTS.md` and check concurrent edits at each pass. Use bounded change notifications during active waits, not a permanent service. Claude remains steward unless a fallback is explicitly coordinated. No live intervention or recurring save release is part of this documentation run.
+
+| Slot | Intended concrete task / artifact |
+| --- | --- |
+| C01 | Compare each wiki page's checked revision/season with completed world/viewer changes. Classify current, historically valid, superseded or unverified; record affected pages and urgent caveats. |
+| C02 | Review the completed source delta and disclosure/history filtering for public integration; exclude dirty owner files. |
+| C03 | Validate the chosen source in isolation: startup, persistence, frame/catalog contracts and reader tests. Do not apply old formula expectations blindly to new rules. |
+| C04 | Integrate/publish the compatible source and complete shared reader; verify delivery. If blocked, advance an independent correction instead. |
+| C05 | Refresh viewer help: controls, scale, micro-sprites, trees/fire and insects; distinguish mock galleries and visual conventions from world dimensions. |
+| C06 | Correct finite-food/decomposition/energy explanations and cross-links against the reviewed boundary. |
+| C07 | Correct speciation, divide and population-room explanations; preserve old lineage accounts as history. |
+| C08 | Reconcile land, water, barriers, uplift and wrapping guides; distinguish rule changes from old display-encoding errors. |
+| C09 | Explain trees/fire/insects and concepts Luis engaged with, or finish a higher-risk correction if evidence is insufficient. |
+| C10 | Audit remaining source links, species examples and maps for obsolete framing; do not invent history or substitute a live census for dated observations. |
+| C11 | Check local/GitHub reading paths, changelogs, links and relevant tests; review actual community issues. |
+| C12 | Close audit statuses, publish the changelog/report where ready, identify dependencies and stop the bounded watcher. |
+
+Choose one unblocked task per slot; adapt to evidence and handoffs rather than promising every topic. Delegate narrow inventories or focused coding/test tasks to simpler models when useful, review their output, and spread bounded work across usage windows. Main-viewer changes stay with its owner.
+
+**Changelogs:** `docs/wiki/changes.md` separates world/viewer developments from actual wiki corrections, using the existing Markdown catalog/reader. Entries record date, source boundary, affected explanations, actual changes and uncertainty. Distinguish local implementation, active rollout and public availability. Preserve historical reports/maps. This records outcomes, not a second actionable backlog or continuous service.
+
 ## Current decisions and six-hour window: 2026-10-17
+
+### Latest handoff review — 2026-10-18 07:56 UTC
+
+**Subsequent status review:** verified newer completed world `376447f` and viewer `76a74e4`. Flowers/insect rendering and the scale/micro-sprite changes are now confirmed in the viewer's checked handoff, not merely optional requests. Publication review can target these completed boundaries; no missing-owner-commit blocker remains for that review. Do not include newer dirty changes. The scale discussion raises a possible Luis decision about simulated body footprint versus drawn scale, and speed/home ranges; it does not block documentation or authorize new world rules. Viewer guidance needs follow zoom 8×, zoom limit 16×, and micro-sprites rather than the older guide's camera assumptions.
+
+Luis asked me to stay current with `AGENTS.md`. Read the latest entries and `STEWARD-HANDOFF.md`, and acknowledged receipt in the shared notes. Claude remains the active steward; the described usage-limit fallback is prepared, not activated. No world changes, check-in schedule, release execution or restart was performed. Before any fallback activation, coordinate ownership and reread the current release state; never replay an old calendar blindly.
+
+Verified the existence of steward commits `06deda5` (including the docs route) and `354b88d`, plus viewer commits `d99d4e8` and `0659a19`. The old missing-source-handoff blocker is resolved; code/privacy/compatibility review and public integration remain unperformed. Newer dirty files remain excluded. The viewer guide needs a dated refresh for corrected water depth/barriers, seamless wrapping, trees/fire and the redesigned silhouettes; optional insect/flower visuals are not confirmed complete.
+
+**Next active work:** review the completed source boundaries and integrate the full shared reader without copying dirty builder work; refresh interface guidance from the latest checked viewer account. Retain the single published save and deferred public-hosting decisions. Read `AGENTS.md` before active passes and after long waits; use bounded notifications while working, not an unattended service. The prior six-hour run remains closed.
 
 Updated by Codex at 07:46 UTC after Luis clarified the mission:
 
@@ -33,6 +80,8 @@ Updated by Codex at 07:46 UTC after Luis clarified the mission:
 **Window:** 07:46–13:46 UTC (09:46–15:46 Europe/Berlin), reviews every 30 minutes for six hours. Choose one concrete unblocked task per review; if none is actionable, prepare a mission-aligned proposal. Use bounded work and real waiting rather than continuous polling. Finish with a report. No permanent schedule is installed.
 
 **Closed at 13:46 UTC:** twelve review slots completed; the final bounded `AGENTS.md` watcher ended. Report and handoff publication follow the closing checkpoint. Further work requires an active session, not a continuing timer or service.
+
+**Closing publication delivered:** `446a743` publishes the second-window report, latest viewer-guide follow-up and attribution/handoff state. Thirty-eight representative public files match the publication checkout by unauthenticated hash; the closing issue/PR queue is empty. This line is the local post-publication receipt, not a claim that the uncommitted reader/server source was published.
 
 **Priority update, 12:02 UTC:** Luis wants local reading first, GitHub consumption second, further content third. A separate Wiki button is owned by the viewer session; Reports retains urgent/unread notifications. Feature world explanations rather than project administration. Reuse one report/wiki reader and original Markdown, with no parallel CMS, database, or service. Small simpler-model coding delegation is authorized. Requests and ownership boundaries are in `AGENTS.md`; world updates remain the steward's priority.
 
@@ -113,7 +162,7 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P17 | Now | Synchronize the completed world redesign into the public source | Done | Published the reviewed five-commit source delta in merge `3ad21b6`, preserving public history and no-reply identities. Isolated checks pass; all 943 source files match the steward's tree, and twelve public HTTP checks pass. |
 | P18 | Now | Photograph the completed four-land layout | Done | Season-1445 settled capture confirms rise 1.0 and natural greenery. README, running-guide caption, and provenance published in `89d4fd5`. |
 | P19 | Now | Publish the latest reviewed saved world state | Done | `world-s1561` release and manifest are public, hash-verified without authentication, source-pinned, and briefly compatibility-tested; restore refuses an existing save. Only pending study requests cleared. No recurring service. |
-| P20 | Now | Integrate completed builder handoffs | Viewer commit received; steward source boundary pending | `d1ad73d` and steward concepts `b52bd5d` were reviewed/imported. The change watcher delivered viewer `8c2d386` at 13:09 UTC, committed by the steward at Luis's request with the implementation/review attribution retained. This resolves the viewer commit dependency, not public integration. Await the completed docs-route/world-frame boundary before publishing the whole reader; never copy dirty builder files. |
+| P20 | Now | Integrate completed builder handoffs | Completed source handoffs received; review/import ready | Oct 18: verified `06deda5` (docs route), `354b88d`, `376447f`, and viewer `d99d4e8` / `0659a19` / `76a74e4`. The earlier missing-handoff blocker is resolved. Review source/privacy/compatibility and integrate with the local reader/catalog/tests; committed locally does not mean published. Never copy dirty builder files. |
 | P21 | Next | Reconstruct the surviving archive | First public inventory/reading guide ready | `wiki/archive.md` identifies fossil layers, committed boundaries, and evidence categories. Continue with a bounded question and review local historical saves when relevant; no invented trajectories or demands for absent coordinates. |
 | P22 | Next | Explain concepts Luis actually engaged with | Evidence-led; examples are not a fixed syllabus | Use the active steward's account and surviving project evidence to identify the concepts Luis discussed, questioned, or chose to explore, including ideas beyond his examples. Explain concept → Luis's engagement → implemented analogue → simplifications → evidence. Do not substitute a generic science textbook or assume every implemented mechanism was explicitly discussed. |
 | P23 | Now | Interview the active Claude steward about conceptual engagement | Answer received and read | `docs/STEWARD-CONCEPTS.md` is Claude's active-session account, delivered through the watched `AGENTS.md` handoff. It distinguishes Choice/Offered/Outcome/Reading and includes energy, speciation, land, biogeography, physiology, and computing/process. Use it with source boundaries, not as a claim that every new idea is already published. |
@@ -122,6 +171,13 @@ Statuses: **ready** means independently actionable; **needs evidence** means an 
 | P25 | After P24 | Organize the GitHub reader experience | Documentation path published | `0fcbc08` publishes viewer help, behaviour/species, README/wiki entrances and the shared-foundation/version-boundary explanation. Thirty-six public files match by unauthenticated hash; zero open issues/PRs at 12:50 UTC. Whole-source reader publication still depends on completed owner handoffs; do not sweep dirty server/viewer files into GitHub. No parallel content architecture or recurring service. |
 | P26 | With P24 | Explain how to use the current viewer | Guide written, cataloged and updated from follow-up | `wiki/using-the-viewer.md` uses the active viewer's checked feature handoff and s1650 update received at 13:25 UTC, including wrap-around panning and expanded height readout. Sections, controls, lenses, selection, History, X-ray and input limits are covered; roadmap remains distinct. Main UI stays with its owner; uncommitted post-8c2d386 features are labeled. |
 | P27 | After foundation/source handoff | Follow up the land/upheaval development | New owner note; do not chase runtime | The s1645 steward note announces Luis's 48-season dome/upheaval and an `elev3` frame range for the viewer. When a completed source/report boundary exists, explain the implemented mechanism and Luis's conceptual engagement, separate from the older published proposal. Viewer owns rendering adjustments; no live intervention or recurring capture by Codex. |
+| P28 | Conditional only | Be ready for the steward fallback | Handoff read and acknowledged; not activated | `STEWARD-HANDOFF.md` defines Luis's reported authorization if Claude's weekly window closes. Claude remains steward while active. Coordinate activation first; reread current rules/calendar and verify already-live releases. No rescues, new world-rule design or automatic replay of the handoff's dated commands. |
+| P29 | With source review | Refresh the viewer guide from newer handoffs | New checked owner accounts and commits available | Cover true depth, seamless wrap, trees/fire/food, silhouettes, flowers/insects, micro-sprites, 16× zoom and 8× following. New owner notes report tree stands/zoom detail `949c9a6` and Place/Change lenses plus lens-following History `fe7b9dd`: retire the older disabled/roadmap descriptions after checking. Keep mock/visual conventions distinct from the living world. Main viewer stays with its owner. |
+
+| P30 | First next run | Reconcile world changes with the whole wiki | Initial risks identified; systematic audit prepared | Compare each page's checked source/season with completed changes. Classify current, historically valid, superseded or unverified; correct mechanisms, examples, links and cross-page summaries. Food budgets, speciation/divide, population room, water/climb, trees/insects and UI scale are first suspects, not an exhaustive list. Preserve dated evidence. |
+| P31 | Every substantive update | Maintain world/viewer and wiki changelogs | Initial shared-reader page added | `wiki/changes.md` records date, source boundary, affected pages, actual corrections and remaining uncertainty, distinguishing local/public/rollout state. No invented releases, duplicate CMS or second backlog. |
+
+| P32 | Next sync; not urgent | Showcase creature art and world moods in README | Viewer mock/asset handoff requested | Curate a compact gallery from the viewer's actual species/role artwork plus a few implemented environmental scenes, such as quake, drought and wet weather. Reuse existing mock infrastructure; viewer owns any main-viewer/scenario work, Codex owns README curation/provenance. Label mock/illustrative scenes distinctly from dated live captures, credit the collaboration, avoid implying every role/species is currently alive, and keep assets lightweight. Do not manipulate the living world or create a recurring capture service. |
 
 ## Open questions
 
@@ -139,6 +195,7 @@ Uncertainty is work to track, not a reason to stop the entire agenda.
 | Is the proposed slug available? | Resolved: the public repository now exists at eresuntomatito/terrarium-seasons-of-wonder. | No further naming action needed. |
 | Where should the wiki be presented? | Resolved: running local server first, separate Wiki button, shared report/wiki foundation, curated world explanations; GitHub second. | Local routes depend on steward handoff; main button belongs to viewer session. Public live hosting remains deferred. |
 | What should species maps show? | Work with surviving evidence. Publish dated distributions when coordinates exist; otherwise use labeled broad regions/report imagery and ancestry. Absent old coordinates are an archive limit, not a user blocker. | Choose an honest representation, not recover nonexistent data. |
+| Should simulated footprint and movement change to match the smaller creature art? | The s1950/s1955 viewer handoff raises body-footprint mismatch and fast travel; Luis decides whether to change world scale, travel speed or home ranges after steward/viewer discussion. | World-rule changes only; does not block source review, wiki or publication. No implementation inferred from the discussion. |
 | Should the world be publicly viewable live? | Deferred by Luis; revisit later. Do not host or expose the server now. | Nothing in the current documentation/snapshot pass. |
 | How should community monitoring run between sessions? | Use active-session review initially. Discuss a schedule only if Luis wants unattended monitoring; none is configured. | Background responsiveness, not replies during active work. |
 
@@ -146,7 +203,7 @@ Uncertainty is work to track, not a reason to stop the entire agenda.
 
 **Completed:** first public GitHub release under MIT, credited to eresuntomatito; publication review at `39359c9`; filtered species history; checked startup guide; README with an inspected image; first connected wiki section; community workflow; public metadata and unauthenticated content verification. See `PUBLICATION.md`, `PUBLICATION-REVIEW.md`, and `VERIFICATION.md` for scope and limitations.
 
-**Next action on resumption:** check `AGENTS.md` for a completed steward docs-route/world-frame boundary, then review/import it with viewer `8c2d386` and Codex's local reader/catalog/tests. The local reader, 26-page catalog and viewer guide are delivered; the GitHub reading-path update is public as `0fcbc08`, with the closing report/attribution update following this checkpoint. Eleven focused tests, 327 links, 24 mechanism assertions and a recovered browser run pass within `VERIFICATION.md`'s limits. Do not copy dirty owner files or resume a timer automatically. After complete-source integration, continue evidence-led content, including the queued upheaval account. No new decision is required from Luis; public live hosting remains deferred.
+**Next action on resumption:** follow the Oct 18 review above: source handoffs now exist, so review/import the completed compatible boundaries with Codex's reader/catalog/tests, then refresh the viewer guide. The local reader and GitHub documentation are delivered; the latest reviewed public documentation commit remains `446a743`. Newer source is not yet imported, and old test results do not validate it. Do not copy dirty owner files, activate fallback stewardship while Claude remains active, or resume a timer automatically. Public live hosting remains deferred.
 
 **Publication checkout:** `/private/tmp/terrarium-publication-7kcsrlxg/repository/` has the public `main` branch and its `origin`. The sibling `prepared/` directory contains review artifacts. These are temporary local paths; clone the public repository into a fresh working location if they disappear. The original development checkout has no publication remote added. Do not try to push its unfiltered history directly to the public repository.
 

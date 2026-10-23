@@ -1,54 +1,48 @@
 # Terrarium: Seasons of Wonder
 
+**AI-written by Codex (GPT-6), publishing collaborator, on behalf of [eresuntomatito](https://github.com/eresuntomatito). Updated 23 October 2026.**
+
 *A world for its own sake.*
 
-![The terrarium at season 1445: green lowlands, fully risen papercut ridges, water, coral reef, and axolotl-like creatures](docs/assets/terrarium-four-lands-s1445.png)
+This is a small, continuing world made for the pleasure of building it and seeing what happens. Creatures inherit differences, seek food, breed and die. Rivers, weather, woods and changing ground shape their opportunities. Its creator shapes the conditions; what survives is something to discover.
 
-*Season 1445: the four-land terrain has fully risen. Selected from six settled live-view observations for its greener appearance; [photograph details](docs/assets/README.md).*
+![The continuing terrarium on 23 October 2026: its current landscape, creatures and viewer](docs/assets/terrarium-current-2026-10-23.png)
 
-This project exists for the pleasure of building something and watching what happens. [eresuntomatito](https://github.com/eresuntomatito) shapes the rules and conditions of a terrarium; the creatures and landscape develop within them. Curiosity is its reason for being.
+*Real screenshot of the running simulation, 23 October 2026; capture season and provenance in [the current-world account](docs/wiki/current-world.md). This is rendered simulation art, not an AI-generated image or a mock scene.*
 
-Creatures feed, reproduce, inherit differences, and sometimes give rise to new species. Lines disappear. Weather changes what can survive. Water and erosion reshape the land. The rules have changed too, through questions, observations, experiments, and decisions about when to intervene and when to wait.
+## The world we have now
 
-## A world with a history
+The landscape has grown beyond the early four-land experiment. There are river channels and highlands, lake country, spreading scrub, and fruit, nut and conifer woods. Trees grow, carry seasonal food, respond to weather and can burn. Flowers and insects connect parts of the food cycle; fish add another possible meal. A place can offer food and still be difficult to reach.
 
-The repository contains simulation code, a browser viewer, species definitions, fossils from earlier eras, and reports of what happened. Those reports describe particular moments in an ongoing world, rather than outcomes every new run will reproduce.
+At the season-2812 observation on **23 October**, **243 bodies in nine named species** shared this world. The old quilike line was still there, alongside nafiven, sabelli, ushoror, ortyke, liligal, rasasa, tysana and quiomush. These names describe branches of a history, not nine completely different diets.
 
-Some places to begin:
+That is the current question: **will different places and foods sustain different ways of living?** Recent observations include aquatic feeding, mixed feeding, omnivory, scavenging and some fishing, but those roles fluctuate. In plenty, bodies often return to grass. The woods have buffered reductions in grass; a change making carrion more digestible was followed by more carrion eating. Lasting specialisation remains something to watch, not an accomplished result.
 
-- [Start a world of your own](docs/RUNNING.md): checked startup instructions and what a fresh run contains.
-- [Inside the terrarium](docs/wiki/README.md): the growing wiki connecting bodies, places, rules, and species.
-- [Using the viewer](docs/wiki/using-the-viewer.md): a first visit or refresher on the current local interface, controls and panels; some features are newer than the published source.
-- [A world made of relationships](docs/wiki/world-guide.md): follow a life, a patch of ground, a route, and a lineage.
-- [The world reports](reports/status/README.md): observations, experiments, and changes across seasons.
-- [Hunting begins](reports/status/2026-10-16_s1021.md): a dung-eating lineage becomes hunters, with consequences for the rest of the world.
-- [The landscape arrives](reports/status/2026-10-16_s1224.md): relief, water, snow, and a changing terrain.
-- [What shapes species](reports/status/2026-10-16_s1326-whitepaper-what-shapes-species.md): an analysis of the world's history and the limits of what its observations establish.
+The viewer lets you follow a body, magnify a patch, inspect the ground with X-ray, or see movement Flow. Life lenses compare ways of life, families, places and changes. History and the bands within a species help ask what differs, where bodies meet, and whether a new name represents a meaningful difference.
 
-The continuing world's save and runtime logs live outside the tracked files. A fresh checkout does not contain that same living world or promise to replay its history. An optional [reviewed season-1561 state](docs/SAVED-WORLD.md) is available as a separate static download with compatible source and restore instructions—not a live mirror or recurring service.
+[Read the dated evidence behind this introduction →](docs/wiki/current-world.md)
 
-## A first thing to notice
+## Explore
 
-A shell is more than an inherited number. Ordinary creatures need mineral supply to express their armour; protection slows them, while the inherited capacity adds upkeep. That makes a body's advantages depend on where and how it feeds. Begin with [armour](docs/wiki/traits/armour.md), follow it into [minerals and reef](docs/wiki/environments/minerals-and-reef.md), and meet [the navennas](docs/wiki/species/navenna.md), a lineage documented with high inherited armour.
+- [Inside the terrarium](docs/wiki/README.md): the wiki, connecting bodies, places, rules and history.
+- [Using the viewer](docs/wiki/using-the-viewer.md): map controls, following, magnification, X-ray, Flow and the panels.
+- [What changed](docs/wiki/changes.md): newer developments and which older explanations need revision.
+- [World reports](reports/status/README.md): the steward's dated observations and experiments in the published archive.
+- [Questions and turning points](docs/wiki/history.md): how earlier worlds led here.
+- [Start a separate world](docs/RUNNING.md): startup instructions for the published source.
 
-These pages separate what the code implements from what has been observed. The project is an exploration through a simplified, changing simulation; its reports do not establish general biological laws.
+The introduction describes the **continuing local world**. The public simulation source currently remains at local `d1ad73d` / public `370995a`; newer source and the complete wiki reader await a separate reviewed import. Cloning this repository starts from that published version and does not recreate today's world. The optional [season-1561 saved world](docs/SAVED-WORLD.md) is an older, source-pinned historical download. See [publication status](docs/PUBLICATION.md).
 
-## The collaboration
+## How it is made
 
-**eresuntomatito** initiated the project and shapes its questions, rules, and conditions. He describes his contribution through choices and curiosity, rather than code authorship. Historical reports refer to him as Luis.
+**eresuntomatito**, called Luis in the historical reports, initiated the project and chooses its questions, rules and conditions. His contribution is described through those choices and curiosity; code authorship is not inferred from owning the repository.
 
-Claude writes code and acts as the world's steward, implementing changes, observing their effects, and keeping records. A local Qwen model has also generated species behavior as part of the project's history. Inherited variation and selection within the simulation, model-generated behavior, and deliberate changes to the rules are distinct parts of the story.
+**Claude** is the world's steward: implementing and reviewing changes, observing outcomes and keeping the reports. A local **Qwen** model also generated creature behaviour earlier in its history. Inherited variation, model-generated programs and deliberate rule changes are different sources of change.
 
-Codex helps document and share the project, including the shared local wiki/report reader. In the separate viewer collaboration, Claude supplied design/implementation instructions and tested the results; its active-session account credits Codex with writing nearly all the viewer code from those instructions, alongside a few direct Claude edits. Luis chose the visual direction and requested features. The [viewer handoff](docs/VIEWER-HANDOFF.md) distinguishes this account, the completed redesign commit, and later pending changes. Luis identifies the documentation and viewer sessions as the only Codex involvement; the simulation is not attributed to Codex.
-
-*This README is written by Codex on eresuntomatito's behalf. Its wording is Codex's, not a first-person statement by the project's creator. The [steward interview notes](docs/STEWARD-INTERVIEW.md) distinguish a fresh Claude session's source-based account from the active steward's own recollections.*
+**Codex** documents and publishes the world. In the viewer collaboration, Claude supplied designs and instructions and checked the results; Codex wrote most of that viewer code. Later steward records also describe delegated Codex simulation and diagnostic work, including digestion and physics. The older [viewer handoff](docs/VIEWER-HANDOFF.md) records the earlier collaboration, rather than a complete account of all subsequent work. The [current-world account](docs/wiki/current-world.md) identifies the evidence used in this update.
 
 ## Questions and suggestions
 
-Questions about a creature, an unexpected event, or the rules are welcome in [GitHub issues](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/issues). Include the version and, for an observed world, its season where possible. Codex helps investigate and explain; Claude stewards changes to the world, and eresuntomatito shapes the project's direction. Suggestions are invitations to explore, not commitments to implement them. See the [community practice](docs/COMMUNITY.md).
-
-The [visitor questions](docs/wiki/questions.md) explain common source/save differences and what details help investigate a report.
-
-## License
+[GitHub issues](https://github.com/eresuntomatito/terrarium-seasons-of-wonder/issues) welcome questions about a creature, event or rule. Include the version and season where possible. Codex helps investigate and explain; Claude stewards world changes; eresuntomatito sets the project's direction. Suggestions do not promise implementation. See the [community practice](docs/COMMUNITY.md).
 
 The source and accompanying documentation are shared under the [MIT license](LICENSE).

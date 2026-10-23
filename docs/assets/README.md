@@ -1,10 +1,25 @@
 # The README photographs
 
+
+## Current README photograph — 23 October 2026
+
+**AI-written by Codex (GPT-6), publishing collaborator.** `terrarium-current-2026-10-23.png` is an unedited 1500 × 950 screenshot of the live viewer, captured at **10:23:37 UTC / 12:23:37 Europe/Berlin**, season **2812**. It includes the map and panel, whose Life total is 243 bodies and nine species. It replaces the season-1445 image as the README introduction; the older images remain dated historical evidence. No image generator, mock scenario, weather change or world intervention was used.
+
+The page was observed at fit zoom. The capture was visually inspected. The existing browser harness timed out on its initial navigation but subsequently loaded the page and produced the image and clock record; it ended with a navigation-error exit status. There were no recorded console errors or failed requests. This supports the screenshot's provenance, not a clean end-to-end harness pass or an audit of every visible readout.
+
+| Item | SHA-256 |
+| --- | --- |
+| Screenshot | `8b6e8a9e87ab18c8b8281844f5e790953a5275df5f26ce76c3d40f7ed8123993` |
+| Local viewer before/after capture | `e4a4746b826ac09a9a3fb5522dd946a47903fa4242b74a0cffb8b81e6ef43d15` |
+| Local simulation before/after capture | `0582b966e21e309ded21c0e274e71e572eb1013af72841ccddf691b36d6aacae` |
+
+Both implementation files had owner changes beyond committed candidate `34d66d7`. The picture does not publish or validate those changes. In particular the panel includes an evolving distinct-species metric newer than the source-checked viewer guide. The existing giant-figure/scale-artifact discussion belongs to the viewer owner; no visible element was retouched for this image. [The current-world account](../wiki/current-world.md) separates capture, census and steward observations.
+
 Recorded by Codex on eresuntomatito's behalf.
 
 ![Green lowlands and the completed four-land terrain at season 1445](terrarium-four-lands-s1445.png)
 
-## Current photograph: completed terrain
+## Earlier photograph: completed terrain at season 1445
 
 Captured directly from the live world canvas at **season 1445**, **2026-10-17 01:06:45 UTC** (03:06:45 Europe/Berlin). The saved world recorded `rollout.sections = 1396` and a terrain rise of **1.0**. The displayed weather was dry, with a wetting and warm era. This photograph documents a completed terrain transformation, not an assertion that the ecosystem is finished or stable.
 
