@@ -6,6 +6,12 @@ Historical reports, species samples and maps keep their original dates and sourc
 
 ## World and viewer change record
 
+### 23 October 2026 — reviewed source and complete reader imported
+
+Local `34d66d7` is now public source `68e670c`, preserving existing public history. This includes the committed viewer, safe docs route, newer world systems and reports through the steward's season-2806 plan. The shared reader adds a 28-page world catalog, shell/modules and existing checks. Local social drafts remain outside this import. See [the publication record](../PUBLICATION.md) for exact mappings and validation limits.
+
+Fresh initialization still has 150 wanderers and only `kin`, `home` and `niche` initially scheduled. New code does not reproduce the continuing world's rollout state. Later owner changes and the latest diversity-card redefinition were not imported. The season-1561 download is unchanged. The triage below remains valid: newer published code does not automatically correct older wiki formulas.
+
 ### 23 October 2026 — the continuing world has moved beyond the last publication
 
 The README now introduces the [current, dated world](current-world.md), including woods, lake country and the open question of sustained feeding differences. Its evidence includes the steward's season-2644 report, plan through season 2806 (local committed boundary `34d66d7`), and a read-only season-2812 census. These observations do not import their implementation into public source. The earlier season-1561 download keeps its original source pin.

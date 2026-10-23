@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 620" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <rect width="980" height="620" fill="#fbfaf6"/>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2e7d4f"/></marker>
+  </defs>
+  <text x="20" y="28" font-size="17" font-weight="bold" fill="#222">Energy in the world, one season (s1581, dry era) — body-energy units; stroke width ∝ flow</text>
+  <text x="20" y="48" fill="#666">grey = energy that flows · red = energy created from nothing or lost before anyone eats it · green = nutrients that cycle</text>
+
+  <!-- nodes -->
+  <g fill="#fff" stroke="#333" stroke-width="1.5">
+    <rect x="30" y="250" width="110" height="60" rx="8"/>
+    <rect x="210" y="250" width="130" height="60" rx="8"/>
+    <rect x="420" y="250" width="140" height="60" rx="8"/>
+    <rect x="650" y="250" width="150" height="60" rx="8"/>
+    <rect x="650" y="470" width="150" height="60" rx="8"/>
+    <rect x="420" y="470" width="140" height="60" rx="8"/>
+    <rect x="210" y="470" width="130" height="60" rx="8"/>
+    <rect x="650" y="90" width="150" height="56" rx="8" stroke="#c0392b" stroke-dasharray="5 3"/>
+    <rect x="845" y="250" width="115" height="60" rx="8" stroke="#999"/>
+  </g>
+  <g text-anchor="middle" fill="#222">
+    <text x="85" y="276" font-weight="bold">SUN</text><text x="85" y="294" fill="#666">rain, warmth</text>
+    <text x="275" y="276" font-weight="bold">PLANTS</text><text x="275" y="294" fill="#666">1,229 → 373</text>
+    <text x="490" y="276" font-weight="bold">GRAZERS' GUTS</text><text x="490" y="294" fill="#666">grass, shoots</text>
+    <text x="725" y="272" font-weight="bold">BODIES</text><text x="725" y="292" fill="#666">763 → 617</text>
+    <text x="725" y="496" font-weight="bold">DEATHS</text><text x="725" y="514" fill="#666">130 (41 kills = 52)</text>
+    <text x="490" y="496" font-weight="bold">CARCASSES</text><text x="490" y="514" fill="#666">pool ≈ 10</text>
+    <text x="275" y="496" font-weight="bold" fill="#2e7d4f">SOIL</text><text x="275" y="514" fill="#666">fertility, mineral</text>
+    <text x="725" y="114" font-weight="bold" fill="#c0392b">"DUNG" GIFT</text><text x="725" y="132" fill="#c0392b">no source</text>
+    <text x="902" y="276" font-weight="bold" fill="#555">HEAT</text><text x="902" y="294" fill="#666">living costs</text>
+  </g>
+
+  <!-- flows -->
+  <g fill="none" stroke="#555" stroke-linecap="round">
+    <path d="M140,280 L208,280" stroke-width="7" marker-end="url(#a)"/>
+    <path d="M340,280 L418,280" stroke-width="11" marker-end="url(#a)"/>
+    <path d="M560,280 L648,280" stroke-width="9" marker-end="url(#a)"/>
+    <path d="M800,280 L843,280" stroke-width="16" marker-end="url(#a)"/>
+    <path d="M725,310 L725,468" stroke-width="3" marker-end="url(#a)"/>
+    <path d="M650,500 L562,500" stroke-width="2.5" marker-end="url(#a)"/>
+    <path d="M490,470 C520,400 600,330 648,300" stroke-width="2" marker-end="url(#a)"/>
+    <path d="M700,470 C690,420 690,350 700,312" stroke-width="1" marker-end="url(#a)"/>
+  </g>
+  <g fill="none" stroke="#c0392b" stroke-linecap="round">
+    <path d="M725,146 L725,248" stroke-width="13" stroke-dasharray="8 4" marker-end="url(#r)"/>
+    <path d="M770,470 C800,420 850,360 880,312" stroke-width="2.5" stroke-dasharray="5 3" marker-end="url(#r)"/>
+    <path d="M470,310 C460,380 400,430 330,468" stroke-width="8" stroke-dasharray="5 3" marker-end="url(#r)"/>
+  </g>
+  <g fill="none" stroke="#2e7d4f" stroke-linecap="round">
+    <path d="M420,500 L342,500" stroke-width="3" marker-end="url(#g)"/>
+    <path d="M275,470 L275,312" stroke-width="5" marker-end="url(#g)"/>
+  </g>
+
+  <!-- flow labels -->
+  <g fill="#333" font-size="12">
+    <text x="146" y="243">664 net</text><text x="146" y="257">growth</text>
+    <text x="344" y="243">1,519</text><text x="344" y="257">eaten raw</text>
+    <text x="566" y="257">1,053 digested</text>
+    <text x="566" y="229" fill="#666">plant 815 + browse 238</text>
+    <text x="806" y="243">3,166</text>
+    <text x="740" y="190" fill="#c0392b">2,044 a season</text>
+    <text x="740" y="206" fill="#c0392b">= 65% of all income</text>
+    <text x="733" y="390">130</text>
+    <text x="572" y="490">86 in</text>
+    <text x="540" y="415">carrion 40</text>
+    <text x="660" y="440" fill="#666">flesh 4</text>
+    <text x="808" y="420" fill="#c0392b">kills: 40 of 52 lost</text>
+    <text x="505" y="372" fill="#c0392b">704 not digested</text>
+    <text x="505" y="387" fill="#c0392b">→ fertility only</text>
+    <text x="350" y="490" fill="#2e7d4f">rot ≈ 46</text>
+    <text x="283" y="380" fill="#2e7d4f">fertility feeds</text><text x="283" y="395" fill="#2e7d4f">growth</text>
+  </g>
+  <text x="20" y="600" fill="#666" font-size="12">Measured with tools/energy-ledger.mjs on a copy of the live world (5,400 ticks). The plant store fell by 856 because grazing (1,519) outran growth (664) in a dry era.</text>
+</svg>

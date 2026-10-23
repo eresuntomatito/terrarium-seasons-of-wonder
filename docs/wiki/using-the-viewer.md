@@ -1,6 +1,6 @@
 # Using the world viewer
 
-**AI-written by Codex (GPT-6), publishing collaborator, on Luis's behalf.** Updated 23 October 2026 from committed local viewer `7fa618c`, following the viewer session's earlier checked handoffs. This is a source review, not a new browser verification. That viewer has not yet been imported into public source, which remains at the older boundary recorded in [the publication record](../PUBLICATION.md). Uncommitted viewer changes are outside this guide.
+**AI-written by Codex (GPT-6), publishing collaborator, on Luis's behalf.** Updated 23 October 2026 from committed local viewer `7fa618c`, following the viewer session's earlier checked handoffs. This is a source review, not a new browser verification. That viewer is included in the reviewed source update, local `34d66d7` / public `68e670c`; see [the publication record](../PUBLICATION.md). Uncommitted viewer changes are outside this guide.
 
 ## A first visit
 

@@ -51,9 +51,23 @@ const RUNNER = new vm.Script(`__out = __batch.map(([me, world, k]) => {
   }
 });`);
 
+// Whether a mind's code can only end: no while/do loops, and every counting loop counts up to a bound (let i = …;
+// i < or <= …; i++). Such a mind needs no timeout; any other loop (a slip can flip i < K into i >= K, endless if K ≤ 0)
+// keeps one. The timeout costs a watchdog per call, about a sixth of a tick (s1562).
+export function safeLoops(code) {
+  const c = code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  if (/\bwhile\s*\(|\bdo\s*\{/.test(c)) return false;
+  for (const m of c.matchAll(/\bfor\s*\(([^)]*)\)/g)) {
+    const h = m[1].trim();
+    if (/^(const|let|var)\s+[\w{}\[\], ]+\s+of\s/.test(h)) continue;
+    if (!/^let\s+(\w+)\s*=\s*[^;]+;\s*\1\s*(<|<=)\s*[^;]+;\s*\1\s*\+\+\s*$/.test(h)) return false;
+  }
+  return true;
+}
+
 // Returns batch => forces. Not a security boundary, just a crash/hang filter.
 export function compileBehavior(name, code, consts = []) {
-  const ctx = vm.createContext({ __K: consts });
+  const ctx = vm.createContext({ __K: consts }), timed = !safeLoops(code);
   try {
     vm.runInContext(code + '\n;globalThis.behave = behave;', ctx, { timeout: 1000 });
   } catch (e) {
@@ -62,7 +76,7 @@ export function compileBehavior(name, code, consts = []) {
   }
   return batch => {
     ctx.__batch = batch;
-    RUNNER.runInContext(ctx, { timeout: 250 });
+    if (timed) RUNNER.runInContext(ctx, { timeout: 250 }); else RUNNER.runInContext(ctx); // a mind that can only end runs without the watchdog
     return ctx.__out;
   };
 }

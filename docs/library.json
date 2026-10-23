@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "pages": [
+    {
+      "path": "wiki/README.md",
+      "title": "Inside the terrarium",
+      "section": "Start here"
+    },
+    {
+      "path": "wiki/current-world.md",
+      "title": "The world now — 23 October 2026",
+      "section": "Start here"
+    },
+    {
+      "path": "wiki/using-the-viewer.md",
+      "title": "Using the viewer",
+      "section": "Start here"
+    },
+    {
+      "path": "wiki/changes.md",
+      "title": "What changed",
+      "section": "Start here"
+    },
+    {
+      "path": "wiki/world-guide.md",
+      "title": "The world as a whole",
+      "section": "Start here"
+    },
+    {
+      "path": "wiki/questions.md",
+      "title": "Questions a visitor might ask",
+      "section": "Start here"
+    },
+    {
+      "path": "wiki/concepts/README.md",
+      "title": "Concepts behind the world",
+      "section": "Ideas and evidence"
+    },
+    {
+      "path": "wiki/selection-and-variation.md",
+      "title": "Selection and variation",
+      "section": "Ideas and evidence"
+    },
+    {
+      "path": "wiki/behaviour-and-species.md",
+      "title": "Behaviour and species",
+      "section": "Ideas and evidence"
+    },
+    {
+      "path": "wiki/evidence.md",
+      "title": "What the evidence can establish",
+      "section": "Ideas and evidence"
+    },
+    {
+      "path": "STEWARD-CONCEPTS.md",
+      "title": "The steward's concepts account",
+      "section": "Ideas and evidence"
+    },
+    {
+      "path": "wiki/traits/README.md",
+      "title": "Traits and bodies",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/traits/energy-and-fat.md",
+      "title": "Energy, fat and carrying a body",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/traits/digestion.md",
+      "title": "Digestion",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/traits/reproduction.md",
+      "title": "Growing and reproducing",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/traits/movement-and-sight.md",
+      "title": "Movement and sight",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/traits/armour.md",
+      "title": "Armour and mineral supply",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/traits/toxin.md",
+      "title": "Toxin and resistance",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/traits/decomposition.md",
+      "title": "Decomposer feeding",
+      "section": "Living bodies"
+    },
+    {
+      "path": "wiki/environments/four-lands.md",
+      "title": "Four lands and their barriers",
+      "section": "Places and materials"
+    },
+    {
+      "path": "wiki/environments/climate-and-water.md",
+      "title": "Climate and water",
+      "section": "Places and materials"
+    },
+    {
+      "path": "wiki/environments/minerals-and-reef.md",
+      "title": "Minerals and reef",
+      "section": "Places and materials"
+    },
+    {
+      "path": "wiki/concepts/land-and-material.md",
+      "title": "Landforms, rock and moving material",
+      "section": "Places and materials"
+    },
+    {
+      "path": "wiki/species/navenna.md",
+      "title": "Navenna",
+      "section": "Species and history"
+    },
+    {
+      "path": "wiki/species/mosali.md",
+      "title": "Mosali",
+      "section": "Species and history"
+    },
+    {
+      "path": "wiki/species/atlas.md",
+      "title": "A dated species atlas",
+      "section": "Species and history"
+    },
+    {
+      "path": "wiki/history.md",
+      "title": "Questions and turning points",
+      "section": "Species and history"
+    },
+    {
+      "path": "wiki/archive.md",
+      "title": "The surviving archive",
+      "section": "Species and history"
+    }
+  ]
+}

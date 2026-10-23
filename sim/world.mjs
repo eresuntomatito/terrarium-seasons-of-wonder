@@ -40,6 +40,7 @@ export const PHYSICS = {
   plantEnergy: 0.55,     // energy per unit of plant, times (1 - gut)²
   bodyEnergy: 1.0,       // energy locked in a body of mass 1, on top of what it was carrying …
   bornBody: 0,           // … but a body born in the world holds only this share of it: its parents never paid for the rest
+  tissueBirth: 0.4, tissueRate: 0.01, tissueRamp: 10, // step 4 (tissue): paid newborn stores and energy built into tissue per tick
   bodyShare: 0.2,          // share of a child's gift locked into its body: it cannot spend it, but its corpse holds it
   fleshEfficiency: 0.9,  // share of a kill's energy that survives digestion, times gut ** fleshPower
   fleshPower: 1,
@@ -166,9 +167,95 @@ export const PHYSICS = {
   thicketDrag: 0.6,      // top speed × (1 − this × density × min(1, body / thicketBig)): big bodies are slowed most
   thicketBig: 10,
   thicketHide: 7,        // bodies smaller than this are hidden in dense thicket beyond close range
+  // SHRUBLAND (Codex, AI-written; steward's s2058 spec): runners on moist soil, below the reef edge's density.
+  shrubSeed: 0.3, shrubWet: 0.35, shrubSoil: 0.3, shrubGrow: 0.0015, shrubMax: 0.6,
+  callRange: 120, callPull: 0.4, guardRange: 20, guardEach: 0.15, guardMax: 6, // (calls, guard) mate calls; safety in numbers
+  // FOOD VALUES (Luis, s2448; rollout.foodvalues): what a food is worth follows what it is, in this world's terms. Fibre (grass, browse) is
+  // plentiful but poor and needs a fermenting gut; sugar (fruit) is rich and easy for any gut, and fattens fast; oil (nuts, cones) is the
+  // densest; build (insects, fish, carrion, flesh: the world's protein) is rich and provisions the young. Tree foods no longer shrink with
+  // the grass's worth (they are not grass). Insects and fish fit a wide range of guts (a grazer gets most of their worth).
+  foodValue: { fruit: 2.0, nut: 3.0, cone: 1.5 }, foodFit: { insect: [0.30, 0.15, 0.50], fish: [0.40, 0.15, 0.50] }, foodSnapEff: 0.9, foodRich: { fruit: 1.3 },
+  // FOLLOW (Luis, s2448; rollout.follow): a young body keeps near its mother until it matures, so it eats where she eats and is guarded by her.
+  followNear: 12, followRange: 160, followPull: 0.35,
+  // NICHE FOOD (Luis, s2568, option 1a; rollout.nichefood): each way of life has food of its own that the grass's worth does not touch.
+  // Lichen on the heights is for climbers (access rises from climb nicheClimb0 to full at +nicheClimbSpan) and richer; water plants
+  // feed waders and swimmers richer. Neither shrinks with grass cuts (they are not grass).
+  nicheLichen: 1.6, nicheClimb0: 0.35, nicheClimbSpan: 0.35, nicheAqua: 1.5,
+  // SKILL PAYS (Luis, s2573: "the more skillful, the more food and energy you get, so there is a reward to skill up"; rollout.skillpays):
+  // a skill's food yields energy × (a + b × skill), up to skillPayMax — the unskilled waste more of it, a master gets most. Insects lose
+  // their free floor (snapBase): access rises with snap from snapFloor. Grass stays everyone's (no skill).
+  skillPay: { flesh: ['hunt', 0.6, 1.2], insect: ['snap', 0.7, 2], fish: ['swim', 0.4, 1], nut: ['bite', 0.6, 2], cone: ['bite', 0.6, 2], browse: ['browse', 0.5, 1], fruit: ['climb', 0.5, 1], dung: ['decomp', 0.8, 2], carrion: ['decomp', 0.8, 2] },
+  skillPayMax: 1.8, snapFloor: 0.15, snapSlope: 2,
+  graceGens: 3, graceCap: 12, // (gracegen, Luis s2573) grace lasts until a new kind's third generation is born (≥ graceTicks, ≤ graceCap seasons); at its end it stays if it has grown since the split
+  // CONDITION-DEPENDENT BREEDING (Luis, s2580, option A; rollout.condbreed): when the world is crowded, a birth slot goes mostly to the
+  // well-fed: a body's chance to breed is scaled by its condition ((energy + fat) / capacity) from condMin (none) to condFull (all).
+  // And reserves become young: each parent adds its giving share of its fat (× condFatGift) to the gift, so surplus means more young.
+  condMin: 0.3, condFull: 0.8, condFatGift: 0.5,
+  // PREDATOR–PREY PACKAGE 1 (Luis, s2585): H1 hunting pays — flesh joins skill pays through the hunting build (gape and legs);
+  // P1 alarm calls (rollout.alarm) — a body that sees a hunter able to take it calls; kin within alarmRange flee from that hunter,
+  // and calling costs alarmCost energy; P2 guard (rollout.guard, built s2427) — kin near the prey cut a hunter's catch.
+  alarmRange: 60, alarmPull: 0.6, alarmEvery: 5, alarmFresh: 15, alarmCost: 0.002,
+  // RARE HEADS (Luis, s2590; rollout.rarehead): a species under rareHeadShare of all bodies may breed past the head ceiling, up to
+  // rareHeadExtra × cap more, the extra shrinking to nothing as it nears rareHeadShare; common species keep the ceiling.
+  rareHeadShare: 0.15, rareHeadExtra: 0.1,
+  // (dietroom, Luis s2593) the rare species' extra room scales with how differently it eats: half the L1 distance between its recent
+  // diet shares and the commonest species' (grass, browse, meat, insects, dung, fish), full at rareDietFull — a grazer copy gets none.
+  rareDietFull: 0.3,
+  // (dietedge, Luis s2593; added to dietroom, not instead) a body that eats differently from its own species' average, AND carries
+  // the skill for the food it leans on (≥ its species' mean), breeds more readily when crowded: chance × (1 + edgeGain × difference),
+  // at most edgeMax. Frequency-dependent: as more eat that way the average moves and the edge fades. Recent diet fades over a day.
+  edgeGain: 4, edgeMax: 2,
+  // NOSE & SOCIABILITY (Luis, s2596: "set the conditions so scavengers can adapt"; rollout.nose, rollout.social): two inherited genes,
+  // no rule names a way of life. Nose (dormant at 0, like snap and bite): carcasses scent the land (a field like the prey and danger
+  // scents); a body steers up the carrion scent by nosePull × nose, and pays noseUpkeep × nose. Sociability (starts at 1): scales the
+  // flock pull and how strongly the young follow their mother; it drifts, so lines can become solitary roamers if roaming pays.
+  noseDrift: 0.02, noseUpkeep: 0.05, nosePull: 0.6, noseScent: 0.5, socialDrift: 0.03,
+  // LEAF BROWSING (Luis, s2597; rollout.leafbrowse): browsers eat the leaves of mature trees down to leafFloor of canopy (the tree
+  // survives and regrows); bite × browse × reach (taller crowns need size or climb); energy leafEnergy per unit, by the browse gut.
+  leafFloor: 0.6, leafBite: 0.002, leafEnergy: 3,
+  // HYBRIDS (Luis, s2605, option B — the "reverse" of a split; rollout.hybrid): two bodies of different species may mate when they are
+  // as related as kin may be (gap < isolation), at hybridOdds the chance of a same-species pair; the young take one parent's kind.
+  // At each season's end, two kinds that hybridised (≥ hybridMergeMin young) and are no more different across than within are counted
+  // as one: the smaller blends into the larger.
+  hybridOdds: 0.3, hybridMergeMin: 5, mergeRatio: 1.0,
+  // GUT VALLEY (Luis, s2626; rollout.gutvalley): (1) fresh meat's fit peaks at gut 0.7 with wide shoulders (was 0.8, narrow), so a
+  // halfway gut is not punished at both ends; (2) a body's gut drifts within its life toward what it eats (target 0.05 + 0.8 × its
+  // recent meat share, at gutFlex × plasticity per tick, at most gutFlexMax from its born gut; half of the drift is inherited).
+  // CARRION FIT (Luis, s2727; rollout.carrionfit): raise meat/carrion payoff, not hunger; carrion fit peaks at 0.40, flat top 0.15, width 0.45.
+  // NO CANNIBALS (Luis: "let it be killing, just prevent killing their own"; rollout.nocannibal): no body eats its own species.
+  gutFlex: 0.00004, gutFlexMax: 0.15,
+  // TRACKERS (Luis, s2634; rollout.track): (1) a jawed body's nose also follows the prey scent left by plant-eaters (same nose gene);
+  // (2) stride (inherited, dormant at 0): movement costs less by strideSave × stride, paid by strideUpkeep × stride; (3) (isocalls) mate
+  // calls pull by how isolated a body is (few kin near), not by how rare its species is; (4) every body keeps an odometer (c.odo).
+  strideDrift: 0.02, strideSave: 0.5, strideUpkeep: 0.04,
+  founderRange: 50, graceFlock: 3, graceReach: 2, // (founders, Luis s2444: a split must be a real group) founders within founderRange of each other; through grace, flock and calls pull graceFlock× harder and reach graceReach× farther, and the parent never eats them
+  flockSize: 6, flockNear: 30, flockRange: 100, flockPull: 0.3, flockRare: 40, flockBase: 0.1, // (flock) kin seek kin up to a group of flockSize
+  geneBandZ: 1, geneFounders: 15, geneGap: 0, splitCooldown: 0, // splitCooldown (ticks): after a gene-band split, the same band from the same parent waits this long (0 = off)
+  // geneGap: gene bands' split bar above random (0 = speciateGap)
+  habitGain: 0.5,        // (habits, Luis s2383: option B) side-food intake × (1 + habitGain × that food's share of the recent diet); newborns inherit a faded copy of the parent's recent diet
+  habitBirth: 0.5,       // … the imprint's size (the 'ate' total a newborn starts with, fading as it eats)
+ // (genebands) a gene band: ≥ this many SDs from the mean; founders needed together
+  nicheFounders: 0,      // (s2315) founders a niche split needs together (0 = speciateMin)
+  lifeDiffNiche: false, // (lifediff) also weigh ways of life in niche splits (circular: off until Luis decides)
+  skillCost: 0.03, skillRamp: 10, // (s2235, skillcost) breadth cost: a typical body today (S ≈ 1.8) pays ~10% more upkeep at full ramp, a one-skill specialist (S ≈ 0.8) ~2%
+  lapseCold: 0.45, bergmann: 1.0, // (D, s2261, rollout.coldheights) the heights colder in every era (lapse 0.3 → 0.45) and climate cost ∝ size^∓1 (was ^∓0.5)
+  // (C, s2261, rollout.climbweight) climbing speed follows power-to-weight (strength ÷ mass ratio), so light bodies climb faster
+  saplingBase: 0.08, nurseThicket: 0.5, // (trees2, s2261) saplings grow from a real base; thicket this dense fully shelters a sapling from browsers
+  shrubFloor: 0.15,      // (s2093, rollout.shrubbrowse) away from reef, browsers eat scrub down to this, not browseFloor
+  shrubHold: 0.35,       // (s2085) away from reef, scrub holds on only at this moisture; drier, it wears back (it ran past 9% of the map at 0.12)
   waves: 3, waveShare: 0.4, // returns come in this many waves, each this share of the species' seed base
   dungRange: 20,         // a beetle this close to a grazer finds its droppings …
   dungFeed: 0.018,       // energy a beetle near a grazer gets from its dung each pass (10 ticks), and soil it buries
+  // HONEST DUNG (rollout.honestdung; Luis asked, s1571): dung was a free gift, paid every pass wherever a grazer stood near, and nothing
+  // was used up (65% of all body income). Now the plant a grazer eats but does not digest is carried in its gut (c.dungE, energy) and
+  // dropped on the ground (world.dungMap); a decomposer or beetle eats from the cells around it, and it is gone. What nobody eats
+  // breaks down into fertility, faster in the warmth. The old free gift fades linearly to nothing over honestFade seasons from the
+  // rollout season, so the world can adapt. (The fertility dung of dungShare/dungDrop is unchanged.)
+  dungEff: 0.8,          // share of the dung's energy a decomposer gets (the rest is lost as heat)
+  dungTake: 0.2,         // most dung energy a body of full decomp ability can lift per pass (10 ticks), from the 3×3 cells around it
+  dungBury: 0.3,         // share of the dung it eats that goes back to the soil at once
+  dungDecay: 0.0004,     // share of the dung on a cell that breaks down to fertility each tick (× 0.6 + 0.8 × warmth)
+  honestFade: 10,        // seasons over which the old free dung gift fades to zero (10, s1619: 5 crashed the test world to 100 bodies; 10 held it at 240)
   beetleSoil: 1,         // beetles return this much extra fertility per unit of carrion they break down
   infestWeak: 0.3,       // a grazer below this share of its energy capacity can be infested …
   crowdRange: 40, crowdCount: 6, // … if at least this many of its kind are this close …
@@ -185,6 +272,58 @@ export const PHYSICS = {
   growRate: 0.01,        // … and, well fed, turns at most this much energy a tick into body …
   growEfficiency: 0.5,   // … keeping this share of it as body
   splitRange: 150,       // a split takes only the cluster's members within this distance of its densest spot
+  // REAL SPECIES (Luis, s1837: "fewer species is not bad in itself; we want species that are practically different, not just renamed"; rollout.speciate2):
+  // the great divide is cancelled (a probe: its pieces differed by 0.20 SD in body, random halves by 0.19, only in place). Every other split (niche, drift, mind)
+  // needs founders whose BODY traits (the 11 the divide used, in the parent's SDs) differ from the rest of the parent by speciateGap more than random founders
+  // of the same number would; speciateMin to speciateMax founders gathered in one place (the niche floor falls 30 → 15); a new species has graceTicks in which
+  // it may still mate with its parent and sisters, and is not hunted by them; if it ends that season under speciateMin bodies it blends back into its parent.
+  speciateMin: 15, speciateMax: 40, speciateGap: 0.5, speciateNull: 20, graceTicks: SEASON_TICKS,
+  // TREES (Luis, s1803; roadmap step 3a; rollout.trees; proposal reports/status/2026-10-17_s1794-trees-insects-proposal.md): woody
+  // plants that stand on soil, not on reef. world.trees is a canopy (0…1), world.treeKind says which (1 fruit on soft rock 1 and
+  // sediment 3, warm and moist; 2 nut on soluble rock 2, mild; 3 conifer on hard rock 0, or any rock in the cold heights down
+  // to the treeline). None on basement, deep water, or crags and cliffs. Updated with the thicket, every reefEvery ticks.
+  // Seeds only by succession: thicket above treeFromThicket turns to saplings, mature trees (≥ treeMature) seed their
+  // neighbours, and bodies that eat fruit drop its seeds. Growth is logistic (canopy ~0.5 after ~20 seasons), faster on fertile,
+  // moist ground. Cover = canopy, and acts as thicket does (hiding, sight, drag); grass beneath grows × (1 − treeShade × canopy).
+  treeGrow: 0.0012, treeMax: 0.9, treeMature: 0.3, treeSapling: 0.3, treeSeed: 0.02, treeUptake: 0.25, treeLitter: 0.0004,
+  treeFromThicket: 0.3, treeEstab: 0.0003, treeSpread: 0.0006, treeSeedDrop: 0.004, treeShade: 0.5, rootHold: 0.6,
+  treeDie: 0.0008, treeDrought: 0.12, treeFrost: 0.2, treeDeep: 0.05, treeFlood: 0.05, treeBreak: 0.4, // death: drought (moisture), frost (T), deep water, flow above treeFlood breaks canopy × the excess
+  treeBrowse: 0.003,     // a browser takes this (× √mass, × browse) of a sapling's canopy per bite, and eats it …
+  treeBrowseEnergy: 2,   // … at this energy per unit
+  // Fire (Luis, s1803): lightning in the worst drought. Dense wood (≥ fireDense, ≥ 3 dense neighbours) in moisture below fireDry
+  // catches with chance fireChance per update; it spreads to dry wooded neighbours (canopy ≥ fireWood), at most fireSpreadMax
+  // cells an update. Burnt canopy goes to 0, fireAsh of it returns as fertility; thicket burns too; grass is not harmed.
+  fireChance: 0.00002, fireDry: 0.15, fireDense: 0.5, fireWood: 0.3, fireSpreadMax: 60, fireAsh: 0.5,
+  // A burning cell burns for fireTime updates (× reefEvery ticks, ~300). A body standing in it loses fireBurn × its energy store a tick
+  // (the young twice that), dying 'burnt'; bodies within fireSmoke cells of flames are pushed away (fireFlee × their top force).
+  fireTime: 15, fireBurn: 0.03, fireSmoke: 3, fireFlee: 2,
+  // Foods. Stores per cell grow ∝ canopy × the season's warmth (fruit) or cold (nuts, cones) and spoil at a rate each update:
+  // fruit fast (into fertility), nuts slowly, cones slowest. Eaten under the plant gut fit; energy per unit × plantEnergy.
+  fruitMake: 0.012, nutMake: 0.0025, coneMake: 0.0015, fruitRot: 0.01, nutRot: 0.0005, coneRot: 0.0002, treeStoreMax: 1, rotAsh: 0.5,
+  fruitEnergy: 1.2,      // quick sugar, but it rots
+  nutEnergy: 1.6,        // rich: the most per unit, and the fattest (stomachRich)
+  coneEnergy: 0.9,       // moderate; it keeps the longest, a winter food
+  fruitReach: 4, fruitFall: 0.3, // fruit on the tree is reached by size beyond fruitReach (full at +4) or by climbing; this share has fallen and is open to anyone
+  biteDrift: 0.02, biteUpkeep: 0.05, // BITE, a new inherited skill (dormant at 0, like climbing): the hard mouth that opens nuts and cones. Access = 0.9 × bite + a little from size and gape
+  // INSECTS (Luis, s1803/s1930; roadmap step 3b; rollout.insects; proposal reports/status/2026-10-17_s1794-trees-insects-proposal.md, 2C-2E): ONE field,
+  // world.insects (0…1 a cell, saved like dungMap), updated every insEvery ticks (like water). A density of 1 holds insScale energy. They are BORN only
+  // from stores that really shrink (what is eaten goes insEff to the insects, insSoil back to the soil, the rest is heat): bloom (nectar, paid from the grass
+  // of a meadow, or from the soil under a fruit tree), rotting fruit, dung, carcasses, leaves (a little from grass and canopy). They live short (insDecay a pass, more in the cold;
+  // the dead fall back to the soil, insDie of them), and FLY: each pass insSpread of a cell goes to its 4 neighbours (wrap-around), more toward the
+  // warmer, flowering ones (insDrift). They ACT: chew leaves in outbreaks (above insOutbreak; grass, and canopy a tenth as much), speed the
+  // breakdown of dung, and pollinate: a fruit tree's fruit × (insPollMin + (1 − insPollMin) × (1 − e^(−insPollK × density))).
+  // BLOOM (world.bloom, 0…1): opens in the warm, moist part of the climate on mature fruit trees (canopy ≥ treeMature) and wet meadows, and fades.
+  insEvery: 10, insScale: 0.1, insEff: 0.5, insSoil: 0.3, insDie: 0.6, insDecay: 0.04, insSeen: 5, insCold: 3, insSpread: 0.2, insDrift: 4, insMax: 1, // insSeen: the density bodies, flowers and the viewer respond to is min(1, insSeen × density) (the field holds little energy, so its densities stay low)
+  insNectar: 0.0007, insNectarTree: 0.0004, insFruit: 0.004, insDung: 0.012, insCarcass: 0.01, insGrassChew: 0.0004, insCanopyChew: 0.00002, insLeafBase: 0.0001, insOutbreak: 0.4, insLeafE: 8,
+  bloomUp: 0.04, bloomDown: 0.03, bloomWarm: 0.4, bloomMeadow: 0.65, insPollK: 6, insPollMin: 0.3,
+  // Carcasses (energy roadmap 3): a body with decomp ≥ openMin and ≥ openDiet of its recent diet dung or carrion OPENS a carcass: it may feed on one
+  // even with a plant gut (below carrionGut), tears off (1 + openBite × decomp) times the bite, and the carcass it feeds on rots × openRot for openHold
+  // ticks. Insects also take insCarcass of a carcass a pass (× their density + insArrive, flies come first; no more than the swarm can hold); its own rot is unchanged.
+  openMin: 0.15, openDiet: 0.25, openBite: 1, openRot: 0.4, openHold: 100, insArrive: 0.3,
+  // SNAP (insect-eating), a new inherited skill, dormant at 0 like bite and climb: a body takes snapBite × snap × √size of the insects on its cell
+  // a tick; insects (tl ~2.5, fed at level 3) are digested best by a middle gut: efficiency snapEff × e^(−((gut − snapGut)/snapWidth)²).
+  snapBase: 0,           // (s2307, food-loop directive) every body snaps insects as if its snap were at least this (0 = off)
+  snapDrift: 0.02, snapUpkeep: 0.05, snapBite: 0.15, snapEff: 0.8, snapGut: 0.4, snapWidth: 0.25,
   // Browse (Phase 2): thicket shoots as a second plant food, reachable only by big bodies with a browsing gut.
   gapeMin: 0.15, gapeMax: 0.9, gapeDrift: 0.03, gapeWidth: 0.2, gapeFloor: 0.35, // Phase 3a: jaws suit prey near gape × own size
   browseSize: 4.0,       // bodies at least this big reach the shoots … (4.5 → 4.0 for the progenitors, Phase II, 00:45 Oct 15)
@@ -277,12 +416,27 @@ export const PHYSICS = {
   isolation: 0.2,
   gutIsolation: 1,       // bodies count too: |gut difference| × this, plus |log size ratio| × sizeIsolation, adds to the gap
   sizeIsolation: 0.5,        // mates whose code numbers differ by more than this (mean |log ratio|) cannot breed
+  nicheMin: 30, nicheRange: 200, // niche splits (Luis, s1692): a band living differently needs 30 founders gathered within 200 px, and 30 left behind (mind and drift splits keep splitMin)
   splitMin: 15,          // a species splits in two when a group this big can no longer breed with the rest (10 → 15, Luis 10:10 Oct 15: groups under 10 never lasted, 15–24 lasted twice as long as 10–14)
   morphChoice: 0.1,
   // EXPERIMENT (Luis, 12:15 Oct 15; OFF in the live world): a stomach. Food fills it by its raw amount (grass is bulky
   // and poor, meat dense and rich), so how much energy a full stomach holds depends on the food and on how well the gut
   // suits it; a full stomach cannot eat until it empties. Rich food also becomes fat more readily. Unique giants exempt.
   stomach: 0,            // strength 0 (off) … 1 (full)
+  // M3 (Codex, AI-written): separate per-kind pools; capacity is raw bulk per mass(5).
+  // digCap ≈ 0.60 × today's 0.00739 size-5.5 raw grass bite × 600 / 1.21 = 2.20 (ample grass).
+  digCap: 2.2,
+  digBulk: { plant: 1, browse: 1.5, cone: 0.8, nut: 0.6, fruit: 1, insect: 0.5, carrion: 0.4, flesh: 0.3, fish: 0.4 },
+  digTime: { plant: 600, browse: 400, cone: 300, nut: 200, fruit: 120, insect: 80, carrion: 100, flesh: 150, fish: 120 },
+  // FISH (Luis, s2419; rollout.fish): world.fish, a density per wet cell (0…fishMax; a density of 1 holds fishScale energy), updated
+  // every fishEvery ticks. Fish graze water plants (aqua) and are paid by them: what they eat leaves the plants, fishEff of its energy
+  // becomes fish, fishSoil goes to the riverbed's fertility, the rest is heat. Warmth speeds them; they spread to neighbouring water,
+  // drift downstream, die off slowly (fishDie), fast where the cell runs dry (fishDry) or freezes; the dead return to the soil.
+  // Bodies catch them in water: wading 0.2 × swim, swim-deep 1 × swim (× habits); digested as meat by a middle gut (peak 0.45).
+  // A one-time seed (fishSeed in swim-deep cells) starts them when the key rolls out.
+  fishEvery: 20, fishScale: 0.2, fishMax: 1, fishGraze: 0.02, fishEff: 0.3, fishSoil: 0.3, fishDie: 0.004, fishDry: 0.3, fishSpread: 0.05, fishDrift: 0.05,
+  fishSeen: 4,           // (s2428) a fish density this many times as tempting as a grass patch, × swim (bodies see fish as food)
+  fishDepth: 0.02, fishSeed: 0.02, fishBite: 0.1, fishWade: 0.2,
   // FOODS THAT DIFFER (Luis, 13:00 Oct 15 — the stomach test's recommendations, applied):
   grassQuality: [0.6, 1.3], // grass energy × (0.5 + moisture of its cell), held within these bounds: dry-season grass is poor, wet-season rich
   shootQuality: [0.8, 1.4], // thicket shoots × (1.5 − moisture): the hedge holds its water, so in dry spells its shoots are the richer food
@@ -335,6 +489,14 @@ export const PHYSICS = {
   // (× carcassRich); (meatspec) meat keeps pyramidFlesh for a half-way gut but up to fleshEfficiency for a meat gut (0.5 → 0.9).
   aquaGrow: 0.01, aquaBite: 0.06, aquaEnergy: 1, lichenAbove: 0.35, lichenGrow: 0.002, lichenBite: 0.03, lichenEnergy: 0.8,
   infestSmooth: 0.15, carcassKeep: 0.6, carcassRich: 1.3,
+  // THE CARCASS, MADE HONEST (Luis, s1757; energy roadmap 1b, 1c, 2; rollout.carcass2): (1b) carrion never yields more than the bite taken
+  // from the carcass (the multiplier digest × (1 + decomp) × carcassRich is capped at 1); (1c) a body's toxin stock no longer fills just
+  // from standing in thicket, only from thicket shoots it eats (toxinShoot per unit of shoots; calibrated on a copy of the world:
+  // 0.12 let browsers' stock sink from 0.7 to 0.25 in 12000 ticks, 1 gave 0.68, 3 gave 0.79, 10 gave 0.82 and 30 no more, since
+  // newborns start at storeBirth of their parents' stock; 4 matches the 0.72-0.75 browsers held before); (2) a diner takes at most
+  // a meal of raw meat, mealSize × mass(its size) / mass(7) (1 for a body of size 7, against prey holding ~1.5-4), and whatever no diner
+  // takes is added to the carcass the kill leaves, for scavengers and carrion-eaters.
+  toxinShoot: 4, mealSize: 1,
   // ROOM FOR AN APEX TO EMERGE (Luis, s1366: not placing one, but rules that let one arise; rollout.growon, .crush, .rareroom,
   // .apexniche): (growon) a well-fed adult keeps growing slowly (c.grown, up to growOnMax × its inherited size; upkeep grows
   // with it; hunger stops it; the young do not inherit it); (crush) a shell protects less against a bigger or wider-mouthed
@@ -401,10 +563,30 @@ export const PHYSICS = {
   // lifted (carveMax) and the basement is the natural base level. Soils follow the rock: grass grows × rockGrow and the
   // ground holds rockWet more moisture; fresh deposits build ALLUVIUM (world.alluv, 0…1: + alluvGain × deposit, fading
   // alluvFade per water update), rich (+ alluvGrow growth) and moist (+ alluvWet). Shells find rockMineral to hand.
+  // THE UPHEAVAL (Luis, s1640: "as if a colossal mass came from below the ground, a dormant volcano we may see one day but
+  // not today"; rollout.upheaval): over upheavalSeasons a dome rises under the peak (centre upheavalAt, +upheavalAmp there so
+  // the summit reaches ~1.8, an irregular radius upheavalR, and a faint tail upheavalTail reaching the whole map). Half of
+  // it creeps up a little every 135 ticks; the other half comes in earthquakes every 0.6–2 seasons (upheavalBigChance of
+  // them great), each lifting an irregular patch by part of what is still missing there — imperfectly (± upheavalNoise) —
+  // and opening a narrow CRACK (the stretched surface) 0.03–0.12 deep, radial or along the rings. A last settling at the
+  // end lays down whatever is left. Everything rides on the land (tectonic); water, erosion, climate, lichen and the
+  // barriers then answer by their own rules.
+  sloppySeasons: 48, seamBand: 180, seamRamp: 12, seamEase: 0.02, // SLOPPY (rollout.sloppy, s1694): the land drifts over sloppySeasons from the sections' frame to its sloppy version (buildRelief(2))
+  upheavalSeasons: 48, upheavalAt: [134, 360], upheavalAmp: 0.9, upheavalR: 260, upheavalTail: 0.12, upheavalTailR: 450,
+  upheavalCreep: 0.5, upheavalEvery: [0.6, 2], upheavalBigChance: 0.35, upheavalNoise: 0.3, crackDepth: [0.03, 0.12], crackWidth: 6,
   geoLayer: 0.15, geoTilt: 0.12, geoFold: 0.1, geoFoldLen: 260, geoFoldWidth: 140, geoBase: -0.7, geoCarveMax: 2,
   rockErode: [0.3, 1.6, 1, 2, 0.05], rockGrow: [0.85, 1.05, 1, 1.1, 0.85], rockWet: [-0.06, 0.08, -0.03, 0.05, -0.06], rockMineral: [0.05, 0.1, 0.5, 0.1, 0.05],
   alluvGain: 200, alluvFade: 0.9995, alluvGrow: 0.5, alluvWet: 0.12, reefWash: 0.02, bankWet: 0.75, drownAt: 0.04, grooveDepth: 0.04,
   frostCrack: 0.0015, grainDownhill: 0.6,
+  // THE BIG RIVER (Luis, s1837: "a river [that] crosses top to bottom more widely and 'forces' species to explore more swimming when
+  // full most of the time, to the extent that even during droughts there would be some water availability"; rollout.bigriver): over
+  // bigriverSeasons the SEAM river is widened and deepened: a main channel bigChanHalf px each side of its (meandering) line, cut
+  // bigChanDepth below the banks (swim-deep when it runs full), inside a floodplain bigFloodHalf px each side that lies
+  // bigFloodDepth below the banks (wadeable). Where the wall or the dome stand above bigGorgeAt it cuts a gorge, not a plain.
+  // Perennial water: bigSprings points along its course (down to bigSpringReach of the map's height) feed springFlow of
+  // water into the lowest cell of their row every water update (not while frozen), so the channel never runs dry in a drought.
+  bigriverSeasons: 10, bigChanHalf: 20, bigChanDepth: 0.3, bigFloodHalf: 46, bigFloodDepth: 0.04, bigGorgeAt: 0.45, bigMeander: 30,
+  bigSprings: 16, bigSpringReach: 0.95, springFlow: 0.025,
   // EARTHQUAKES (Luis, s1216; step 3 of the orography; rollout.quakes): small ones every quakeEvery seasons (a random
   // 15–30), and at least one big one in every quakeBigWithin seasons. A quake breaks the ground along a fault (length by
   // strength): one side rises, the other drops, fading with distance (world.tectonic, added to the land); reef along the
@@ -412,27 +594,38 @@ export const PHYSICS = {
   // move the river). Bodies near the epicentre lose energy to the fright.
   quakeEvery: [15, 30], quakeBigWithin: 100, quakeBigChance: 0.15, quakeSmall: [0.03, 0.08], quakeBig: [0.15, 0.3],
   quakeLenSmall: [100, 220], quakeLenBig: [300, 600], quakeWidth: 40, quakeShatter: 0.8, quakeFright: 0.3,
+  // PHYSICS IN METRES (M2, rollout.physics): 100 m per height, 0.65 m per unit and seconds per tick.
+  // Muscle follows cross-section; steep ascents take time, descents can fall, deep swimming needs strength.
+  heightMetres: 100, unitMetres: 0.65, tickSeconds: 0.65, toblerRate: 3.5, toblerDown: 0.05, slopeFloor: 0.25,
+  climbUp: 0.4, climbMinRise: 2, climbMaxTicks: 240, climbSpeed: 0.15, climbHold: 0.002, downFall: 0.01,
+  swimBase: 0.2, swimSkill: 0.5,
   depthPx: 60, wadeSlow: 0.7, wadeCost: 0.004, sweep: 0.6, swimDrift: 0.02, swimUpkeep: 0.04,
   leanEvery: 5, leanStep: 0.9, leanFloor: 0.35, leanQuiet: 9, leanPause: 100,
   grassStart: 0.1, grassMut: 0.05, hardyWither: 0.8, hardyGrow: 0.4, hardyEnergy: 0.3, sweetEnergy: 0.4, sweetWither: 0.5, sweetRoots: 0.5,
-  valleyPower: 0.5, valleyJaws: 0.15, skillHelp: 0.3, sizeDriftWide: 0.1, massPerSlot: 1.9, massHeads: 1.1,
+  valleyPower: 0.5, valleyJaws: 0.15, skillHelp: 0.3, sizeDriftWide: 0.1, massPerSlot: 1.9, massHeads: 1.1, nicheRare: 0.1, nicheExtra: 0, // (nicheroom, s1930) a way of life under nicheRare of all bodies may breed up to nicheExtra past the head ceiling (0, s1934: extra room let 3% of bodies parent most births — newborns start as grazers, so the rare stay rare)
   packHelp: 0.1, packMax: 3, packRange: 40, // (pack) each jawed kin of the hunter within packRange of the prey lowers the size it needs by packHelp, up to packMax kin
   // (rollout.smooth, Luis 16:00 Oct 15) the benefits grow from zero: any decomposer ability feeds a little on droppings, any
   // parasite ability feeds a little on bodies of other kinds already infested; infesting new hosts stays past parasiteMin.            // rich food fattens more, on its own (the stomach's 'rich' half): surplus becomes fat × stomachRich[kind] at this strength
   stomachHold: 40,       // capacity: this many ticks of full-size bites …
   stomachEmpty: 0.8,     // … emptying by this share of a full-size bite each tick (a pure grazer can graze ~80% of the time)
-  stomachBulk: { plant: 1, browse: 1.5, flesh: 0.3, carrion: 0.4 }, // bulk per unit of raw food
-  stomachRich: { plant: 0.7, browse: 1.0, flesh: 1.3, carrion: 1.1 }, // how readily a surplus from it becomes fat (× fat share)
+  stomachBulk: { plant: 1, browse: 1.5, flesh: 0.3, carrion: 0.4, fruit: 1, nut: 0.6, cone: 0.8, insect: 0.5 }, // bulk per unit of raw food
+  stomachRich: { plant: 0.7, browse: 1.0, flesh: 1.3, carrion: 1.1, fruit: 0.9, nut: 1.4, cone: 1.0, insect: 1.1 }, // how readily a surplus from it becomes fat (× fat share)
   // Rollout (Luis, 10:25 Oct 15), one per season: (1) kin — relatedness over the whole creature; (4) home — the
   // descendants keep a home range; (3) niche — a local group living differently splits off. world.rollout holds the seasons.
   kinCode: 0.5,          // (1) code numbers count at half weight (most drift neutrally) …
   kinBody: 1,            // … the 12 body traits from the genes (scaled as in the ancestry measure) at full weight …
   kinGenes: 0.3,         // … and the 4 personal genes at this weight
+  // Home ranges and spatial footprint (homerange, Luis s2012; proposal s2008 M1).
+  homeR: 140, homeMin: 60, homeMax: 300, homeInner: 0.6, homePull: 0.25,
+  homeHunger: 0.3, homeHungryPull: 0.2, homeShift: TICKS_PER_DAY, dispersal: 3, homeTries: 8, homeOppose: 0.5,
+  grassRampCut: 0.3, grassRampSeasons: 6, grassRampFloor: 160, grassRampStarve: 0.6, // (grassramp, Luis s2013) grass alone −30% over 6 seasons; freezes below 160 bodies or > 60% of deaths by hunger
+  footprint: 0.5, mateFloor: 4, // (footprint, Luis s2012 decision 9; split from homerange s2018) contact, mating and crowding distances × footprint to match the drawn body
   homeRange: 120,        // (4) beyond this distance from its birthplace a body is pulled home …
-  homePull: 1.0,         // … harder the further it strays (up to 1.5 × this)
-  niche: { apex: 0.3, hunter: 0.6, scavenger: 0.3, omnivore: 0.2, browser: 0.5, mixed: 0.2, decomposer: 0.25, parasite: 0.25 }, // (3) recent-diet bars for each way of life (Luis, 11:45 Oct 15) …
+  oldHomePull: 1.0,         // … harder the further it strays (up to 1.5 × this)
+  niche: { apex: 0.3, hunter: 0.6, scavenger: 0.3, omnivore: 0.2, browser: 0.5, mixed: 0.2, decomposer: 0.25, parasite: 0.25, insectivore: 0.3 }, // (3) recent-diet bars for each way of life (Luis, 11:45 Oct 15) …
   nicheHold: { scavenger: 3 }, // … daily checks in a row a group must hold before splitting (default nicheDays + 1; scavengers longer: carcass feasts after a drought pass)
   nicheDays: 1,
+  habEvery: 10, habRecent: TICKS_PER_DAY, habAquatic: 0.4, habHigh: 0.6, habHeight: 0.5, // (habitat, Luis s1694 / roadmap v2)
   nicheRecent: TICKS_PER_DAY, // (3) the niche reads the RECENT diet (Luis, 10:55 Oct 15): meals fade with this time constant, so a lifetime of grazing does not hide a body that now lives on meat          // … and a local group of splitMin such bodies, held this many days, splits off      // a different mind (a hidden slip) counts this much against a pairing: like prefers like
 };
 const P = PHYSICS;
@@ -484,15 +677,24 @@ const geneOf = (c, k) => k === 'size' ? c.sizeGene ?? c.size : k === 'gut' ? c.b
 const KIN_BODY = [['size', 'log'], ['gut', 1], ['legs', 1, 1], ['wind', 1, 0.5], ['armor', 1, 0], ['toxin', 1, 0], ['litter', 2, 1], ['mature', 2, 1],
   ['browse', 1, 0.05], ['gape', 1, 0.5], ['resist', 1, 0.3], ['eyes', 1, 0.5]];
 const kinBody = (a, b) => KIN_BODY.reduce((s, [k, sc, d]) => { const x = geneOf(a, k) ?? d, y = geneOf(b, k) ?? d; return s + (sc === 'log' ? Math.abs(Math.log(x / y)) : Math.abs(x - y) / sc); }, 0) / KIN_BODY.length;
+// (likemates, Luis s2244) the skills join the body gap for mating: climbers prefer climbers. Same scale (a mean over all traits).
+const KIN_SKILLS = [['swim', 1, 0], ['climb', 1, 0], ['bite', 1, 0], ['snap', 1, 0], ['coat', 1, 0.3]];
+const kinBodySkills = (a, b) => (kinBody(a, b) * KIN_BODY.length + KIN_SKILLS.reduce((s, [k, sc, d]) => s + Math.abs((a[k] ?? d) - (b[k] ?? d)) / sc, 0)) / (KIN_BODY.length + KIN_SKILLS.length);
 const kinGenes = (a, b) => a.genes.reduce((s, g, i) => s + Math.abs(g - (b.genes[i] ?? g)), 0) / a.genes.length;
 // The traits the selection ledger follows.
-const LEDGER = [['size', c => c.sizeGene ?? c.size], ['gut', c => c.bornGut ?? c.gut], ['litter', c => c.litter ?? 1], ['legs', c => c.legs ?? 1],
+export const LEDGER = [['size', c => c.sizeGene ?? c.size], ['gut', c => c.bornGut ?? c.gut], ['litter', c => c.litter ?? 1], ['legs', c => c.legs ?? 1],
+  ['swim', c => c.swim ?? 0], ['climb', c => c.climb ?? 0],
   ['wind', c => c.wind ?? 0.5], ['armor', c => c.armor ?? 0], ['mature', c => c.mature ?? 1], ['browse', c => c.browse ?? 0], ['eyes', c => c.eyes ?? 0.5],
-  ['gape', c => c.gapeGene ?? c.gape ?? 0.5], ['resist', c => c.resist ?? 0.3], ['decomp', c => c.decomp ?? 0.03], ['parasitism', c => c.parasitism ?? 0.03], ['fright', c => c.genes?.[1] ?? 0.5], ['fat', c => c.fat ?? 0]];
+  ['gape', c => c.gapeGene ?? c.gape ?? 0.5], ['resist', c => c.resist ?? 0.3], ['decomp', c => c.decomp ?? 0.03], ['parasitism', c => c.parasitism ?? 0.03], ['fright', c => c.genes?.[1] ?? 0.5], ['fat', c => c.fat ?? 0], ['toxin', c => c.toxin ?? 0]]; // (toxin added s1694, Luis: does selection pull it down now predation is low?)
 const driftAbility = (v, start) => clamp01((v ?? start) + wobble(P.abilityDrift) + leap() * 0.3);
 const driftCoat = v => clamp01((v ?? P.coatStart) + wobble(P.coatDrift) + leap() * 0.3);
 const driftWater = v => clamp01((v ?? P.waterStart) + wobble(P.waterDrift) + leap() * 0.3);
 const driftSwim = v => clamp01((v ?? 0) + wobble(P.swimDrift) + leap() * 0.3); // dormant at 0; drifts, and selection may lift it
+const driftStride = v => clamp01((v ?? 0) + wobble(P.strideDrift) + leap() * 0.3); // (track) dormant at 0
+const driftNose = v => clamp01((v ?? 0) + wobble(P.noseDrift) + leap() * 0.3); // (nose) dormant at 0
+const driftSocial = v => Math.max(0, Math.min(1.5, (v ?? 1) + wobble(P.socialDrift))); // (social) starts at 1
+const driftSnap = v => clamp01((v ?? 0) + wobble(P.snapDrift) + leap() * 0.3); // snap (insect-eating): dormant at 0, like bite
+const driftBite = v => clamp01((v ?? 0) + wobble(P.biteDrift) + leap() * 0.3); // bite strength (nuts, cones): the same, from 0
 const driftClimb = v => clamp01((v ?? 0) + wobble(P.climbDrift) + leap() * 0.3); // climbing: the same, from 0
 const driftEyes = e => clamp01((e ?? P.eyesStart) + wobble(P.eyesDrift) + leap() * 0.3);
 const driftResist = r => Math.min(1, Math.max(0, (r ?? P.resistStart) + wobble(P.resistDrift) + leap() * 0.3));
@@ -526,6 +728,7 @@ export class World {
     this.prev = new Float32Array(GW * GH);
     this.scentPrey = new Float32Array(GW * GH); // left by plant-eaters; fades and spreads, never saved
     this.scentHunt = new Float32Array(GW * GH); // left by flesh-eaters
+    this.scentCarrion = new Float32Array(GW * GH); // (nose) given off by carcasses
     this.scentTmp = new Float32Array(GW * GH);
     this.behaviors = {};
     this.genome = {};
@@ -543,13 +746,15 @@ export class World {
     if (!this.rootHealth) this.rootHealth = new Float32Array(GW * GH).fill(1);
     if (!this.grassHardy) this.grassHardy = new Float32Array(GW * GH).fill(P.grassStart);
     if (!this.grassSweet) this.grassSweet = new Float32Array(GW * GH).fill(P.grassStart);
-    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.sed ??= new Float32Array(GW * GH); this.alluv ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH); this.aqua ??= new Float32Array(GW * GH); this.lichen ??= new Float32Array(GW * GH);
+    this.water ??= new Float32Array(GW * GH); this.carve ??= new Float32Array(GW * GH); this.sed ??= new Float32Array(GW * GH); this.alluv ??= new Float32Array(GW * GH); this.dungMap ??= new Float32Array(GW * GH); this.snow ??= new Float32Array(GW * GH); this.tectonic ??= new Float32Array(GW * GH); this.aqua ??= new Float32Array(GW * GH); this.lichen ??= new Float32Array(GW * GH); this.insects ??= new Float32Array(GW * GH); this.bloom ??= new Float32Array(GW * GH);
+    this.trees ??= new Float32Array(GW * GH); this.treeKind ??= new Uint8Array(GW * GH); this.fruit ??= new Float32Array(GW * GH); this.nuts ??= new Float32Array(GW * GH); this.cones ??= new Float32Array(GW * GH);
     this.flow = new Float32Array(GW * GH); this.flowDir = new Int8Array(GW * GH * 2); this.bank = new Float32Array(GW * GH);
     this.traffic = new Float32Array(GW * GH);
     this.foul = new Float32Array(GW * GH); // ground soiled by infested hosts; fades, never saved
     for (const name of this.living()) { this.compile(name); this.compileMorphs(name); }
     this.ensureGenomes();
     this.rollout ??= { kin: this.season + 1, home: this.season + 2, niche: this.season + 3 }; // one change a season
+    for (const c of this.creatures) { c.gutLoad ??= 0; c.gutE ??= 0; c.gutPools ??= {}; }
     if (this.newSeeds?.some(n => this.registry[n].scavenger)) this.reintroduceScavengers();
     // A seed designed to be set down at once (the steward's new hunters) arrives as a pack.
     for (const n of this.newSeeds ?? []) if (this.registry[n].releaseOnArrival && (this.registry[n].avgGut ?? this.registry[n].gut) >= 0.5) this.reintroduce(true, n);
@@ -557,7 +762,14 @@ export class World {
   }
 
   get speciesNames() { return Object.keys(this.registry); }
-  living() { return this.speciesNames.filter(n => this.registry[n].extinct === null && !this.registry[n].waiting); }
+  // The living species, cached per tick and per registry version (the registry holds every species ever, ~2,200; s1562).
+  // touchRegistry() marks a birth, death, revival or release of a species, so a change within a tick is seen at once.
+  living() {
+    if (this._livT === this.tick && this._livV === (this._regVer ?? 0)) return this._liv;
+    this._livT = this.tick; this._livV = this._regVer ?? 0;
+    return (this._liv = this.speciesNames.filter(n => this.registry[n].extinct === null && !this.registry[n].waiting));
+  }
+  touchRegistry() { this._regVer = (this._regVer ?? 0) + 1; }
 
   seed() {
     this.tick = 0;
@@ -566,7 +778,7 @@ export class World {
     this.registry = {};
     this.code = {};
     for (const [name, sp] of Object.entries(loadSeed())) {
-      this.registry[name] = { ...sp, mark: 'none', parent: null, born: 0, extinct: null, lastBranchGen: 0,
+      this.touchRegistry(); this.registry[name] = { ...sp, mark: 'none', parent: null, born: 0, extinct: null, lastBranchGen: 0,
         lineage: name[0].toUpperCase(), branches: 0, role: roleOf(sp.tl) };
       this.code[name] = readCode(name);
     }
@@ -637,7 +849,22 @@ export class World {
     if (a === b) return true;
     const ra = this.registry[a], rb = this.registry[b];
     const mixes = r => (r.slip || r.variant) && !r.graduated;
+    if (this.rolled('speciate2') && ((ra.parent === b && this.graceOn(ra)) || (rb.parent === a && this.graceOn(rb)) || (ra.parent && ra.parent === rb.parent && (this.graceOn(ra) || this.graceOn(rb))))) return true; // (speciate2) a new species may still mate with its parent and sisters through its first season
     return !!((mixes(ra) && ra.parent === b) || (mixes(rb) && rb.parent === a) || (mixes(ra) && mixes(rb) && ra.parent === rb.parent));
+  }
+  // (Luis, s2244; rollout.graceheir) "a little help": a cross between a new species in its grace season and its parent or a
+  // sister belongs to the newer species (the later-born), not to a coin-flip parent. Other crosses (slips, variants) unchanged.
+  graceHeir(a, b) {
+    if (!this.rolled('graceheir') || a.species === b.species) return null;
+    const ra = this.registry[a.species], rb = this.registry[b.species];
+    if (!(this.graceOn(ra) || this.graceOn(rb))) return null;
+    return (ra.bornAt ?? -1) >= (rb.bornAt ?? -1) ? a : b;
+  }
+  graceOn(r) {
+    if (r.bornAt === undefined) return false;
+    const age = this.tick - r.bornAt;
+    if (this.rolled('gracegen') && r.founders !== undefined) return age < P.graceTicks || ((r.maxGen ?? 0) < P.graceGens && age < P.graceCap * SEASON_TICKS); // (gracegen) at least graceTicks, then until graceGens generations are born (cap graceCap seasons)
+    return age < P.graceTicks;
   }
 
   // A line born of a slip or a god's edit is a variant of its parent species, not a species of its own,
@@ -651,7 +878,7 @@ export class World {
   // Across a slip the code numbers no longer line up, so only bodies count.
   relatedGap(a, b) {
     const code = a.species === b.species && (a.morph ?? 0) === (b.morph ?? 0) ? this.genomeGap(a.k, b.k) : 0;
-    if (this.rolled('kin')) return P.kinCode * code + P.kinBody * kinBody(a, b) + P.kinGenes * kinGenes(a, b);
+    if (this.rolled('kin')) return P.kinCode * code + P.kinBody * (this.rolled('likemates') ? kinBodySkills(a, b) : kinBody(a, b)) + P.kinGenes * kinGenes(a, b);
     return code + P.gutIsolation * Math.abs(a.gut - b.gut) + P.sizeIsolation * Math.abs(Math.log(a.size / b.size));
   }
   rolled(key) { return this.season >= (this.rollout?.[key] ?? Infinity); }
@@ -662,20 +889,25 @@ export class World {
     const ns = P.tempNorth + (P.tempSouth - P.tempNorth) * (wrap(y, H) / H) + era, r = this.reliefRise();
     if (!r || x === undefined) return clamp01(ns);
     // relief: temperature from height replaces north–south, blending in as the land rises
-    return clamp01(ns * (1 - r) + (P.tempLow + era - P.lapse * this.elevAt(x, y) / Math.max(r, 1e-9) * r) * r);
+    return clamp01(ns * (1 - r) + (P.tempLow + era - this.lapseNow() * this.elevAt(x, y) / Math.max(r, 1e-9) * r) * r);
   }
+  // (D, s2261, rollout.coldheights) the heights are colder in every era: a steeper lapse rate.
+  lapseNow() { return this.rolled('coldheights') ? P.lapseCold : P.lapse; }
   // How far the relief has risen (0 flat … 1 full), smoothly by tick from rollout.relief over reliefSeasons.
   reliefRise() { const s0 = this.rollout?.relief; if (s0 === undefined || this.tick < s0 * SEASON_TICKS) return 0; return Math.min(1, (this.tick - s0 * SEASON_TICKS) / (P.reliefSeasons * SEASON_TICKS)); }
   // The relief (0…1 per cell; the land today is this × reliefRise()): the orography's own, blended toward the four
   // sections' frame as rollout.sections runs (sectionsRise 0 → 1). Both are computed once; the blend is cached in steps.
+  sloppyRise() { const s0 = this.rollout?.sloppy, t0 = (s0 - 1) * SEASON_TICKS; if (s0 === undefined || this.tick < t0) return 0; return Math.min(1, (this.tick - t0) / (P.sloppySeasons * SEASON_TICKS)); } // the potter's work, 0 → 1
   sectionsRise() { const s0 = this.rollout?.sections, t0 = (s0 - 1) * SEASON_TICKS; if (s0 === undefined || this.tick < t0) return 0; return Math.min(1, (this.tick - t0) / (P.sectionsSeasons * SEASON_TICKS)); } // season s runs from tick (s − 1) × SEASON_TICKS
+  riverRise() { const s0 = this.rollout?.bigriver, t0 = (s0 - 1) * SEASON_TICKS; if (s0 === undefined || this.tick < t0) return 0; return Math.min(1, (this.tick - t0) / (P.bigriverSeasons * SEASON_TICKS)); } // the big river's cut, 0 → 1
+  bandHalf() { return this.rolled('bigriver') ? P.bigChanHalf + 20 : P.chanHalf + 8; } // the river section's half-width (the big river is wider)
   reliefMap() {
-    const s = this.sectionsRise(), key = Math.round(s * 400);
+    const s = this.sectionsRise(), s2 = this.sloppyRise(), s3 = this.riverRise(), key = Math.round(s * 400) + 1000 * Math.round(s2 * 400) + 1e6 * Math.round(s3 * 400);
     if (this._relief && this._reliefStep === key) return this._relief;
     const E0 = (this._relief0 ??= this.buildRelief(false));
     if (!key) { this._reliefStep = key; this._needKey = null; return (this._relief = E0); }
-    const E1 = (this._relief1 ??= this.buildRelief(true)), k = key / 400, E = new Float32Array(E0.length);
-    for (let i = 0; i < E.length; i++) E[i] = E0[i] + (E1[i] - E0[i]) * k;
+    const E1 = (this._relief1 ??= this.buildRelief(true)), k = Math.round(s * 400) / 400, k2 = Math.round(s2 * 400) / 400, k3 = Math.round(s3 * 400) / 400, E = new Float32Array(E0.length), E2 = k2 > 0 || k3 > 0 ? (this._relief2 ??= this.buildRelief(2)) : null, E3 = k3 > 0 ? (this._relief3 ??= this.buildRelief(3)) : null;
+    for (let i = 0; i < E.length; i++) E[i] = E0[i] + (E1[i] - E0[i]) * k + (E2 ? (E2[i] - E1[i]) * k2 : 0) + (E3 ? (E3[i] - E2[i]) * k3 : 0);
     this._reliefStep = key; this._needKey = null;
     return (this._relief = E);
   }
@@ -687,7 +919,7 @@ export class World {
     for (let i = 0; i < E.length; i++) E[i] = R[i] * r + (this.tectonic?.[i] ?? 0); // the land's shape and its quakes (erosion gullies are not cliffs)
     const at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW);
     for (let i = 0; i < E.length; i++) {
-      const gx = i % GW, gy = (i / GW) | 0, steep = Math.hypot(E[at(gx + 1, gy)] - E[at(gx - 1, gy)], E[at(gx, gy + 1)] - E[at(gx, gy - 1)]) / (2 * CELL);
+      const gx = i % GW, gy = (i / GW) | 0, steep = Math.max(0, E[i] - Math.min(E[at(gx + 1, gy)], E[at(gx - 1, gy)], E[at(gx, gy + 1)], E[at(gx, gy - 1)])) / CELL; // a cliff is ground that DROPS away (s1637): a gorge floor between walls is not one (bodies fell there endlessly)
       N[i] = s * Math.max(P.cragNeed * clamp01((E[i] - P.cragAt) / (1 - P.cragAt)), P.cliffNeed * clamp01((steep - P.cliffAt) / P.cliffSpan));
     }
     this._needKey = nk;
@@ -701,8 +933,8 @@ export class World {
     const E = new Float32Array(GW * GH), rx = P.riverX * W, px = P.peakX * W, half = P.mesetaHalf * H;
     const mx0 = rx + P.canyonHalf * 2.2, mx1 = W - 30, dx = (a, b) => { const d = Math.abs(a - b) % W; return Math.min(d, W - d); };
     const step = (v, w) => Math.min(1, Math.max(0, v / w)), smooth = t => t * t * (3 - 2 * t);
-    for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
-      const x0 = (gx + 0.5) * CELL, y0 = (gy + 0.5) * CELL;
+    const sloppy = frame >= 2, big = frame === 3; // (s1837) frame 3 is the sloppy land with the big river cut; (s1694) the potter's hands: the frame's straight lines wander, swell, sag and wear through
+    const cell = (x0, y0) => { const gx = x0 / CELL - 0.5, gy = y0 / CELL - 0.5;
       const x = x0 + 130 * fbm(x0 * 0.004, y0 * 0.004, 11), y = y0 + 90 * fbm(x0 * 0.004, y0 * 0.004, 23); // warped position
       const ry = P.ridgeY * H + 30 * fbm(x0 * 0.003, 0.5, 31), dyR = Math.abs(y - ry); // the ridge line wanders
       const ang = Math.atan2(y - ry, dx(x, px) * Math.sign(x - px || 1)), spur = 1 + 0.35 * Math.sin(ang * 5 + 1.7) * (0.6 + fbm(gx * 0.1, gy * 0.1, 41));
@@ -719,20 +951,39 @@ export class World {
       const top = Math.max(peak, meseta, saddle), n = 0.04 * fbm(gx * 0.2, gy * 0.2, 7.7);
       let e = Math.max(0, top * canyon + (top > 0.05 ? n : 0));
       if (frame) {
-        const vd = Math.min(dx(x0, crx), dx(x0, P.seamX)); // and fall gently into a valley along each channel, so runoff gathers into rivers
-        const L = P.tiltBase + P.tiltWest * (1 - x0 / W) - P.valleyDepth * Math.max(0, 1 - vd / P.valleyHalf); // the lowlands lean down from west to east (the meseta keeps its flat top)
+        const wx = sloppy ? x0 + 45 * fbm(x0 * 0.003, y0 * 0.003, 161) : x0, wy = sloppy ? y0 + 45 * fbm(x0 * 0.003, y0 * 0.003, 167) : y0; // the smear
+        const crx2 = sloppy ? crx + 34 * fbm(1.3, y0 * 0.004, 153) : crx, seamX = sloppy ? P.seamX + 6 * Math.sin(y0 / 50) + 48 * fbm(0.7, y0 * 0.005, 147) : P.seamX + 6 * Math.sin(y0 / 50);
+        const vd = Math.min(dx(wx, crx2), dx(wx, seamX)); // and fall gently into a valley along each channel, so runoff gathers into rivers
+        const L = P.tiltBase + P.tiltWest * (1 - Math.min(W, Math.max(0, wx)) / W) - P.valleyDepth * Math.max(0, 1 - vd / P.valleyHalf); // the lowlands lean down from west to east (the meseta keeps its flat top)
         e = Math.max(e, L);
         const ryS = P.ridgeY * H + 30 * fbm(x0 * 0.003, 0.5, 31), dS = Math.abs(y0 - ryS), mes = inX * inY;
         e = Math.max(e, P.spineH * smooth(step(P.spineCore + P.spineFace - dS, P.spineFace)) * (1 - mes)); // a spine of crags along the ridge where the meseta is not
-        const dW = Math.min(y0, H - y0);
-        e = Math.max(e, P.wallH * smooth(step(P.wallCore + P.wallFace - dW, P.wallFace)) * (1 + 0.06 * fbm(x0 * 0.03, 0.2, 17))); // the wall along the top/bottom seam
-        for (const [lx, bank] of [[crx, P.tiltBase + P.tiltWest * (1 - crx / W)], [P.seamX + 6 * Math.sin(y0 / 50), P.tiltBase]]) { // the two channels: narrow, deep, cut through everything
-          const dc = dx(x0, lx); if (dc >= P.chanHalf) continue;
+        const wallY = sloppy ? 60 * fbm(x0 * 0.005, 3.3, 141) : 0, dW = Math.min(Math.abs(((wy - wallY) % H + H) % H), H - Math.abs(((wy - wallY) % H + H) % H));
+        const wallH = sloppy ? P.wallH * Math.max(0.2, Math.min(1.15, 0.35 + 1.3 * (fbm(x0 * 0.006, 1.1, 143) + 0.5))) : P.wallH, face = sloppy ? P.wallFace * (0.7 + 1.2 * (fbm(x0 * 0.01, 2.2, 149) + 0.5)) : P.wallFace; // it swells, sags and wears through
+        e = Math.max(e, wallH * smooth(step(P.wallCore + face - dW, face)) * (1 + 0.06 * fbm(x0 * 0.03, 0.2, 17))); // the wall along the top/bottom seam
+        for (const [lx, bank] of [[crx2, P.tiltBase + P.tiltWest * (1 - crx2 / W)], [seamX, P.tiltBase]]) { // the two channels: narrow, deep, cut through everything
+          const dc = dx(wx, lx), ch = sloppy ? P.chanHalf * (0.7 + 0.8 * (fbm(x0 * 0.01, y0 * 0.01, 159) + 0.5)) : P.chanHalf; if (dc >= ch) continue;
           const floor = bank - P.valleyDepth - P.chanDepth; // below the valley floor (the seam river may dip under 0)
-          e = Math.min(e, floor + (e - floor) * smooth(step(dc - P.chanHalf * 0.5, P.chanHalf * 0.5)));
+          e = Math.min(e, floor + (e - floor) * smooth(step(dc - ch * 0.5, ch * 0.5)));
+        }
+        if (big) { // the big river: the seam channel's line wanders further, with a broad floodplain and a deep main channel
+          const bl = seamX + P.bigMeander * Math.sin(y0 / 95 + 1.1) * (0.6 + fbm(0.4, y0 * 0.006, 171)), bank = P.tiltBase, dB = dx(wx, bl);
+          const fl = P.bigFloodHalf * (0.8 + 0.5 * (fbm(x0 * 0.01, y0 * 0.01, 173) + 0.5)), ch = P.bigChanHalf * (0.75 + 0.6 * (fbm(x0 * 0.01, y0 * 0.01, 175) + 0.5));
+          const lowland = 1 - smooth(step(e - P.bigGorgeAt, 0.3)); // the floodplain spreads over low ground only: the wall and the dome keep their gorge
+          if (dB < fl && lowland > 0) { const fo = bank - P.bigFloodDepth; e = Math.min(e, e + (Math.min(e, fo) - e) * lowland * smooth(step(fl - dB, fl * 0.5))); }
+          if (dB < ch) { const floor = bank - P.valleyDepth - P.bigChanDepth; e = Math.min(e, floor + (e - floor) * smooth(step(dB - ch * 0.4, ch * 0.6))); }
         }
       }
-      E[gy * GW + gx] = e;
+      return e;
+    };
+    // SLOPPY (s1694, Luis: "not like an iron, more like a pottery artist with very sloppy old hands"): within seamBand of each
+    // map edge the land is blended with the land that wraps in from the other side, equal at the seam, so nothing jumps.
+    const B = P.seamBand, mixA = u => u < B ? 0.5 * (1 - u / B) : u > W - B ? 0.5 * (1 - (W - u) / B) : 0, mixB = v => v < B ? 0.5 * (1 - v / B) : v > H - B ? 0.5 * (1 - (H - v) / B) : 0;
+    for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+      const x0 = (gx + 0.5) * CELL, y0 = (gy + 0.5) * CELL;
+      if (!sloppy) { E[gy * GW + gx] = cell(x0, y0); continue; }
+      const a = mixA(x0), b = mixB(y0), xo = x0 < W / 2 ? x0 + W : x0 - W, yo = y0 < H / 2 ? y0 + H : y0 - H;
+      E[gy * GW + gx] = (1 - a) * (1 - b) * cell(x0, y0) + a * (1 - b) * cell(xo, y0) + (1 - a) * b * cell(x0, yo) + a * b * cell(xo, yo);
     }
     return E;
   }
@@ -755,7 +1006,82 @@ export class World {
     }
     return [1, 2, 0][((Math.floor((z - P.geoBase + this._fold[i]) / P.geoLayer) % 3) + 3) % 3]; // soft, soluble, hard, from the basement up
   }
-  elevAt(x, y) { const r = this.reliefRise(), i = cellAt(x, y); return (r ? this.reliefMap()[i] * r : 0) + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0); } // the land, moved by quakes, less what water has carved
+  // THE UPHEAVAL: the dome's full uplift per cell (fixed once: irregular radius by angle, a faint tail everywhere).
+  upheavalTarget() {
+    if (this._upT) return this._upT;
+    const T = new Float32Array(GW * GH), [cx, cy] = P.upheavalAt, d = (a, b, m) => { let v = Math.abs(a - b) % m; return Math.min(v, m - v); };
+    for (let i = 0; i < T.length; i++) {
+      const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, dx = d(x, cx, W), dy = d(y, cy, H), r = Math.hypot(dx, dy), sd = (a, b, m) => { let v = (a - b) % m; if (v > m / 2) v -= m; if (v < -m / 2) v += m; return v; }, ang = Math.atan2(sd(y, cy, H), sd(x, cx, W)); // (s1720: wrapped — unwrapped, it made the dome jump across the top/bottom edge)
+      const R = P.upheavalR * (1 + 0.3 * (noise3(Math.cos(ang) * 1.5 + 3, Math.sin(ang) * 1.5 + 3, 4.2) - 0.5) * 2) * (1 + 0.08 * (noise3(x * 0.02, y * 0.02, 9.1) - 0.5));
+      T[i] = P.upheavalAmp * Math.exp(-((r / R) ** 2)) + P.upheavalTail * Math.exp(-r / P.upheavalTailR);
+    }
+    return (this._upT = T);
+  }
+  upheavalStep() {
+    const s0 = this.rollout.upheaval, t0 = (s0 - 1) * SEASON_TICKS, n = GW * GH;
+    if (this.tick < t0) return;
+    const T = this.upheavalTarget(), U = (this.upheaval ??= { applied: new Float32Array(n), byQuake: new Float32Array(n), next: s0 + 0.3 });
+    if (!U.applied?.length) U.applied = new Float32Array(n); if (!U.byQuake?.length) U.byQuake = new Float32Array(n);
+    const steps = P.upheavalSeasons * SEASON_TICKS / 135, now = this.season - 1 + (this.tick % SEASON_TICKS) / SEASON_TICKS, end = s0 - 1 + P.upheavalSeasons;
+    if (now >= end) { // the last settling: whatever is still missing is laid down
+      for (let i = 0; i < n; i++) { const left = T[i] - U.applied[i]; if (left > 0) { this.tectonic[i] += left; U.applied[i] += left; } }
+      U.done = true; this.landChanged(); this._needKey = null; this._rock = null;
+      this.log('The ground settles at last. The mass below has stopped rising; the peak stands far above the plateau, cold and white, and the land around it lies folded and cracked.');
+      return;
+    }
+    for (let i = 0; i < n; i++) { const c = T[i] * P.upheavalCreep / steps; this.tectonic[i] += c; U.applied[i] += c; } // the slow rise
+    if (now >= U.next) { this.upheavalQuake(); U.next = now + P.upheavalEvery[0] + Math.random() * (P.upheavalEvery[1] - P.upheavalEvery[0]); }
+    this.landChanged(); this._needKey = null;
+  }
+  upheavalQuake() {
+    const T = this.upheavalTarget(), U = this.upheaval, n = GW * GH, big = Math.random() < P.upheavalBigChance, [cx, cy] = P.upheavalAt;
+    const owed = i => Math.max(0, T[i] * (1 - P.upheavalCreep) - U.byQuake[i]); // what the quakes still owe this cell
+    let tot = 0; for (let i = 0; i < n; i++) tot += owed(i);
+    if (tot <= 1e-6) return;
+    let r = Math.random() * tot, e = 0; for (; e < n - 1; e++) { r -= owed(e); if (r <= 0) break; } // the epicentre: where most is owed
+    const x0 = (e % GW + 0.5) * CELL, y0 = ((e / GW | 0) + 0.5) * CELL, R = big ? 200 + Math.random() * 140 : 90 + Math.random() * 70, share = big ? 0.4 + Math.random() * 0.25 : 0.12 + Math.random() * 0.15;
+    const d = (a, b, m) => { let v = (a - b) % m; if (v > m / 2) v -= m; if (v < -m / 2) v += m; return v; };
+    let lifted = 0;
+    for (let i = 0; i < n; i++) {
+      const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, rr = Math.hypot(d(x, x0, W), d(y, y0, H)) / (R * (0.8 + 0.4 * noise3(x * 0.015, y * 0.015, this.tick * 0.001)));
+      if (rr >= 1) continue;
+      const w = (1 - rr * rr) ** 2, add = owed(i) * share * w * (1 + P.upheavalNoise * (Math.random() * 2 - 1)); // imperfect: a little more here, a little less there
+      this.tectonic[i] += add; U.byQuake[i] += add; U.applied[i] += add; lifted += add;
+    }
+    // The stretched surface cracks: a narrow trough through the epicentre, radial to the dome or along its rings.
+    const radial = Math.random() < 0.5, toC = Math.atan2(d(cy, y0, H), d(cx, x0, W)), ang = (radial ? toC : toC + Math.PI / 2) + (Math.random() - 0.5) * 0.6;
+    const len = big ? 220 + Math.random() * 200 : 100 + Math.random() * 100, depth = P.crackDepth[0] + Math.random() * (P.crackDepth[1] - P.crackDepth[0]) * (big ? 1 : 0.6), ux = Math.cos(ang), uy = Math.sin(ang);
+    for (let i = 0; i < n; i++) {
+      const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, dx = d(x, x0, W), dy = d(y, y0, H), along = dx * ux + dy * uy, across = -dx * uy + dy * ux;
+      if (Math.abs(along) > len / 2) continue;
+      this.tectonic[i] -= depth * Math.exp(-((across / P.crackWidth) ** 2)) * Math.min(1, (len / 2 - Math.abs(along)) / 30); // tapering at its ends
+    }
+    this.near(x0, y0, big ? 200 : 100, c => { if (!c.dead && !this.registry[c.species].unique) c.energy -= P.quakeFright * (big ? 1 : 0.4); });
+    this.quakeNow = { x: Math.round(x0), y: Math.round(y0), ang: +ang.toFixed(3), len: Math.round(len), mag: +(lifted / 50).toFixed(3), big, until: this.tick + 300 };
+    (this.quakeLog ??= []).push({ season: this.season, x: this.quakeNow.x, y: this.quakeNow.y, ang: this.quakeNow.ang, len: this.quakeNow.len, mag: this.quakeNow.mag, big, upheaval: true }); if (this.quakeLog.length > 50) this.quakeLog.shift();
+    this._reliefKey = null; this._needKey = null; this._rock = null; this.landChanged();
+    const where = Math.hypot(d(x0, cx, W), d(y0, cy, H)) < P.upheavalR ? 'under the peak' : 'on the rising land';
+    this.log(`${big ? 'The ground heaves' : 'The ground lurches'} ${where}: the mass below pushes up, and the stretched surface cracks ${radial ? 'outward from the peak' : 'along the rising slopes'}.`);
+  }
+  // SLOPPY (s1720): the tectonic layer's step across each map edge is eased a little every 135 ticks, onto a ramp seamRamp
+  // cells wide: features (quake scarps, the dome) keep their shape, only the jump at the edge melts.
+  easeSeams() {
+    const T = this.tectonic, K = P.seamRamp, k = P.seamEase;
+    for (let gx = 0; gx < GW; gx++) { const J = T[gx] - T[(GH - 1) * GW + gx]; for (let r = 0; r < K; r++) { const w = 0.5 * k * J * (1 - r / K); T[r * GW + gx] -= w; T[(GH - 1 - r) * GW + gx] += w; } } // top/bottom
+    for (let gy = 0; gy < GH; gy++) { const J = T[gy * GW] - T[gy * GW + GW - 1]; for (let c = 0; c < K; c++) { const w = 0.5 * k * J * (1 - c / K); T[gy * GW + c] -= w; T[gy * GW + GW - 1 - c] += w; } } // left/right
+    this.landChanged(); this._needKey = null; this._rock = null;
+  }
+  // The land per cell, cached (s1562): rebuilt when water has carved or laid down (each water update), after a quake, and
+  // whenever the relief or its rise steps — keyed on all three, so it is never stale.
+  elevMap() {
+    const r = this.reliefRise(), lv = this._landVer ?? 0;
+    if (this._elev && this._eR === r && this._eL === lv && this._eS === this._reliefStep) return this._elev; // plain comparisons: this runs thousands of times a tick
+    const R = r ? this.reliefMap() : null, E = (this._elev ??= new Float32Array(GW * GH)), T = this.tectonic, D = this.carve;
+    for (let i = 0; i < E.length; i++) E[i] = (R ? R[i] * r : 0) + (T?.[i] ?? 0) - (D?.[i] ?? 0);
+    this._eR = r; this._eL = lv; this._eS = this._reliefStep; return E;
+  }
+  landChanged() { this._landVer = (this._landVer ?? 0) + 1; }
+  elevAt(x, y) { return this.elevMap()[cellAt(x, y)]; } // the land, moved by quakes, less what water has carved
   // Steepness of a cell (elevation change per pixel), for slowing bodies on slopes.
   steepAt(x, y) {
     if (!this.reliefRise()) return 0;
@@ -766,14 +1092,30 @@ export class World {
   climateCost(c) {
     if (!this.rolled('climate') || this.registry[c.species].unique) return 1;
     const T = this.tempAt(c.y, undefined, c.x), ins = 0.7 * (c.coat ?? P.coatStart) + 0.3 * Math.min(1, this.fatLoad(c)), size = this.bodySize(c) / 7;
-    const cold = P.coldCost * 2 * Math.max(0, 0.5 - T) * (1 - ins) / Math.sqrt(Math.max(0.3, size));
-    const heat = P.heatCost * 2 * Math.max(0, T - 0.5) * ins * Math.sqrt(Math.max(0.3, size));
+    const sf = this.rolled('coldheights') ? Math.max(0.3, size) ** P.bergmann : Math.sqrt(Math.max(0.3, size)); // (D) Bergmann by place: cold ∝ 1/size once the heights are colder
+    const cold = P.coldCost * 2 * Math.max(0, 0.5 - T) * (1 - ins) / sf;
+    const heat = P.heatCost * 2 * Math.max(0, T - 0.5) * ins * sf;
     const m = this.moisture[cellAt(c.x, c.y)], dry = m < 0.3 ? P.dryCost * (0.3 - m) / 0.3 * (1 - (c.water ?? P.waterStart)) : 0;
     return (1 + cold + heat + dry) * (1 + P.coatUpkeep * (c.coat ?? P.coatStart));
   }
   // How much of grass's value a gut keeps: (1 − gut)², or with the plateau rolled out, all of it up to gutPlateau, then
   // the same curve squeezed onto what is left — so the first steps toward meat cost nothing.
-  grassGut(g) { if (!this.rolled('plateau')) return (1 - g) ** 2; const p = P.gutPlateau; return g <= p ? 1 : ((1 - g) / (1 - p)) ** 2; }
+  // M4 (Codex): Gaussian shoulders begin at the flat top's edge, so fits stay continuous.
+  gutFit(g, kind) {
+    if (kind === 'carrion' && this.rolled('carrionfit')) return Math.exp(-((Math.max(0, Math.abs(g - 0.40) - 0.15) / 0.45) ** 2)); // (carrionfit) wide shoulders for low and middle guts
+    if (kind === 'flesh' && this.rolled('gutvalley')) return Math.exp(-((Math.max(0, Math.abs(g - 0.7) - 0.1) / 0.4) ** 2)); // (gutvalley) wide shoulders for fresh meat
+    const ff = this.rolled('foodvalues') && P.foodFit[kind]; if (ff) return Math.exp(-((Math.max(0, Math.abs(g - ff[0]) - ff[1]) / ff[2]) ** 2)); // (foodvalues) insects and fish suit most guts
+    const [peak, top, width] = kind === 'plant' ? [0.05, 0.10, 0.35]
+      : kind === 'browse' ? [0.25, 0.10, 0.35]
+      : kind === 'insect' ? [0.40, 0.05, 0.30]
+      : kind === 'carrion' ? [0.55, 0.10, 0.30]
+      : kind === 'flesh' ? [0.80, 0.15, 0.35] : kind === 'fish' ? [0.45, 0.10, 0.35] : [0.20, 0.10, 0.40]; // fruit, nut, cone (fish: a middle gut, s2419)
+    return Math.exp(-((Math.max(0, Math.abs(g - peak) - top) / width) ** 2));
+  }
+  gutCurves(c) { return this.rolled('gutcurves') && (!c || !this.registry[c.species].unique); }
+  browseGut(c) { return this.gutCurves(c) ? this.gutFit(c.gut, 'browse') : 1 - c.gut; }
+  treeGut(c) { return this.gutCurves(c) ? this.gutFit(c.gut, 'fruit') : this.grassGut(c.gut, c); }
+  grassGut(g, c) { if (this.gutCurves(c)) return this.gutFit(g, 'plant'); if (!this.rolled('plateau')) return (1 - g) ** 2; const p = P.gutPlateau; return g <= p ? 1 : ((1 - g) / (1 - p)) ** 2; }
 
   // How different two creatures' code numbers are: mean |log ratio|. Too different, and they cannot breed.
   // A line's founder (the species at the root of its lineage) and what it started as: its written code numbers and
@@ -813,10 +1155,11 @@ export class World {
     const sp = this.registry[name];
     return {
       id: this.nextId++, species: name, x: wrap(x, W), y: wrap(y, H), vx: 0, vy: 0,
-      energy: 1, age: 0, lifespan: Math.round(sp.lifespan * (0.7 + Math.random() * 0.6)), mature: driftMature(sp.avgMature ?? 1), browse: driftBrowse(sp.avgBrowse ?? 0.05), gape: driftGape(sp.avgGape ?? 0.5), resist: driftResist(sp.avgResist ?? P.resistStart), eyes: driftEyes(sp.avgEyes ?? P.eyesStart), decomp: driftAbility(sp.avgDecomp, P.decompStart), parasitism: driftAbility(sp.avgParasitism, P.parasiteStart), coat: driftCoat(sp.avgCoat), swim: driftSwim(sp.avgSwim), climb: driftClimb(sp.avgClimb), water: driftWater(sp.avgWater),
+      energy: 1, age: 0, lifespan: Math.round(sp.lifespan * (0.7 + Math.random() * 0.6)), mature: driftMature(sp.avgMature ?? 1), browse: driftBrowse(sp.avgBrowse ?? 0.05), gape: driftGape(sp.avgGape ?? 0.5), resist: driftResist(sp.avgResist ?? P.resistStart), eyes: driftEyes(sp.avgEyes ?? P.eyesStart), decomp: driftAbility(sp.avgDecomp, P.decompStart), parasitism: driftAbility(sp.avgParasitism, P.parasiteStart), coat: driftCoat(sp.avgCoat), swim: driftSwim(sp.avgSwim), climb: driftClimb(sp.avgClimb), bite: driftBite(sp.avgBite), ...(this.rolled('insects') ? { snap: driftSnap(sp.avgSnap) } : {}), water: driftWater(sp.avgWater),
       gen, genes, size, gut, hue: sp.hue, memory: {}, broken: false,
       willing: false, give: 0.45, signal: 0, cooldown: 0, eats: true, k: this.jitterK(name),
       body: mass(size) * P.bodyEnergy * (gen > 0 ? P.bornBody : 1), // the god's newcomers arrive with full bodies
+      gutLoad: 0, gutE: 0, gutPools: {},
       legs: driftLegs(sp.avgLegs ?? 1), wind: driftWind(sp.avgWind ?? 0.5), stamina: 0, sprinting: false,
       plastic: driftPlastic(sp.avgPlastic ?? 0.2), bornGut: gut, shift: 0, hunger: 0, thrift: driftThrift(sp.avgThrift ?? 0.5),
       armor: driftArmor(sp.avgArmor ?? 0), toxin: driftToxin(sp.avgToxin ?? 0), litter: driftLitter(sp.avgLitter ?? 1), hueShift: driftHue(sp.avgHueShift ?? 0),
@@ -826,17 +1169,37 @@ export class World {
   // Room to breed. The creature cap is a limit of the machine, not of the land, so it must not protect whoever filled it
   // first: when the world is full only the crowded species stop breeding; a small one (under a fifth of the cap)
   // may still breed, up to a hard ceiling a little above the cap.
-  room(name, total) {
+  room(name, total, c) {
     // Gradual crowding (Luis): births grow less likely as the world fills past crowdStart of its room, and most for the
     // commonest families, so rare lines keep a foothold and no family can monopolise it. A hard ceiling stays for the machine.
     const cap = this.maxCreatures ?? MAX_CREATURES;
+    // ROOM BY NICHE (Luis, s1930; rollout.nicheroom): a way of life is crowded by its own numbers, measured live: a rare way of
+    // life (under nicheRare of all bodies) may breed past the head ceiling, up to nicheExtra more of the cap, and every birth
+    // is throttled by the rarer of its species' and its way of life's share. No fixed quota per niche: the shares regulate it.
+    const byNiche = c && this.rolled('nicheroom');
+    let nShare = 1;
+    if (byNiche) {
+      if (!this.nicheTick || this.tick - this.nicheTick >= 30) { // ways of life counted every 30 ticks
+        this.nicheTick = this.tick; this.nicheCount = {}; this.nicheOfBody = new Map();
+        for (const o of this.creatures) if (!o.dead && !this.registry[o.species].unique) { const n = this.nicheOf(o); this.nicheOfBody.set(o, n); this.nicheCount[n] = (this.nicheCount[n] ?? 0) + 1; }
+      }
+      const n = this.nicheOfBody.get(c) ?? this.nicheOf(c);
+      nShare = (this.nicheCount[n] ?? 0) / Math.max(1, total);
+    }
+    const rareNiche = byNiche && nShare < P.nicheRare && total < cap * (P.massHeads + P.nicheExtra);
+    if (this.familyTick !== this.tick) { // species counts, once per tick
+      this.familyTick = this.tick; this.families = {};
+      for (const c of this.creatures) if (!c.dead) this.families[c.species] = (this.families[c.species] ?? 0) + 1;
+    }
+    const spShare = (this.families[name] ?? 0) / Math.max(1, total);
+    const rareHead = this.rolled('rarehead') && spShare < P.rareHeadShare && total < cap * (P.massHeads + P.rareHeadExtra * (1 - spShare / P.rareHeadShare) * (this.rolled('dietroom') ? Math.min(1, this.dietDiff(name) / P.rareDietFull) : 1)); // (rarehead) a rare species' own extra room
     let crowd;
     if (this.rolled('massroom')) { // room by body mass (the giant apart): small bodies take less room, big ones more
-      if (total >= cap * P.massHeads) { this.ceilingAt = this.tick; return false; } // the machine's limit, in heads
+      if (total >= cap * P.massHeads && !rareNiche && !rareHead) { this.ceilingAt = this.tick; return false; } // the machine's limit, in heads
       if (this.massTick !== this.tick) { this.massTick = this.tick; this.massNow = 0; this.massBy = {}; for (const c of this.creatures) if (!c.dead && !this.registry[c.species].unique) { const m = mass(this.bodySize(c)); this.massNow += m; this.massBy[c.species] = (this.massBy[c.species] ?? 0) + m; } }
       const budget = cap * P.massPerSlot;
       const rare = this.rolled('rareroom') && (this.massBy?.[name] ?? 0) < P.rareMass * this.massNow; // a rare species may breed past the mass ceiling (heads still capped)
-      if (this.massNow >= budget * P.capCeiling && !rare) { this.ceilingAt = this.tick; return false; }
+      if (this.massNow >= budget * P.capCeiling && !rare && !rareNiche && !rareHead) { this.ceilingAt = this.tick; return false; }
       crowd = Math.max(0, (this.massNow / budget - P.crowdStart) / (P.capCeiling - P.crowdStart));
     } else {
       if (total >= cap * P.capCeiling) { this.ceilingAt = this.tick; return false; }
@@ -845,12 +1208,10 @@ export class World {
     if (!crowd) return true;
     // Counted by species (Luis, 07:10 Oct 16): every species now shares one root line, so counting the root family throttled a
     // species of 15 as hard as one of 200 — small and new species could not grow out of danger and aged out.
-    if (this.familyTick !== this.tick) { // species counts, once per tick
-      this.familyTick = this.tick; this.families = {};
-      for (const c of this.creatures) if (!c.dead) this.families[c.species] = (this.families[c.species] ?? 0) + 1;
-    }
-    const share = (this.families[name] ?? 0) / Math.max(1, total);
-    return Math.random() < 1 - crowd * (0.3 + 0.7 * share);
+    const share = Math.min((this.families[name] ?? 0) / Math.max(1, total), nShare);
+    const fit = this.rolled('condbreed') && c ? clamp01(((c.energy + (c.fat ?? 0) * P.fatEfficiency) / this.capOf(c) - P.condMin) / (P.condFull - P.condMin)) : 1; // (condbreed) the well-fed take the slot
+    const edge = this.rolled('dietedge') && c ? this.dietEdge(c) : 1; // (dietedge) eating differently, with the skill for it
+    return Math.random() < (1 - Math.min(1, crowd) * (0.3 + 0.7 * share)) * fit * edge;
   }
 
 
@@ -882,7 +1243,7 @@ export class World {
   addSpecies(name, parent, code, variant = false) {
     const p = this.registry[parent];
     p.branches = (p.branches ?? 0) + 1;
-    this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, lastBranchGen: 0,
+    this.touchRegistry(); this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, lastBranchGen: 0,
       lineage: `${p.lineage}.${p.branches}`, branches: 0, meanK: undefined, drift: 0, variant, slip: undefined, graduated: undefined };
     this.code[name] = code;
     this.compile(name);
@@ -921,7 +1282,7 @@ export class World {
   holdSpecies(name, parent, code, message) {
     const p = this.registry[parent];
     p.branches = (p.branches ?? 0) + 1;
-    this.registry[name] = { ...p, ...this.distinctLook((p.avgGut ?? p.gut) >= 0.5), parent, born: this.season, extinct: null, waiting: true,
+    this.touchRegistry(); this.registry[name] = { ...p, ...this.distinctLook((p.avgGut ?? p.gut) >= 0.5), parent, born: this.season, extinct: null, waiting: true,
       lastBranchGen: 0, lineage: `${p.lineage}.${p.branches}`, branches: 0, size: p.avgSize ?? p.size, gut: p.avgGut ?? p.gut, meanK: undefined, drift: 0 };
     this.code[name] = code;
     this.ensureBooks();
@@ -943,10 +1304,10 @@ export class World {
 
   markExtinct(name) {
     const sp = this.registry[name];
-    sp.extinct = this.season;
+    sp.extinct = this.season; this.touchRegistry();
     delete this.behaviors[name];
     delete this.lastCounts[name];
-    const how = { starved: 'starving', old: 'of old age', eaten: 'in someone\'s jaws' }[this.lastDeath?.cause] ?? '';
+    const how = { starved: 'starving', old: 'of old age', eaten: 'in someone\'s jaws', burnt: 'in a fire' }[this.lastDeath?.cause] ?? '';
     const lived = this.season - sp.born;
     const span = sp.parent ? ` They lasted ${lived <= 0 ? 'less than a season' : lived === 1 ? 'one season' : lived + ' seasons'}.` : '';
     this.log(this.isVariant(name)
@@ -993,7 +1354,7 @@ export class World {
     const name = names.find(n => !this.registry[n].parent && this.registry[n].extinct !== null) ?? names.filter(n => this.registry[n].extinct !== null)[0];
     if (!name) return;
     const sp = this.registry[name];
-    Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } });
+    Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } }); this.touchRegistry();
     this.compile(name);
     // They are sent to eat the dead: if their line has lost its jaws, they come with the gut they were first given.
     const gut = (sp.avgGut ?? sp.gut) > P.jaws + 0.1 ? sp.avgGut ?? sp.gut : sp.gut;
@@ -1037,7 +1398,7 @@ export class World {
     const sp = this.registry[name];
     const returning = sp.extinct !== null, held = !!sp.waiting, reinforcing = !returning && !held;
     if (!reinforcing) {
-      Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } });
+      Object.assign(sp, { extinct: null, waiting: false, lastBranchGen: 0, releasedAt: this.tick, statsAtRelease: { ...this.stats[name] } }); this.touchRegistry();
       this.records[name].peak = 0;
       this.records[name].generation = 0;
       this.compile(name);
@@ -1237,10 +1598,11 @@ export class World {
     }
   }
 
-  // The thicket's life: it grows beside solid reef (from soil, with moisture), dies back where the reef is gone or
-  // the ground is dry, and is worn by heavy traffic; whatever it loses returns to the soil.
+  // The thicket's life: beside solid reef, or (rollout.shrubland) spreading from its own patch on suitable soil.
+  // Drought and heavy traffic wear it; whatever it loses returns to the soil.
   updateThicket() {
     const th = this.thicket, reef = this.reef, S = P.reefSolid, at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW);
+    const shrub = this.rolled('shrubland'), N = shrub ? this.climbNeed() : null;
     for (let i = 0; i < GW * GH; i++) {
       const x = i % GW, y = (i / GW) | 0;
       const edge = reef[i] < S && (reef[at(x + 1, y)] >= S || reef[at(x - 1, y)] >= S || reef[at(x, y + 1)] >= S || reef[at(x, y - 1)] >= S);
@@ -1248,7 +1610,14 @@ export class World {
       if (edge && m >= 0.3) {
         const g = P.thicketGrow * (P.thicketMax - th[i]) * (m + f) * (f / (f + (P.soilNeed || 0.1)));
         if (g > 0) { th[i] += g; this.fertility[i] = Math.max(0, f - g * P.thicketUptake); }
-      } else if (edge && m >= P.thicketHardy) {
+      } else if (shrub && !edge && m >= P.shrubWet && f >= P.shrubSoil &&
+        reef[i] < S && this.water[i] <= P.treeDeep && this.rockOf(i) !== 4 && N[i] <= 0.5 &&
+        !(this.trees[i] >= P.treeMature) && (th[i] > 0 ||
+          th[at(x + 1, y)] >= P.shrubSeed || th[at(x - 1, y)] >= P.shrubSeed ||
+          th[at(x, y + 1)] >= P.shrubSeed || th[at(x, y - 1)] >= P.shrubSeed)) {
+        const g = Math.min(P.shrubMax - th[i], P.shrubGrow * (P.shrubMax - th[i]) * (m + f) * (f / (f + (P.soilNeed || 0.1))));
+        if (g > 0) { th[i] += g; this.fertility[i] = Math.max(0, f - g * P.thicketUptake); }
+      } else if (edge ? m >= P.thicketHardy : shrub && m >= P.shrubHold) { // (s2085) soil shrubs persist only on moist ground
         // Thorny scrub is drought-hardy: in ordinary dryness it holds on, neither growing nor dying.
       } else if (th[i] > 0) {
         const d = Math.min(th[i], P.thicketDie);
@@ -1257,6 +1626,124 @@ export class World {
       const busy = Math.min(1, this.traffic[i] / P.busy);
       if (busy > 0 && th[i] > 0) { const d = Math.min(th[i], P.trample * busy); th[i] -= d; this.fertility[i] = Math.min(2, this.fertility[i] + d * P.thicketUptake); }
     }
+  }
+
+  // What hides and slows a body: the thicket, and with rollout.trees also the canopy (the greater of the two, per cell).
+  get shelter() { return this._shelter ?? this.thicket; }
+
+  // TREES (rollout.trees; see the TREES block in PHYSICS). One update with the thicket's cadence. Suitability of a kind at a cell
+  // (0 … 1): rock, temperature and moisture. Nothing for basement, deep water, crags and cliffs, or solid reef.
+  treeSuit(kind, i, T, m, rk) {
+    if (kind === 1) { const t2 = this.rolled('trees2'); return rk === 1 || rk === 3 ? clamp01((T - (t2 ? 0.3 : 0.35)) / 0.1) * clamp01((m - (t2 ? 0.3 : 0.4)) / 0.2) : 0; } // (trees2) fruit trees: a wider warm, moist window
+    if (kind === 2) return rk === 2 ? clamp01((T - 0.3) / 0.1) * clamp01((0.75 - T) / 0.1) * clamp01((m - 0.2) / 0.2) : 0;
+    return rk === 0 || T < 0.4 ? clamp01((T - P.treeFrost) / 0.05) * clamp01((m - 0.05) / 0.1) : 0; // conifers: hard rock, and the cold heights up to the treeline
+  }
+  treeBarred(i, rk, N = this.climbNeed()) { return rk === 4 || this.water[i] > P.treeDeep || N[i] > 0.5 || this.reef[i] >= P.reefSolid; }
+  // A sapling of this kind at cell j if the ground suits it well enough and holds no tree.
+  seedTree(j, kind) {
+    if (this.trees[j] > 0) return false;
+    const rk = this.rolled('geology') ? this.rockOf(j) : 1; if (this.treeBarred(j, rk)) return false;
+    if (this.treeSuit(kind, j, this.tempAt(((j / GW | 0) + 0.5) * CELL, undefined, ((j % GW) + 0.5) * CELL), this.moisture[j] ?? 0.5, rk) <= 0.2) return false;
+    this.trees[j] = P.treeSeed; this.treeKind[j] = kind; this.treesBorn = (this.treesBorn ?? 0) + 1; return true;
+  }
+  // How well a body reaches each tree food (0 … 1): fruit by size beyond fruitReach or by climbing (a share has fallen); nuts and cones
+  // by the hard mouth (bite), a little from size and gape; cones come easier.
+  treeAccess(c, kind) {
+    const size = this.bodySize(c);
+    if (kind === 1) return P.fruitFall + (1 - P.fruitFall) * (this.rolled('smallfood') ? clamp01((c.climb ?? 0) * (1.4 - 0.4 * size / 5)) : Math.max(clamp01((size - P.fruitReach) / 4), c.climb ?? 0)); // (smallfood) fruit is climbed for, and light bodies climb best
+    const a = clamp01(0.9 * (c.bite ?? 0) + 0.08 * clamp01((size - 4) / 6) + 0.12 * (c.gape ?? 0.5));
+    return kind === 2 ? a : Math.min(1, 1.5 * a + 0.05);
+  }
+  // The best tree food at a cell as a body sees it (0 … 1, comparable to a grass patch): store × access × 2.
+  treeFood(c, ci) {
+    const a = this.fruit[ci] * this.treeAccess(c, 1), b = this.nuts[ci] * this.treeAccess(c, 2), d = this.cones[ci] * this.treeAccess(c, 3);
+    const l = this.rolled('leafbrowse') && this.browses(c) ? Math.max(0, this.trees[ci] - P.leafFloor) * (c.browse ?? 0) * 3 : 0; // (leafbrowse) leaves above the floor
+    return Math.min(1, 2 * Math.max(a, b, d, l));
+  }
+  updateTrees() {
+    const tr = this.trees, kd = this.treeKind, fr = this.fruit, nu = this.nuts, co = this.cones, th = this.thicket, n = GW * GH, F = this.flow, era = this.tempEra(), N = this.climbNeed();
+    const at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW), geo = this.rolled('geology'), insOn = this.rolled('insects');
+    const sh = (this._shelter ??= new Float32Array(n)), growK = this.treeFast ?? 1; // treeFast: tests only (growth and seeding × k)
+    const Tn = i => this.tempAt(((i / GW | 0) + 0.5) * CELL, era, ((i % GW) + 0.5) * CELL), rockN = i => geo ? this.rockOf(i) : 1;
+    const seed = (i, T, m, rk, kinds) => { // a sapling of the best-suited kind in kinds (succession from thicket)
+      let best = 0, bs = 0.05;
+      for (const k of kinds) { const s = this.treeSuit(k, i, T, m, rk); if (s > bs) { bs = s; best = k; } }
+      if (best) { tr[i] = P.treeSeed; kd[i] = best; this.treesBorn = (this.treesBorn ?? 0) + 1; }
+    };
+    const spread = [];
+    for (let i = 0; i < n; i++) {
+      const c = tr[i];
+      if (c <= 0) {
+        fr[i] = nu[i] = co[i] = 0;
+        if (th[i] > P.treeFromThicket && Math.random() < P.treeEstab * growK * th[i]) { // succession: thicket turns to saplings
+          const rk = rockN(i);
+          if (!this.treeBarred(i, rk, N)) seed(i, Tn(i), this.moisture[i] ?? 0.5, rk, [1, 2, 3]);
+        }
+        sh[i] = th[i]; continue;
+      }
+      const m = this.moisture[i] ?? 0.5, rk = rockN(i), T = Tn(i), kind = kd[i], f = this.fertility[i];
+      const barred = this.treeBarred(i, rk, N), suit = barred ? 0 : this.treeSuit(kind, i, T, m, rk);
+      let c2 = c;
+      if (suit > 0) { // grows (logistic), drawing a little fertility; leaf litter gives some back
+        const vigor = suit * (0.5 + 0.5 * Math.min(1, f)) * Math.min(1, m + 0.2), g = P.treeGrow * growK * vigor * (c + (this.rolled('trees2') ? P.saplingBase : 0.01)) * (1 - c / P.treeMax); // (trees2) a sapling grows at a real rate from the start
+        if (g > 0) { c2 += g; this.fertility[i] = Math.max(0, f - g * P.treeUptake); }
+        this.fertility[i] = Math.min(2, this.fertility[i] + P.treeLitter * c);
+      }
+      let dead = 0; // wear: unsuitable ground, drought, frost, the flood
+      const L = (this.treeLoss ??= { unsuited: 0, drought: 0, frost: 0, flood: 0 }); // what has taken canopy (diagnostic)
+      // (s1898) on its own rock, a tree out of its climate range only stops growing: drought and frost below are its climate deaths
+      if (suit === 0 && (barred || !(this.treeSuit(kind, i, 0.5, 0.6, rk) > 0))) { const d = P.treeDie * (barred ? 20 : 4); dead += d; L.unsuited += Math.min(c2, d); }
+      if (m < (kind === 3 ? P.treeDrought * 0.6 : P.treeDrought)) { dead += P.treeDie; L.drought += Math.min(c2, P.treeDie); }
+      if (T < P.treeFrost) { dead += P.treeDie * 3; L.frost += Math.min(c2, P.treeDie * 3); }
+      if (F[i] > P.treeFlood) { const d = P.treeBreak * (F[i] - P.treeFlood); dead += d; L.flood += Math.min(c2, d); }
+      dead = Math.min(c2, dead); c2 -= dead; if (dead) this.fertility[i] = Math.min(2, this.fertility[i] + dead * P.treeUptake * 2);
+      if (c2 < 0.005) { tr[i] = 0; kd[i] = 0; fr[i] = nu[i] = co[i] = 0; sh[i] = th[i]; continue; }
+      tr[i] = c2;
+      // seed to a neighbour, from mature trees
+      if (c2 >= P.treeMature && Math.random() < P.treeSpread * growK * c2) spread.push(i);
+      // foods: ∝ canopy, in the season each kind likes (fruit warm, nuts and cones cool), and spoil
+      const warm = clamp01((T - 0.38) / 0.2), cool = clamp01((0.66 - T) / 0.2), mature = c2 >= P.treeMature ? c2 : 0, lose = (a, rot) => { const d = a * rot; this.fertility[i] = Math.min(2, this.fertility[i] + d * P.rotAsh); return a - d; };
+      if (kind === 1) {
+        let make = P.fruitMake * mature * warm;
+        if (insOn && make > 0) { // (insects) pollination: the fruit set follows the insects that visited the flowers
+          const pol = P.insPollMin + (1 - P.insPollMin) * (1 - Math.exp(-P.insPollK * Math.min(1, P.insSeen * this.insects[i])));
+          this.fruitPot = (this.fruitPot ?? 0) + make; make *= pol; this.fruitMade = (this.fruitMade ?? 0) + make;
+        }
+        fr[i] = Math.min(P.treeStoreMax, lose(fr[i], P.fruitRot) + make);
+      }
+      else if (kind === 2) nu[i] = Math.min(P.treeStoreMax, lose(nu[i], P.nutRot) + P.nutMake * mature * cool);
+      else co[i] = Math.min(P.treeStoreMax, lose(co[i], P.coneRot) + P.coneMake * mature * cool);
+      sh[i] = Math.max(th[i], c2);
+    }
+    for (const i of spread) { // seeds fall on a neighbour, if it suits that kind
+      const x = i % GW, y = (i / GW) | 0, j = at(x + Math.floor(Math.random() * 3) - 1, y + Math.floor(Math.random() * 3) - 1);
+      if (tr[j] > 0) continue;
+      if (this.seedTree(j, kd[i])) { sh[j] = Math.max(th[j], P.treeSeed); this.treesSpread = (this.treesSpread ?? 0) + 1; }
+    }
+    this.burn(at);
+  }
+  // Lightning in the worst drought: dense wood in very dry ground may catch, and fire runs through dry wooded neighbours,
+  // a bounded front each update. Burnt canopy goes to ash (fertility); the thicket burns; grass is untouched.
+  burn(at) {
+    const tr = this.trees, th = this.thicket, sh = this._shelter, m = this.moisture, n = GW * GH, B = (this.burning ??= new Uint8Array(n));
+    this.fireCells ??= 0; this.fires ??= 0;
+    if (this.fireLive) { let live = 0; for (let i = 0; i < n; i++) if (B[i] > 0) { B[i]--; live++; } this.fireLive = live; } // flames die down
+    if (!(P.fireChance > 0)) return;
+    const dense = i => { if (tr[i] < P.fireDense) return false; const x = i % GW, y = (i / GW) | 0; let k = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && tr[at(x + dx, y + dy)] >= P.fireDense) k++; return k >= 3; };
+    const queue = []; let burnt = 0, burning = 0;
+    for (let i = 0; i < n; i++) if (tr[i] >= P.fireDense && m[i] < P.fireDry && Math.random() < P.fireChance * (1 + 4 * (P.fireDry - m[i]) / P.fireDry) * (this.fireK ?? 1) && dense(i)) { queue.push(i); break; } // at most one strike an update
+    if (!queue.length) return;
+    this.fires++;
+    const lit = new Set(queue);
+    while (queue.length && burnt < P.fireSpreadMax) {
+      const i = queue.shift(); burnt++;
+      this.fertility[i] = Math.min(2, this.fertility[i] + P.fireAsh * tr[i] * P.treeUptake * 4 + P.fireAsh * th[i] * P.thicketUptake);
+      tr[i] = 0; this.treeKind[i] = 0; this.fruit[i] = this.nuts[i] = this.cones[i] = 0; th[i] = 0; sh[i] = 0; B[i] = P.fireTime; this.fireLive = (this.fireLive ?? 0) + 1;
+      const x = i % GW, y = (i / GW) | 0;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const j = at(x + dx, y + dy); if (!lit.has(j) && tr[j] >= P.fireWood && m[j] < P.fireDry * 1.5) { lit.add(j); queue.push(j); } }
+    }
+    this.fireCells += burnt;
+    if (burnt >= 12) this.log(`Lightning in the drought: fire burned ${burnt} cells of wood`);
   }
 
   // Whether a grain at (x, y) sticks. Like maze coral: branches grow at their tips, solid masses rarely thicken,
@@ -1390,20 +1877,40 @@ export class World {
   // Flystrike: parasite beetles infest grazers that are weak AND crowded; an infestation drains its host, spreads by touch
   // through crowded weak kin, feeds the beetles on it, and clears once the host is well fed again. Small or healthy
   // herds never catch it, so it brakes a plague without ending a line.
-  crowded(c) { let n = 0; this.near(c.x, c.y, P.crowdRange, o => { if (o !== c && !o.dead && o.species === c.species) n++; }); return n >= P.crowdCount; }
+  crowded(c) { let n = 0; this.near(c.x, c.y, P.crowdRange * (this.rolled('footprint') ? P.footprint : 1), o => { if (o !== c && !o.dead && o.species === c.species) n++; }); return n >= P.crowdCount; }
   // The beetle's role follows its life: a parasite-line body that lives on plants is a grazer (and a possible host).
   // How well a hunter's jaws suit a prey: 1 at its gape (prey/self size ratio), falling off with distance, never below gapeFloor.
   gapeFit(c, o) { const r = this.bodySize(o) / this.bodySize(c); return Math.max(P.gapeFloor, Math.exp(-(((r - (c.gape ?? 0.5)) / P.gapeWidth) ** 2))); }
   browses(c) { return (c.browse ?? 0) > P.browseMin && this.bodySize(c) >= P.browseSize && !this.registry[c.species].unique; }
   isParasite(c) { return (!!this.registry[c.species].parasite && this.dietOf(c) !== 'plant') || (c.parasitism ?? 0) > P.parasiteMin; } // what it lives on, not its jaws (or, since 13:20, an evolved parasite)
   weakHost(c) { return c.energy < P.infestWeak * this.capOf(c) && !this.registry[c.species].unique && !this.isParasite(c); }
+  // Honest dung: take up to `want` from the 3×3 cells around a body, bury part of it, return how much was eaten.
+  eatDung(b, want) {
+    const D = this.dungMap; if (!D || !(want > 0)) return 0;
+    const gx = Math.floor(b.x / CELL), gy = Math.floor(b.y / CELL); let got = 0;
+    for (let y = Math.max(0, gy - 1); y <= Math.min(GH - 1, gy + 1) && got < want; y++) for (let x = Math.max(0, gx - 1); x <= Math.min(GW - 1, gx + 1) && got < want; x++) {
+      const i = y * GW + x, t = Math.min(D[i], want - got); if (t > 0) { D[i] -= t; got += t; }
+    }
+    if (got > 0) { const i = cellAt(b.x, b.y); this.fertility[i] = Math.min(2, this.fertility[i] + got * P.dungBury); }
+    return got;
+  }
+  // Honest dung: uneaten dung breaks down into fertility, faster in the warmth (called every 10 ticks).
+  rotDung() {
+    const D = this.dungMap, climate = this.rolled('climate'); if (!D) return;
+    for (let i = 0; i < D.length; i++) if (D[i] > 1e-5) {
+      const T = climate ? this.tempAt((Math.floor(i / GW) + 0.5) * CELL, undefined, ((i % GW) + 0.5) * CELL) : 0.5, r = 1 - (1 - P.dungDecay * (0.6 + 0.8 * T)) ** 10, d = D[i] * r;
+      D[i] -= d; this.fertility[i] = Math.min(2, this.fertility[i] + d);
+    }
+  }
+  dungGift() { if (!this.rolled('honestdung')) return 1; return Math.max(0, 1 - (this.season + (this.tick % SEASON_TICKS) / SEASON_TICKS - this.rollout.honestdung) / P.honestFade); } // the old free gift: 1 → 0
   infestations() {
-    const dt = 10;
+    const dt = 10, honest = this.rolled('honestdung'), gift = this.dungGift();
+    if (honest) { this.dungMap ??= new Float32Array(GW * GH); this.rotDung(); }
     for (const b of this.creatures) {
-      if (b.dead || !this.isParasite(b)) continue;
+      if (b.dead || !this.isParasite(b) || this.isClimbing(b) || this.digestFull(b)) continue;
       const evolved = !this.registry[b.species].parasite, power = evolved ? b.parasitism : 1; // an evolved parasite works as hard as its ability
       this.near(b.x, b.y, this.bodySize(b) + 6, o => {
-        if (o.dead || o === b || (evolved && o.species === b.species)) return; // evolved parasites spare their own kind
+        if (o.dead || o === b || (evolved && o.species === b.species) || this.digestFull(b)) return; // evolved parasites spare their own kind
         if (o.infest > 0) { const take = Math.min(0.04 * power, o.energy); o.energy -= take;
           if (evolved) this.feed(b, take * 0.5, 2, 'host'); else { b.energy += take * 0.5; const bd = this.diet[b.species]; bd.host = (bd.host ?? 0) + take * 0.5; bd.energy += take * 0.5; } } // feeding on a host
         else if (this.weakHost(o) && Math.random() < P.infestCatch * power * (this.rolled('climate') ? 0.5 + this.tempAt(o.y, undefined, o.x) : 1) && this.crowded(o)) o.infest = 0.5; // flies thrive in the warmth
@@ -1418,24 +1925,32 @@ export class World {
       // An infested host nearby feeds the brood living on it (twice what dung gives): beetles boom with the infestation.
       const bd = this.diet[b.species];
       if (host) { b.energy += P.dungFeed * 2; bd.host = (bd.host ?? 0) + P.dungFeed * 2; bd.energy += P.dungFeed * 2; }
-      else if (dung) { bd.dung = (bd.dung ?? 0) + P.dungFeed; bd.energy += P.dungFeed; b.energy += P.dungFeed; const i = cellAt(b.x, b.y); this.fertility[i] = Math.min(2, this.fertility[i] + P.dungFeed); }
+      else {
+        if (honest) { const got = this.eatDung(b, P.dungTake); if (got > 0) { const e = got * P.dungEff; bd.dung = (bd.dung ?? 0) + e; bd.energy += e; b.energy += e; } }
+        if (dung && gift > 0) { const e = P.dungFeed * gift; bd.dung = (bd.dung ?? 0) + e; bd.energy += e; b.energy += e; const i = cellAt(b.x, b.y); this.fertility[i] = Math.min(2, this.fertility[i] + e); } // the old free gift (fading, if honest)
+      }
     }
     // Evolved decomposers: droppings lie around other grazers; past decompMin a body feeds on them and buries part.
     for (const d of this.creatures) {
       const floor = this.rolled('smooth') ? 0.005 : P.decompMin; // smooth: any ability above a trace feeds a little
-      if (d.dead || !((d.decomp ?? 0) > floor) || this.registry[d.species].unique || this.registry[d.species].parasite) continue;
+      if (d.dead || this.isClimbing(d) || this.digestFull(d) || !((d.decomp ?? 0) > floor) || this.registry[d.species].unique || this.registry[d.species].parasite) continue;
+      if (honest) { // eats what lies on the ground around it, and it is gone
+        const got = this.eatDung(d, P.dungTake * d.decomp * this.habit(d, 'dung') * (this.rolled('climate') ? 0.6 + 0.8 * this.tempAt(d.y, undefined, d.x) : 1));
+        if (got > 0) { this.feed(d, got * P.dungEff, 1, 'dung'); this.dungEaten = (this.dungEaten ?? 0) + got; }
+        if (!(gift > 0)) continue;
+      }
       let dung = false;
       this.near(d.x, d.y, P.dungRange, o => { if (!o.dead && o !== d && o.species !== d.species && o.gut < 0.5 && !this.registry[o.species].unique) dung = true; });
       // (dung breaks down faster in the warmth)
-      if (dung) { const e = P.dungFeed * 2 * d.decomp * (this.rolled('climate') ? 0.6 + 0.8 * this.tempAt(d.y, undefined, d.x) : 1); this.feed(d, e, 1, 'dung'); const i = cellAt(d.x, d.y); this.fertility[i] = Math.min(2, this.fertility[i] + e); }
+      if (dung) { const e = gift * P.dungFeed * 2 * d.decomp * (this.rolled('climate') ? 0.6 + 0.8 * this.tempAt(d.y, undefined, d.x) : 1); this.feed(d, e, 1, 'dung'); this.giftEnergy = (this.giftEnergy ?? 0) + e; const i = cellAt(d.x, d.y); this.fertility[i] = Math.min(2, this.fertility[i] + e); }
     }
     // Smooth parasitism: below the threshold a body still feeds a little on infested bodies of other kinds it touches.
     if (this.rolled('smooth')) for (const b of this.creatures) {
       const pw = b.parasitism ?? 0;
-      if (b.dead || pw <= 0.005 || this.isParasite(b) || this.registry[b.species].unique || this.registry[b.species].parasite) continue;
+      if (b.dead || this.isClimbing(b) || this.digestFull(b) || pw <= 0.005 || this.isParasite(b) || this.registry[b.species].unique || this.registry[b.species].parasite) continue;
       const spread = this.rolled('parasitesmooth');
       this.near(b.x, b.y, this.bodySize(b) + 6, o => {
-        if (o.dead || o === b || o.species === b.species) return;
+        if (o.dead || o === b || o.species === b.species || this.digestFull(b)) return;
         if (!(o.infest > 0)) { // smooth parasitism: any ability can infest a weak, crowded host, more likely the stronger it is
           if (spread && this.weakHost(o) && Math.random() < P.infestCatch * P.infestSmooth * pw * (this.rolled('climate') ? 0.5 + this.tempAt(o.y, undefined, o.x) : 1) && this.crowded(o)) o.infest = 0.5;
           return;
@@ -1482,7 +1997,7 @@ export class World {
       if (this.tick < e.hatch) return true;
       const sp = this.registry[e.species];
       if (!sp) return false;
-      if (sp.extinct !== null) { sp.extinct = null; this.compile(e.species); this.onRevive?.(e.species); }
+      if (sp.extinct !== null) { sp.extinct = null; this.compile(e.species); this.onRevive?.(e.species); } this.touchRegistry();
       const [hx, hy] = this.openGround(e.x, e.y); // the young crawl out of the bones to open water
       const c = this.spawn(e.species, hx, hy, e.gen, e.genes, sp.size, e.gut);
       if (e.k?.length) c.k = e.k;
@@ -1503,12 +2018,140 @@ export class World {
     return Buffer.from(Uint8Array.from(this.reef, v => Math.round(Math.min(1, v) * 255))).toString('base64');
   }
 
+  // INSECTS (rollout.insects; see the INSECTS block in PHYSICS). A body opens a carcass if it is a decomposer in practice (ability and diet).
+  opens(c) {
+    if (!((c.decomp ?? 0) > P.openMin) || !this.rolled('insects')) return false;
+    const r = c.recent; return !!r && r.ate > 0.3 && ((r.dung ?? 0) + (r.carrion ?? 0)) / r.ate >= P.openDiet;
+  }
+  // Insects are digested best by a middle gut (a bump around snapGut), which bridges the valley between plant and meat guts.
+  insectGut(g, c) { if (this.gutCurves(c)) return (this.rolled('foodvalues') ? P.foodSnapEff : P.snapEff) * this.gutFit(g, 'insect'); return P.snapEff * Math.exp(-(((g - P.snapGut) / P.snapWidth) ** 2)); }
+  // A snapping body takes a share of the swarm on its own cell; what the gut does not extract goes on as dung (honest dung).
+  eatInsects(c, k) {
+    if (this.digestFull(c) || (this.digests(c) && this.isClimbing(c))) return;
+    const i = cellAt(c.x, c.y), I = this.insects, d = I[i]; if (!(d > 0.01)) return;
+    const take = d * Math.min(1, P.snapBite * (this.rolled('skillpays') ? Math.min(1.5, P.snapFloor + P.snapSlope * (c.snap ?? 0)) : Math.max(c.snap ?? 0, P.snapBase)) * Math.sqrt(k) * this.habit(c, 'insect')), L = this.insLedger ??= {}; // (snapBase) any mouth takes a few insects
+    I[i] -= take; const raw = take * P.insScale, dig = raw * this.insectGut(c.gut, c);
+    L.eaten = (L.eaten ?? 0) + raw; L.eatenGot = (L.eatenGot ?? 0) + dig;
+    this.feed(c, dig, 2, 'insect'); // insects eat plants (level 2), so their eater sits at ~3
+    if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
+  }
+  // Bloom and insects, one pass (every insEvery ticks). Every birth is paid by a store that shrinks by the same energy (nectar from the cell's
+  // fertility, fruit, dung, carcasses, leaves): insEff of it becomes insects, insSoil returns to the soil, the rest is heat. insLedger keeps the books.
+  updateInsects() {
+    const n = GW * GH, I = this.insects, B = this.bloom, tr = this.rolled('trees') ? this.trees : null, kd = this.treeKind, D = this.dungMap, fr = this.fruit, pl = this.plants, f = this.fertility, m = this.moisture;
+    const k = this.insFast ?? 1, S = P.insScale, E = P.insEff, SO = P.insSoil, L = this.insLedger ??= {}, add = (key, v) => { L[key] = (L[key] ?? 0) + v; };
+    if (!this._insT || this.tick - this._insTT >= 300) { // temperature changes slowly: refreshed every 300 ticks
+      const T = this._insT ??= new Float32Array(n), era = this.tempEra();
+      for (let i = 0; i < n; i++) T[i] = this.tempAt(((i / GW | 0) + 0.5) * CELL, era, ((i % GW) + 0.5) * CELL);
+      this._insTT = this.tick;
+    }
+    const Tc = this._insT, attract = this._insA ??= new Float32Array(n), nxt = this._insN ??= new Float32Array(n);
+    let nectar = 0, fruit = 0, dung = 0, leaf = 0, die = 0, lost = 0, heat = 0, toSoil = 0, toIns = 0;
+    for (let i = 0; i < n; i++) {
+      const T = Tc[i], warm = clamp01((T - 0.25) / 0.25), mi = m[i];
+      // bloom: opens in warmth and moisture on mature fruit trees and on wet meadows, then fades
+      let target = 0;
+      if (tr && kd[i] === 1 && tr[i] >= P.treeMature) target = clamp01(tr[i] / 0.6) * clamp01((T - P.bloomWarm) / 0.1) * clamp01((mi - 0.4) / 0.2);
+      else if (pl[i] > 0.5) target = 0.7 * clamp01((pl[i] - 0.5) / 0.4) * clamp01((mi - P.bloomMeadow) / 0.2) * clamp01((T - P.bloomWarm) / 0.1);
+      B[i] += (target - B[i]) * (target > B[i] ? P.bloomUp : P.bloomDown);
+      if (B[i] < 0.002) B[i] = 0;
+      let d = I[i], e = 0;
+      if (B[i] > 0.02) { // nectar: a meadow's flowers are paid by its grass, a fruit tree's by the soil it drew on
+        if (tr && kd[i] === 1 && tr[i] >= P.treeMature) { const t = Math.min(f[i] * 0.1, P.insNectarTree * k * B[i] * warm); f[i] -= t; e += t; nectar += t; }
+        else if (pl[i] > P.roots + 0.05) { const en = Math.min((pl[i] - P.roots) * P.plantEnergy, P.insNectar * k * B[i] * warm); pl[i] -= en / P.plantEnergy; e += en; nectar += en; }
+      }
+      if (fr[i] > 0.01) { const t = fr[i] * P.insFruit * k * warm; fr[i] -= t; const en = t * P.fruitEnergy * P.plantEnergy; e += en; fruit += en; } // fruit that is going over
+      if (D && D[i] > 1e-4) { const t = Math.min(D[i], D[i] * P.insDung * k * (P.insArrive + d) * warm); D[i] -= t; e += t; dung += t; } // dung breaks down faster under insects
+      const over = Math.max(0, Math.min(1, d * P.insSeen) - P.insOutbreak) / (1 - P.insOutbreak); // leaves: a little always, more in an outbreak
+      if (pl[i] > P.roots + 0.05) { const t = Math.min(pl[i] - P.roots, pl[i] * (P.insLeafBase * warm + P.insGrassChew * over) * k); pl[i] -= t; const en = t * P.plantEnergy; e += en; leaf += en; }
+      if (tr && tr[i] > 0.05) { const t = Math.min(tr[i] * 0.5, tr[i] * (P.insLeafBase * warm + P.insCanopyChew * over) * k); tr[i] -= t; const en = t * P.insLeafE; e += en; leaf += en; }
+      if (e > 0) { f[i] = Math.min(2, f[i] + e * SO); d += e * E / S; toSoil += e * SO; toIns += e * E; heat += e * (1 - E - SO); }
+      if (d > P.insMax) { lost += (d - P.insMax) * S; d = P.insMax; }
+      if (d > 0) { // short-lived: they die off (faster in the cold); the dead fall to the soil
+        const dec = d * Math.min(1, P.insDecay * (1 + P.insCold * clamp01((0.35 - T) / 0.15))), en = dec * S;
+        d -= dec; f[i] = Math.min(2, f[i] + en * P.insDie); die += en; toSoil += en * P.insDie; heat += en * (1 - P.insDie);
+        if (d < 1e-5) { die += d * S; heat += d * S * (1 - P.insDie); toSoil += d * S * P.insDie; f[i] = Math.min(2, f[i] + d * S * P.insDie); d = 0; }
+      }
+      I[i] = d; attract[i] = 0.5 * warm + B[i];
+    }
+    // carcasses: flies come first; insects take a share of what is left, and the rest of that goes to the soil
+    for (const c of this.corpses) {
+      if (!(c.energy > 0.01)) continue;
+      const i = cellAt(c.x, c.y), warm = clamp01((Tc[i] - 0.25) / 0.25), held = this.tick - (c.opened ?? -1e9) < P.openHold ? P.openRot : 1;
+      const t = Math.min(c.energy, c.energy * P.insCarcass * k * (P.insArrive + I[i]) * warm * held, (P.insMax - I[i]) * S / E); if (!(t > 0)) continue; // no more than the swarm can hold
+      c.energy -= t; add('carcass', t); f[i] = Math.min(2, f[i] + t * SO); toSoil += t * SO; toIns += t * E; heat += t * (1 - E - SO);
+      const room = P.insMax - I[i], g = Math.min(room, t * E / S); I[i] += g; lost += (t * E / S - g) * S;
+    }
+    // flight: each pass a share of a cell goes to its 4 neighbours (wrapping at the edges), more toward the warmer and flowering ones
+    nxt.set(I);
+    const share = P.insSpread / 4;
+    for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+      const i = y * GW + x, v = I[i]; if (v < 1e-5) continue;
+      const a = attract[i], xl = x === 0 ? GW - 1 : x - 1, xr = x === GW - 1 ? 0 : x + 1, yu = (y === 0 ? GH - 1 : y - 1) * GW, yd = (y === GH - 1 ? 0 : y + 1) * GW;
+      const j0 = y * GW + xl, j1 = y * GW + xr, j2 = yu + x, j3 = yd + x;
+      const w0 = Math.max(0, 1 + P.insDrift * (attract[j0] - a)), w1 = Math.max(0, 1 + P.insDrift * (attract[j1] - a)), w2 = Math.max(0, 1 + P.insDrift * (attract[j2] - a)), w3 = Math.max(0, 1 + P.insDrift * (attract[j3] - a));
+      nxt[i] -= v * share * (w0 + w1 + w2 + w3); nxt[j0] += v * share * w0; nxt[j1] += v * share * w1; nxt[j2] += v * share * w2; nxt[j3] += v * share * w3;
+    }
+    I.set(nxt);
+    add('nectar', nectar); add('fruit', fruit); add('dung', dung); add('leaf', leaf); add('die', die); add('lost', lost); add('heat', heat); add('toSoil', toSoil); add('toIns', toIns);
+  }
+  // Insects and bloom for the viewer: density 0–255 and bloom 0–255 per cell. Null before rollout.insects.
+  updateFish() {
+    const n = GW * GH, Wd = this.water, A = this.aqua, f = this.fertility;
+    if (!this.fish) { this.fish = new Float32Array(n); for (let i = 0; i < n; i++) if ((Wd?.[i] ?? 0) > 0.08) this.fish[i] = P.fishSeed; this.fishLedger = { seeded: this.fish.reduce((a, x) => a + x, 0) * P.fishScale }; }
+    const F = this.fish, nx = this._fishN ??= new Float32Array(n), L = this.fishLedger ??= {}, era = this.tempEra(), at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW);
+    nx.fill(0); let grazed = 0, died = 0;
+    for (let i = 0; i < n; i++) {
+      let d = F[i]; if (!(d > 0)) continue;
+      const wet = (Wd?.[i] ?? 0) > P.fishDepth, T = this.tempAt(((i / GW | 0) + 0.5) * CELL, era, ((i % GW) + 0.5) * CELL), frozen = T < P.freezeAt;
+      if (wet && !frozen && A) { // graze water plants: paid by them
+        const eat = Math.min(A[i] * 0.5, P.fishGraze * d * A[i] * (0.5 + T)), e = eat * P.aquaEnergy * P.plantEnergy;
+        A[i] -= eat; d += e * P.fishEff / P.fishScale; f[i] = Math.min(2, f[i] + e * P.fishSoil); grazed += e;
+      }
+      const loss = d * (!wet ? P.fishDry : frozen ? P.fishDie * 3 : P.fishDie); d -= loss; f[i] = Math.min(2, f[i] + loss * P.fishScale * 0.5); died += loss * P.fishScale;
+      if (d > P.fishMax) { f[i] = Math.min(2, f[i] + (d - P.fishMax) * P.fishScale * 0.5); d = P.fishMax; }
+      if (!wet) { nx[i] += d; continue; }
+      const x = i % GW, y = (i / GW) | 0, nb = [at(x + 1, y), at(x - 1, y), at(x, y + 1), at(x, y - 1)].filter(j => (Wd?.[j] ?? 0) > P.fishDepth);
+      let stay = d;
+      if (nb.length) { const go = d * P.fishSpread; for (const j of nb) nx[j] += go / nb.length; stay -= go; }
+      if (this.flowDir) { const j = at(x + Math.round(this.flowDir[i * 2]), y + Math.round(this.flowDir[i * 2 + 1])); if (j !== i && (Wd?.[j] ?? 0) > P.fishDepth) { const go = stay * P.fishDrift; nx[j] += go; stay -= go; } }
+      nx[i] += stay;
+    }
+    F.set(nx); L.grazed = (L.grazed ?? 0) + grazed; L.died = (L.died ?? 0) + died;
+  }
+  // A body takes fish from its own cell if it is in the water: wading 0.2 × swim, swim-deep 1 × swim (× habits).
+  eatFish(c, k) {
+    if (this.digestFull(c) || (this.digests(c) && this.isClimbing(c))) return;
+    const w = this.waterAt(c.x, c.y), d = this.fish[w.i]; if (!(d > 0.005) || !(w.d > 0)) return;
+    const deep = w.d * P.depthPx / Math.max(1, (c.legs ?? 1) * this.bodySize(c)), acc = (deep > 1 ? 1 : P.fishWade) * (c.swim ?? 0); if (!(acc > 0.01)) return;
+    const take = d * Math.min(1, P.fishBite * acc * Math.sqrt(k) * this.habit(c, 'fish')); this.fish[w.i] -= take;
+    const raw = take * P.fishScale, dig = raw * (this.gutCurves(c) ? this.gutFit(c.gut, 'fish') : this.carrionDigests(c.gut, c) / P.carrionEfficiency);
+    this.feed(c, dig, 3, 'fish'); if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
+    const L = this.fishLedger ??= {}; L.eaten = (L.eaten ?? 0) + raw;
+  }
+  fishMap() { if (!this.rolled('fish') || !this.fish) return null; return Buffer.from(Uint8Array.from(this.fish, v => Math.round(Math.min(1, v * 4) * 255))).toString('base64'); }
+  insectMap() {
+    if (!this.rolled('insects')) return null;
+    const b = a => Buffer.from(Uint8Array.from(a, v => Math.round(Math.min(1, v) * 255))).toString('base64');
+    return { density: b(Float32Array.from(this.insects, v => v * P.insSeen)), bloom: b(this.bloom) };
+  }
+
+  // Trees for the viewer: per cell, canopy 0–255, kind 0–3, leaf 0–255 (cover: always full, canopy is the cover), food bits (1 fruit, 2 nuts,
+  // 4 cones: a store above 0.05) and the burning timer 0–255. Null before rollout.trees.
+  treeMap() {
+    if (!this.rolled('trees')) return null;
+    const n = GW * GH, b = a => Buffer.from(a).toString('base64'), food = new Uint8Array(n), B = this.burning;
+    for (let i = 0; i < n; i++) food[i] = (this.fruit[i] > 0.05 ? 1 : 0) | (this.nuts[i] > 0.05 ? 2 : 0) | (this.cones[i] > 0.05 ? 4 : 0);
+    return { canopy: b(Uint8Array.from(this.trees, v => Math.round(Math.min(1, v) * 255))), kind: b(this.treeKind), leaf: b(new Uint8Array(n).fill(255)), food: b(food), burning: b(B ?? new Uint8Array(n)) };
+  }
+
   thicketMap() {
     return Buffer.from(Uint8Array.from(this.thicket, v => Math.round(Math.min(1, v) * 255))).toString('base64');
   }
 
   // Plants are a cellular automaton: logistic growth, seeding from lush neighbours, drought, rot.
   updatePlants() {
+    const tr = this.rolled('trees') ? this.trees : null; // (trees) shade
     const t = this.tick, rain = this.rain(), prev = this.prev, fresh = t % (PLANT_EVERY * 8) === 0 || !this.moistureAt;
     if (fresh) this.moistureAt = t;
     if (P.smother) {
@@ -1534,7 +2177,7 @@ export class World {
           const f = this.fertility[i], before = b;
           if (!(P.smother && this.smothered[i])) {
             const warm = climate ? (T < P.frostAt ? 0 : (1 - P.coldGrowth * Math.max(0, 0.5 - T)) * (1 + 0.5 * Math.max(0, T - 0.5))) : 1; // cold slows grass, frost stops it
-            const grow = 0.05 * b * (1 - b) * (m + f) * (P.soilNeed ? f / (f + P.soilNeed) : 1) * (1 - P.thicketShade * this.thicket[i]) * this.rootHealth[i] * warm * (gv ? 1 - P.hardyGrow * Hd[i] : 1) * (geo ? P.rockGrow[rk] * (1 + P.alluvGrow * this.alluv[i]) : 1); // soils by rock; river plains richest
+            const grow = 0.05 * b * (1 - b) * (m + f) * (P.soilNeed ? f / (f + P.soilNeed) : 1) * (1 - P.thicketShade * this.thicket[i]) * (tr ? 1 - P.treeShade * tr[i] : 1) * this.rootHealth[i] * warm * (gv ? 1 - P.hardyGrow * Hd[i] : 1) * (geo ? P.rockGrow[rk] * (1 + P.alluvGrow * this.alluv[i]) : 1); // soils by rock; river plains richest
             b += grow;
             if (P.soilNeed) this.fertility[i] = Math.max(0, f - grow * P.uptake);
           }
@@ -1607,7 +2250,7 @@ export class World {
     const sp = this.registry[c.species], m = P.maturity * (c.mature ?? 1), life = c.lifespan || 1;
     const size = Math.min(1.4, Math.max(0.7, (this.bodySize(c) / sp.size) ** 0.25));
     const age = c.age < m ? 0.6 + 0.4 * c.age / m : c.age > 0.8 * life ? 1 - 0.2 * Math.min(1, (c.age / life - 0.8) / 0.2) : 1;
-    const cover = this.thicket[cellAt(c.x, c.y)] > 0.4 ? P.sightThicket : 1;
+    const cover = this.shelter[cellAt(c.x, c.y)] > 0.4 ? P.sightThicket : 1;
     return sp.perception * size * age * (0.5 + (c.eyes ?? P.eyesStart)) * cover;
   }
   // The reef as a body sees it: in 8 directions (east first, turning clockwise on screen), the distance to the first solid
@@ -1667,10 +2310,48 @@ export class World {
   mutateGrass(i) { const w = () => (Math.random() - 0.5) * 2 * P.grassMut; this.grassHardy[i] = clamp01(this.grassHardy[i] + w()); this.grassSweet[i] = clamp01(this.grassSweet[i] + w()); }
   fleshEff(c) { if (!this.rolled('pyramid') || this.registry[c.species].unique) return P.fleshEfficiency;
     return this.rolled('meatspec') ? P.pyramidFlesh + (P.fleshEfficiency - P.pyramidFlesh) * clamp01(((c.gut ?? 0) - 0.5) / 0.4) : P.pyramidFlesh; } // a meat gut keeps more of a kill
-  fleshGut(c) { return c.gut ** (this.rolled('valley') && !this.registry[c.species].unique ? P.valleyPower : P.fleshPower); }
+  fleshGut(c) { if (this.gutCurves(c)) return this.gutFit(c.gut, 'flesh'); return c.gut ** (this.rolled('valley') && !this.registry[c.species].unique ? P.valleyPower : P.fleshPower); }
   grazes(c) { return c.gut < 1 - P.jaws; }
   // The body as it is now: juveniles are smaller than the adult size their genes promise.
-  bodySize(c) { return (P.growTicks ? c.size * Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : c.size) * (c.grown ?? 1); } // (× growth after adulthood, growon)
+  tissueOn(c) { return this.rolled('tissue') && !this.registry[c.species].unique; }
+  tissueSeason() {
+    if (!this.rolled('tissue') || this.tissueSeasonAt === this.season) return;
+    this.tissueSeasonAt = this.season;
+    if (this.creatures.filter(c => !c.dead).length < 160) this.tissueFrozen = true;
+    if (!this.tissueFrozen) this.tissueLevel = clamp01((this.season - this.rollout.tissue + 1) / P.tissueRamp);
+  }
+  tissueRise() { return this.tissueLevel ?? 0; }
+
+  // Residents keep their present size and stores: no free retrospective tissue or shrinking on release.
+  // The unpaid deficit is caught up at the same rate as new growth, before further size is earned.
+  // ISOLATION (Luis, s2417: "do it directly in the world… so no specimen can leave the area"): a boundary around a box of land that
+  // no body crosses, either way: walking, being swept or falling are undone, and young are born on their parents' side. The box is
+  // world.isoBox {x0, y0, x1, y1, since}; isoBlocked counts the crossings stopped.
+  inIso(x, y) { const b = this.isoBox; if (!b) return false; if (b.rx) { const dx = delta(b.cx, x, W) / b.rx, dy = delta(b.cy, y, H) / b.ry; return dx * dx + dy * dy <= 1; } return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1; } // a box, or (s2428) an oval on the wrapping map
+  growTissue(c) {
+    const r = this.tissueRise(), oldFrac = P.growTicks ? Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : 1;
+    c.grownFrac ??= oldFrac;
+    c.body ??= mass(this.bodySize(c)) * P.bodyEnergy * (c.gen > 0 ? P.bornBody : 1);
+    let grown = c.grown ?? 1;
+    if (this.rolled('growon') && c.grownFrac >= 1 && c.age > P.growTicks && grown < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) grown = Math.min(P.growOnMax, grown + P.growOnRate);
+    const desired = Math.max(c.grownFrac, oldFrac), target = mass(c.size * desired * grown) * P.bodyEnergy * r;
+    const paid = Math.min(Math.max(0, target - c.body), P.tissueRate * r, Math.max(0, c.energy));
+    c.energy -= paid; c.body += paid;
+    const supported = r > 0 ? Math.sqrt(c.body / (mass(c.size) * P.bodyEnergy * r)) : Infinity;
+    c.grownFrac = Math.max(c.grownFrac, Math.min(desired, supported / (c.grown ?? 1)));
+    if (c.grownFrac >= 1) c.grown = Math.max(c.grown ?? 1, Math.min(grown, supported));
+  }
+
+  // The tissue share is additional to the ordinary gift. An unaffordable child is born smaller.
+  birthTissue(kid, parents, remaining = 1) {
+    const r = this.tissueRise(), cost = mass(kid.size * (P.growTicks ? 0.4 : 1)) * P.bodyEnergy * P.tissueBirth * r;
+    const available = parents.reduce((s, c) => s + Math.max(0, c.energy), 0), paid = Math.min(cost, available / remaining);
+    for (const c of parents) c.energy -= available > 0 ? paid * Math.max(0, c.energy) / available : 0;
+    kid.body = paid;
+    kid.grownFrac = (P.growTicks ? 0.4 : 1) * (cost > 0 ? Math.sqrt(paid / cost) : 1);
+  }
+
+  bodySize(c) { if (this.tissueOn(c) && c.grownFrac !== undefined) return c.size * c.grownFrac * (c.grown ?? 1); return (P.growTicks ? c.size * Math.min(1, 0.4 + 0.6 * c.age / P.growTicks) : c.size) * (c.grown ?? 1); } // (× growth after adulthood, growon)
   // The defence a body actually carries: its gene's ceiling × what its food has supplied. Parasite lines (beetles)
   // and unique giants make theirs without help.
   toxinOf(c) { const sp = this.registry[c.species]; return (c.toxin ?? 0) * (sp.parasite || sp.unique ? 1 : c.toxStock ?? 1); }
@@ -1716,7 +2397,14 @@ export class World {
   wouldEat(c, o) {
     // A creature that was sickened by prey of some colour shuns that colour until the memory fades.
     if (c.aversion?.s > 0.3 && hueApart(shownHue(o), c.aversion.hue) < P.aversionRange) return false;
-    return o.species !== c.species || c.energy < P.cannibalHunger * this.registry[c.species].maxEnergy;
+    const hungry = c.energy < P.cannibalHunger * this.registry[c.species].maxEnergy;
+    if (o.species !== c.species && this.rolled('founders') && this.registry[o.species].speciated && this.graceOn(this.registry[o.species]) && this.sameBranch(c.species, o.species)) { this.spStat().spared++; return false; } // (founders) a new kind is never eaten by its own branch through grace, hungry or not
+    if (o.species !== c.species && this.rolled('founders') && this.sameBranch(c.species, o.species)) return hungry; // (founders, Luis s2449: close kin are kin) a sister kind of the same branch is eaten only in hunger, like one's own
+    if (o.species !== c.species && !hungry && this.rolled('speciate2') && (this.graceOn(this.registry[c.species]) || this.graceOn(this.registry[o.species])) && this.sameBranch(c.species, o.species)) { // (speciate2) no hunting of kin through a new species' first season
+      this.spStat().spared++; return false;
+    }
+    if (o.species === c.species && this.rolled('nocannibal') && !this.registry[c.species].unique) return false; // (nocannibal) no body eats its own kind
+    return o.species !== c.species || hungry;
   }
 
   // What a creature knows. Positions are unwrapped relative to it, so plain subtraction works.
@@ -1728,7 +2416,7 @@ export class World {
     // Its own kind are always noticed first (up to KIN_ATTENTION), then the nearest of the rest (up to ATTENTION); in a
     // small crowd (ATTENTION or fewer in range) everyone is noticed. Kept as running nearest-k lists, not a full sort.
     const hide2 = P.hideRange ** 2, stealth2 = P.stealth ** 2, thicket2 = (sp.unique ? P.stealth : P.hideRange) ** 2;
-    const all = [], kinTop = [], restTop = [];
+    const all = [], kinTop = [], restTop = [], shelter = this.shelter; // shelter: thicket, or with trees the greater of thicket and canopy
     let count = 0;
     const keep = (list, k, e) => {
       if (list.length === k && e.d2 >= list[k - 1].d2) return;
@@ -1750,8 +2438,8 @@ export class World {
           if (d2 > hide2) {
             const ci = cellAt(o.x, o.y);
             if (this.plants[ci] > P.cover) continue; // hidden in tall grass
-            if (this.thicket[ci] > 0.4 && d2 > thicket2 && this.bodySize(o) < P.thicketHide) continue; // hidden in thicket (a giant feels through it within its reach)
-          } else if (sp.unique && d2 > thicket2 && this.thicket[cellAt(o.x, o.y)] > 0.4 && this.bodySize(o) < P.thicketHide) continue;
+            if (shelter[ci] > 0.4 && d2 > thicket2 && this.bodySize(o) < P.thicketHide) continue; // hidden in thicket (or under trees) (a giant feels through it within its reach)
+          } else if (sp.unique && d2 > thicket2 && shelter[cellAt(o.x, o.y)] > 0.4 && this.bodySize(o) < P.thicketHide) continue;
           if (this.registry[o.species].unique && (o.dormant || d2 > stealth2)) continue; // a giant glides unseen until it is close; asleep in the deep, not at all
           const e = { o, dx, dy, d2 }, kin = o.species === c.species;
           if (++count <= ATTENTION) all.push(e);
@@ -1773,15 +2461,16 @@ export class World {
       if (best < Infinity) for (let i = food.length - 1; i >= 0; i--) if (!food[i].plant && !food[i].corpse && rank(food[i]) > best) food.splice(i, 1);
     }
     if (this.grazes(c)) {
-      const browser = this.browses(c); // a big body with a browsing gut sees thicket shoots as food
-      const patches = [], gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL), aquaOn = this.rolled('waterfood'), highOn = this.rolled('highfood');
+      const browser = this.browses(c), tOn = this.rolled('trees'), TR = this.trees; // a big body with a browsing gut sees thicket shoots as food; trees bear fruit, nuts and cones
+      const patches = [], gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL), aquaOn = this.rolled('waterfood'), highOn = this.rolled('highfood'), snapW = this.rolled('insects') ? Math.max(c.snap ?? 0, P.snapBase) : 0, INS = this.insects, FISH = this.fish, swimW = FISH ? (c.swim ?? 0) : 0; // (insects) a snapping body sees a swarm as food
       let enough = Infinity; // once ATTENTION patches are found, cells more than 1.5 cells further out cannot be nearer
       for (const [dx, dy, ring] of cellsWithin(Math.ceil(r / CELL) * CELL)) { // whole cells for the cache key (sight varies continuously); exact distance is checked below
         if (ring > enough) break;
         if (patches.length >= ATTENTION && enough === Infinity) enough = ring + 1.5;
         const gx = gx0 + dx, gy = gy0 + dy;
-        const ci = (gy < 0 ? gy + GH : gy >= GH ? gy - GH : gy) * GW + (gx < 0 ? gx + GW : gx >= GW ? gx - GW : gx), b = Math.max(this.plants[ci], aquaOn ? this.aqua[ci] * (0.4 + 0.6 * (c.swim ?? 0)) : 0, highOn ? this.lichen[ci] * 0.8 : 0); // water plants and lichen are food to see too
-        const th = this.thicket[ci], shoots = browser ? (th - P.browseFloor) * (c.browse ?? 0) * 2 : 0;
+        const ci = (gy < 0 ? gy + GH : gy >= GH ? gy - GH : gy) * GW + (gx < 0 ? gx + GW : gx >= GW ? gx - GW : gx), b = Math.max(this.plants[ci], aquaOn ? this.aqua[ci] * (0.4 + 0.6 * (c.swim ?? 0)) : 0, highOn ? this.lichen[ci] * 0.8 : 0, snapW > 0.03 ? Math.min(1, 2 * snapW * P.insSeen * INS[ci]) : 0, swimW > 0.05 ? Math.min(1, swimW * P.fishSeen * FISH[ci]) : 0); // water plants, lichen, swarms and (s2428) fish are food to see too
+        const th = this.thicket[ci], shoots = browser ? (th - (this.rolled('shrubbrowse') && this.reefNear(ci) === 0 ? P.shrubFloor : P.browseFloor)) * (c.browse ?? 0) * 2 : 0; // (s2597 fix) a browser sees shoots down to the floor it can eat them to
+        if (tOn && TR[ci] > 0.1) { const tf = this.treeFood(c, ci); if (tf > 0.25 && tf >= b && !(this.burning?.[ci] > 0)) { const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2; if (d2 <= r * r) patches.push({ fx, fy, b: tf, d2 }); continue; } }
         if (shoots > 0.25 && shoots >= b) { const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2; if (d2 <= r * r) patches.push({ fx, fy, b: Math.min(1, shoots), d2 }); continue; }
         if (b < 0.25 || th >= 0.5) continue; // grass guarded by dense thicket is not food: it cannot be reached
         const fx = (gx + 0.5) * CELL, fy = (gy + 0.5) * CELL, d2 = (fx - c.x) ** 2 + (fy - c.y) ** 2;
@@ -1808,9 +2497,14 @@ export class World {
 
   step() {
     const t = ++this.tick;
-    if (t % P.reefEvery === 0) { this.updateThicket(); this.updateReef(); }
+    if (this.rolled('tissue')) this.tissueSeason();
+    if (t % P.reefEvery === 0) { this.updateThicket(); if (this.rolled('trees')) this.updateTrees(); else this._shelter = null; this.updateReef(); }
     if (t % P.waterEvery === 0 && this.rolled('water')) this.updateWater();
-    if (t % PLANT_EVERY === 0) { this.updatePlants(); this.spreadScent(this.scentPrey); this.spreadScent(this.scentHunt); }
+    if (t % P.insEvery === 0 && this.rolled('insects')) this.updateInsects();
+    if (t % P.fishEvery === 0 && this.rolled('fish')) this.updateFish();
+    if (t % 135 === 0 && this.rollout?.upheaval !== undefined && !this.upheaval?.done) this.upheavalStep();
+    if (t % 135 === 0 && this.rollout?.sloppy !== undefined && this.sloppyRise() > 0 && this.sloppyRise() < 1) this.easeSeams();
+    if (t % PLANT_EVERY === 0) { this.updatePlants(); this.spreadScent(this.scentPrey); this.spreadScent(this.scentHunt); if (this.rolled('nose')) { for (const k of this.corpses) this.scentCarrion[cellAt(k.x, k.y)] += P.noseScent * Math.max(0, k.energy ?? 0); this.spreadScent(this.scentCarrion); } }
     this.noiseFn = (x, y) => noise3(x * 0.01, y * 0.01, t * 0.005) * 2 - 1;
     this.buildBuckets();
 
@@ -1853,10 +2547,10 @@ export class World {
         if (f.signal !== undefined) c.signal = r2(clamp01(f.signal));
         c.fx = f.x; c.fy = f.y;
         if (c.mind && this.registry[name].unique) { const [mx, my] = this.mindPull(c); c.fx += mx * P.mindPull; c.fy += my * P.mindPull; } // the kraken's map turns it
-        if (this.rolled('home') && !this.registry[name].unique) { // rollout 4: a home range, so local populations can form
+        if (!this.rolled('homerange') && this.rolled('home') && !this.registry[name].unique) { // rollout 4: a home range, so local populations can form
           c.home ??= { x: c.x, y: c.y };
           const hx = delta(c.x, c.home.x, W), hy = delta(c.y, c.home.y, H), away = Math.hypot(hx, hy);
-          if (away > P.homeRange) { const pull = P.homePull * Math.min(1.5, (away - P.homeRange) / P.homeRange); c.fx += hx / away * pull; c.fy += hy / away * pull; }
+          if (away > P.homeRange) { const pull = P.oldHomePull * Math.min(1.5, (away - P.homeRange) / P.homeRange); c.fx += hx / away * pull; c.fy += hy / away * pull; }
         }
         if (c.wall && this.tick < c.wall.until) { const d = c.fx * c.wall.x + c.fy * c.wall.y; if (d > 0) { c.fx -= d * c.wall.x; c.fy -= d * c.wall.y; } } // a wall it was kept back by: no pressing into it
         this.steer(c, c.fx, c.fy);
@@ -1870,6 +2564,7 @@ export class World {
     const born = [];
     for (const c of this.creatures) {
       if (c.dead) continue;
+      if (this.rolled('habitat') && (c.id + t) % P.habEvery === 0) this.rememberHabitat(c);
       const sp = this.registry[c.species], k = this.scale(c);
       if (c.dormant) { c.vx = 0; c.vy = 0; continue; } // asleep: no movement, no hunger, no ageing
       if (c.bumps > 0) c.bumps *= 0.995;
@@ -1926,8 +2621,12 @@ export class World {
         c.vx = Math.cos(a) * speed * 0.9; c.vy = Math.sin(a) * speed * 0.9;
         if (!open(a)) { c.vx = 0; c.vy = 0; }
       }
+      const isoX = c.x, isoY = c.y; // (isolation) where it stood before moving, falling or being swept
       if (this.rolled('sections') && !this.registry[c.species].unique) this.crossGate(c); // crags, cliffs and deep water ask for skill
+      const climbing = this.isClimbing(c);
+      if (climbing) { this.climbTicks = (this.climbTicks ?? 0) + 1; c.energy -= P.climbHold * mass(this.bodySize(c)) / mass(7); }
       const z0 = this.reliefRise() ? this.elevAt(c.x, c.y) : 0;
+      if (this.rolled('track')) c.odo = (c.odo ?? 0) + Math.hypot(c.vx, c.vy); // (track) distance travelled
       c.x = wrap(c.x + c.vx, W);
       c.y = wrap(c.y + c.vy, H);
       if (z0 || this.reliefRise()) { const climb = this.elevAt(c.x, c.y) - z0; // climbing costs: heavier, fatter and short-legged bodies pay more
@@ -1936,34 +2635,43 @@ export class World {
           if (w.d > 0) {
             const size = this.bodySize(c), deep = w.d * P.depthPx / Math.max(1, (c.legs ?? 1) * size), swim = c.swim ?? 0;
             c.energy -= P.wadeCost * Math.min(1.5, deep) * (mass(size) / mass(7)) * (1 + P.fatDrag * (c.fat ?? 0) / mass(size)) * (1 - 0.7 * swim);
-            if (deep > 1 && this.flowDir) { const k = P.sweep * (1 - swim) * Math.min(2, 7 / size); c.x = wrap(c.x + this.flowDir[w.i * 2] * k, W); c.y = wrap(c.y + this.flowDir[w.i * 2 + 1] * k, H); }
+            if (this.rolled('physics')) c.swimming = deep > 1;
+            if (deep > 1 && this.flowDir) { const k = P.sweep * (1 - swim) * Math.min(2, 7 / size) * (this.rolled('physics') ? 1 / Math.max(0.5, this.strength(c)) : 1); c.x = wrap(c.x + this.flowDir[w.i * 2] * k, W); c.y = wrap(c.y + this.flowDir[w.i * 2 + 1] * k, H); }
             c.wading = Math.min(1, deep) * (1 - swim);
-          } else c.wading = 0;
+          } else { c.wading = 0; if (this.rolled('physics')) c.swimming = false; }
         }
         if (climb > 0 && !this.registry[c.species].unique) c.energy -= P.climbCost * climb * (mass(this.bodySize(c)) / mass(7)) * (1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c))) * (1.3 - 0.5 * (c.legs ?? 1)); }
+      if (this.isoBox) { const inside = this.inIso(c.x, c.y); if (c.isoSide === undefined) c.isoSide = inside; else if (inside !== c.isoSide && !this.isoBox.block) { this.isoCrossed = (this.isoCrossed ?? 0) + 1; (inside ? (this.isoIn = (this.isoIn ?? 0) + 1) : (this.isoOut = (this.isoOut ?? 0) + 1)); c.isoSide = inside; } else if (inside !== c.isoSide) { const dx = delta(isoX, c.x, W), dy = delta(isoY, c.y, H), l = Math.hypot(dx, dy) || 1; c.wall = { x: dx / l, y: dy / l, until: this.tick + P.wallMemory }; c.x = isoX; c.y = isoY; c.vx = 0; c.vy = 0; this.isoBlocked = (this.isoBlocked ?? 0) + 1; } } // remembered like any wall, so it steers along or away // (isolation) nobody crosses the boundary
       (c.gut >= 0.5 ? this.scentHunt : this.scentPrey)[cellAt(c.x, c.y)] += P.scent * mass(this.bodySize(c));
       c.pulse = this.heartRate(c);
+      if (this.tissueOn(c)) this.growTissue(c);
       c.age += c.pulse; // age is counted in heartbeats
       if (c.digesting > 0) c.digesting--;
+      if (this.digests(c)) this.digest(c);
       if (c.cooldown > 0) c.cooldown -= c.pulse;
+      if (this.rolled('homerange') && c.homeSeen && !c.homeDispersed && this.fertile(c)) this.disperseHome(c); // maturity can arrive on this heartbeat, before breeding
       const upkeep = Math.max(0.4, 1 + P.legUpkeep * (c.legs - 1) + P.windUpkeep * (c.wind - 0.5)) * (1 + P.fatUpkeep * this.fatLoad(c))
-        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0)) * this.climateCost(c);
+        * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0) + P.noseUpkeep * (c.nose ?? 0) + P.strideUpkeep * (c.stride ?? 0)) * this.climateCost(c) * this.breadthCost(c);
       if (c.aversion) { c.aversion.s *= P.aversionFade; if (c.aversion.s < 0.3) c.aversion = null; }
       const drag = 1 + P.fatDrag * (c.fat ?? 0) / mass(this.bodySize(c));
-      if (this.rolled('growon') && !sp.unique && c.age > P.growTicks && (c.grown ?? 1) < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) c.grown = Math.min(P.growOnMax, (c.grown ?? 1) + P.growOnRate); // a well-fed adult keeps growing
-      c.energy -= sp.metabolism * k ** 0.75 * upkeep + sp.moveCost * k * drag * (c.vx * c.vx + c.vy * c.vy);
+      if (this.rolled('growon') && !this.tissueOn(c) && !sp.unique && c.age > P.growTicks && (c.grown ?? 1) < P.growOnMax && c.energy > P.growOnFed * this.capOf(c)) c.grown = Math.min(P.growOnMax, (c.grown ?? 1) + P.growOnRate); // a well-fed adult keeps growing
+      c.energy -= sp.metabolism * k ** 0.75 * upkeep + sp.moveCost * k * drag * (c.vx * c.vx + c.vy * c.vy) * (this.rolled('track') ? 1 - P.strideSave * (c.stride ?? 0) : 1); // (track) a long stride travels cheaper
       if (c.fat > 0 && c.energy < this.capOf(c) * 0.3) { const d = Math.min(c.fat, P.fatBurn); c.fat -= d; c.energy += d * P.fatEfficiency; }
-      this.eat(c, sp, k);
+      if (!climbing) this.eat(c, sp, k);
       this.plasticity(c, sp);
-      if (c.energy <= 0) this.die(c, 'starved');
+      let burnt = false;
+      if (this.fireLive && this.burning[cellAt(c.x, c.y)] > 0 && !sp.unique) { c.energy -= P.fireBurn * this.capOf(c) * (c.age < P.maturity * (c.mature ?? 1) ? 2 : 1); burnt = true; } // standing in flames
+      if (c.energy <= 0) this.die(c, burnt ? 'burnt' : 'starved');
       else if (c.age > c.lifespan) this.die(c, 'old');
-      else if (c.willing && !sp.unique && this.fertile(c) && this.room(c.species, this.creatures.length + born.length)) this.breed(c, sp, k, born);
+      else if (!climbing && c.willing && !sp.unique && this.fertile(c) && this.room(c.species, this.creatures.length + born.length, c)) this.breed(c, sp, k, born);
+      if (climbing && --c.climbing.left <= 0) c.climbing = null;
     }
     this.creatures = this.creatures.filter(c => !c.dead).concat(born);
 
-    const climateOn = this.rolled('climate'), eraNow = climateOn ? this.tempEra() : 0;
+    const climateOn = this.rolled('climate'), eraNow = climateOn ? this.tempEra() : 0, insOn = this.rolled('insects');
     for (const corpse of this.corpses) {
-      const spoil = (climateOn ? 0.5 + P.rotHeat * this.tempAt(corpse.y, eraNow, corpse.x) : 1) * (this.rolled('carcass') ? P.carcassKeep : 1); // the cold keeps the dead, heat spoils them
+      let spoil = (climateOn ? 0.5 + P.rotHeat * this.tempAt(corpse.y, eraNow, corpse.x) : 1) * (this.rolled('carcass') ? P.carcassKeep : 1); // the cold keeps the dead, heat spoils them
+      if (insOn && this.tick - (corpse.opened ?? -1e9) < P.openHold) spoil *= P.openRot; // (insects) where a decomposer is feeding, the rot slows
       corpse.age += spoil;
       if (t % PLANT_EVERY === 0 && corpse.energy > 0) {
         const rotted = corpse.energy * P.rot * spoil, i = cellAt(corpse.x, corpse.y);
@@ -1989,7 +2697,7 @@ export class World {
       const g = this.preyCount(), floor = g < 50 ? 0.7 : g < 200 ? 0.8 : 1;
       if (this.satiation > floor) { this.satiation = floor; this.log(`Grazers are scarce (${g}). The kraken grows calm: it feeds below ${Math.round(floor * 100)}% now.`); }
     }
-    if (t % TICKS_PER_DAY === 0) this.checkSplits();
+    if (t % TICKS_PER_DAY === 0) { if (this.rolled('speciate2')) this.blendBack(); this.checkSplits(); }
     if (t % SEASON_TICKS === 0) this.endSeason();
   }
 
@@ -2012,6 +2720,11 @@ export class World {
       c.shift += d;
       c.gut = clamp01(c.gut + d);
     }
+    if (!c.turning && this.rolled('gutvalley') && !sp.unique && c.recent?.ate > 0.3) { // (gutvalley) the gut follows the diet, a little, within a life
+      const target = clamp01(0.05 + 0.8 * (c.recent.meat ?? 0) / c.recent.ate), lo = c.bornGut - P.gutFlexMax, hi = c.bornGut + P.gutFlexMax;
+      const step = Math.sign(target - c.gut) * Math.min(Math.abs(target - c.gut), P.gutFlex * (c.plastic ?? 0.2) * 5);
+      const g2 = Math.max(lo, Math.min(hi, c.gut + step)); c.shift = (c.shift ?? 0) + (g2 - c.gut); c.gut = clamp01(g2);
+    }
   }
 
   // The gut a creature passes on: the one it was born with, plus part of what its life changed.
@@ -2024,7 +2737,7 @@ export class World {
   heartRate(c) {
     const speed = Math.min(1, Math.hypot(c.vx, c.vy) / (this.cruise(c) || 1));
     const bulk = Math.max(0.4, 1 + P.legUpkeep * ((c.legs ?? 1) - 1) + P.windUpkeep * ((c.wind ?? 0.5) - 0.5))
-      * (1 + P.fatUpkeep * this.fatLoad(c)) * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0)) * this.climateCost(c);
+      * (1 + P.fatUpkeep * this.fatLoad(c)) * (1 + P.armorUpkeep * (c.armor ?? 0) + P.toxinUpkeep * (c.toxin ?? 0) + P.resistUpkeep * (c.resist ?? P.resistStart) + P.eyesUpkeep * ((c.eyes ?? P.eyesStart) - 0.5) + P.decompUpkeep * (c.decomp ?? 0) + P.parasiteUpkeep * (c.parasitism ?? 0) + P.swimUpkeep * (c.swim ?? 0) + P.climbUpkeep * (c.climb ?? 0) + P.biteUpkeep * (c.bite ?? 0) + P.snapUpkeep * (c.snap ?? 0) + P.noseUpkeep * (c.nose ?? 0) + P.strideUpkeep * (c.stride ?? 0)) * this.climateCost(c);
     return (mass(this.bodySize(c)) / mass(P.heartSize)) ** -P.heartPower * (P.idleHeart + P.runHeart * speed) * (c.sprinting ? P.sprintHeart : 1) * Math.sqrt(bulk);
   }
 
@@ -2035,24 +2748,189 @@ export class World {
     return sp.maxSpeed * (c.legs ?? 1) * (sp.grows ? Math.sqrt(sp.size / Math.max(sp.size, c.size)) : 1);
   }
 
+  // SKILLS COST (Luis, s2101 "not everyone can be a master of everything"; s2235; rollout.skillcost): keeping many skills costs
+  // more than the sum of each: upkeep × (1 + k × S²), S = climb + swim + browse + snap + bite + decomp + parasitism, so a
+  // generalist pays more than a specialist. k ramps from 0 to skillCost over skillRamp seasons from the rollout season.
+  breadthCost(c) {
+    if (!this.rolled('skillcost') || this.registry[c.species].unique) return 1;
+    const k = P.skillCost * clamp01((this.season - this.rollout.skillcost + 1) / P.skillRamp);
+    const S = (c.climb ?? 0) + (c.swim ?? 0) + (c.browse ?? 0) + (c.snap ?? 0) + (c.bite ?? 0) + (c.decomp ?? 0) + (c.parasitism ?? 0);
+    return 1 + k * S * S;
+  }
+  isClimbing(c) { return this.rolled('physics') && !this.registry[c.species].unique && (c.climbing?.left ?? 0) > 0; }
+
+  strength(c) {
+    // Cached only for this heartbeat; hunger and movement during it use the same muscle strength.
+    if (c.strengthTick !== this.tick) {
+      c.strengthTick = this.tick;
+      c.strengthNow = (mass(this.bodySize(c)) / mass(5)) ** (2 / 3) * (0.5 + 0.5 * clamp01(c.energy / (this.capOf(c) * P.weakAt)));
+    }
+    return c.strengthNow;
+  }
+
+  tobler(g) { return Math.max(P.slopeFloor, Math.min(1, Math.exp(-P.toblerRate * Math.abs(g + P.toblerDown)) / Math.exp(-P.toblerRate * P.toblerDown))); }
+
+  canCatch(c, o) { return !this.isClimbing(o) || this.registry[c.species].unique || (c.climb ?? 0) >= (o.climb ?? 0); }
+
   steer(c, fx, fy) {
     const sp = this.registry[c.species];
     // A starving body is weak: slower, and slow to get its wind back. Fat weighs a body down.
     const weak = P.weakest + (1 - P.weakest) * Math.min(1, c.energy / (this.capOf(c) * P.weakAt));
     const load = this.fatLoad(c), heavy = 1 - P.fatSlows * Math.min(1, load), nimble = Math.max(0.4, 1 - P.fatClumsy * load);
-    c.sprinting = !!c.sprint && c.stamina >= 1;
+    const physics = this.rolled('physics') && !sp.unique, climbing = this.isClimbing(c);
+    c.sprinting = !climbing && !!c.sprint && c.stamina >= 1;
     if (c.sprinting) c.stamina -= 1 + load;
     else c.stamina = Math.min(c.wind * P.windTicks, c.stamina + P.recover * weak * Math.max(0.3, 1 - 0.5 * load));
     const maxForce = sp.maxForce / Math.sqrt(this.scale(c)) * (c.sprinting ? P.sprintForce : 1) * nimble;
-    const brush = 1 - P.thicketDrag * this.thicket[cellAt(c.x, c.y)] * Math.min(1, (sp.girth ?? this.bodySize(c)) / P.thicketBig); // thicket slows, big bodies most
-    const steep = this.reliefRise() ? Math.min(1, this.steepAt(c.x, c.y) / P.steepRef) : 0, wade = 1 - P.wadeSlow * (c.wading ?? 0), slope = 1 - P.slopeSlow * steep * Math.min(1, Math.max(0.3, 1.3 - 0.5 * (c.legs ?? 1))); // steep ground slows, long legs less
+    const brush = 1 - P.thicketDrag * this.shelter[cellAt(c.x, c.y)] * Math.min(1, (sp.girth ?? this.bodySize(c)) / P.thicketBig); // thicket slows, big bodies most
+    const steep = !physics && this.reliefRise() ? Math.min(1, this.steepAt(c.x, c.y) / P.steepRef) : 0;
+    let wade = 1 - P.wadeSlow * (c.wading ?? 0), slope = 1 - P.slopeSlow * steep * Math.min(1, Math.max(0.3, 1.3 - 0.5 * (c.legs ?? 1))); // steep ground slows, long legs less
+    if (physics) {
+      const step = Math.hypot(c.vx, c.vy);
+      const g = step > 0 && this.reliefRise() ? (this.elevAt(c.x + c.vx, c.y + c.vy) - this.elevAt(c.x, c.y)) * P.heightMetres / (step * P.unitMetres) : 0;
+      slope = 1 - (1 - this.tobler(g)) * Math.min(1, Math.max(0.3, 1.3 - 0.5 * (c.legs ?? 1)));
+      if (c.swimming) wade = Math.min(1, (P.swimBase + P.swimSkill * (c.swim ?? 0)) * Math.sqrt(this.strength(c)));
+    }
     const limit = Math.min(P.speedCap, this.cruise(c) * (c.sprinting ? P.sprintBoost : 1) * weak * heavy * (1 - P.armorSlow * this.armorOf(c)) * brush * slope * wade);
+    if (climbing) { // Committed to the ascent: neither danger nor home can turn it, and no sprint.
+      const speed = Math.hypot(c.vx, c.vy), cap = limit * P.climbSpeed;
+      if (speed > cap) { c.vx *= cap / speed; c.vy *= cap / speed; }
+      return;
+    }
     const m = Math.hypot(fx, fy);
     if (m > maxForce) { fx *= maxForce / m; fy *= maxForce / m; }
+    if (this.fireLive) { const away = this.fireAway(c); if (away) { fx += away[0] * P.fireFlee * maxForce; fy += away[1] * P.fireFlee * maxForce; c.fled = (c.fled ?? 0) + 1; } } // flames: run
+    if (this.rolled('homerange')) {
+      const pull = this.homeForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      // Keep danger and fire steering dominant when home lies against the escape direction.
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
+    if (this.rolled('calls') && !sp.unique && c.willing) { // (calls) a willing body heads for willing kin it can see
+      const pull = this.callForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
+    if (this.rolled('follow') && !sp.unique && c.mom != null) { // (follow) the young keep near their mother
+      const pull = this.followForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
+    if (this.rolled('nose') && !sp.unique && (c.nose ?? 0) > 0.01 && !this.digestFull(c)) { // (nose) follow the carrion scent
+      const sm = this.smellOf(this.scentCarrion, c.x, c.y); if (sm.strength > 0.001) { const k = P.nosePull * maxForce * c.nose; fx += sm.x * k; fy += sm.y * k; }
+      if (this.rolled('track') && this.hasJaws(c)) { const sp2 = this.smellOf(this.scentPrey, c.x, c.y); if (sp2.strength > 0.001) { const k = P.nosePull * maxForce * c.nose; fx += sp2.x * k; fy += sp2.y * k; } } // (track) a hunter follows prey trails
+    }
+    if (this.rolled('alarm') && !sp.unique) { // (alarm) flee a hunter that kin (or itself) has called out
+      const pull = this.alarmForce(c, maxForce); fx += pull[0]; fy += pull[1];
+    }
+    if (this.rolled('flock') && !sp.unique) { // (flock) kin seek kin, giving way to danger like the home pull
+      const pull = this.flockForce(c, maxForce), dot = fx * pull[0] + fy * pull[1];
+      const share = dot < 0 ? Math.min(1, P.homeOppose * (fx * fx + fy * fy) / -dot) : 1;
+      fx += pull[0] * share; fy += pull[1] * share;
+    }
     c.vx += fx;
     c.vy += fy;
     const s = Math.hypot(c.vx, c.vy);
     if (s > limit) { c.vx *= limit / s; c.vy *= limit / s; }
+  }
+
+  homeRadius(c) { return Math.max(P.homeMin, Math.min(P.homeMax, P.homeR * mass(this.bodySize(c)) / mass(5))); }
+
+  disperseHome(c, R = this.homeRadius(c)) {
+    c.homeDispersed = true; c.homeFed = 0;
+    const N = this.climbNeed();
+    for (let k = 0; k < P.homeTries; k++) {
+      const a = Math.random() * Math.PI * 2, d = R * (1 + Math.random() * (P.dispersal - 1));
+      const x = wrap(c.home.x + Math.cos(a) * d, W), y = wrap(c.home.y + Math.sin(a) * d, H), i = cellAt(x, y);
+      if (N[i] < 0.5 && this.reef[i] < P.reefSolid && this.waterAt(x, y).d * P.depthPx <= Math.max(1, (c.legs ?? 1) * this.bodySize(c))) { c.home = { x, y }; break; }
+    }
+  }
+
+  // FLOCK (Luis, s2425: "make them flock together… groups of 6 or 8, so small species replace themselves"): a body with fewer than
+  // flockSize kin within flockNear is pulled toward the centre of the kin it sees within flockRange; the pull fades as the group
+  // fills, and is strongest for small species (full under flockRare bodies, flockBase of it for a big one). Cached species counts.
+  // How rare a species is (1 under flockRare bodies, fading to flockBase for a common one), cached per tick.
+  rarity(c) {
+    if (this._flockT !== this.tick) { this._flockT = this.tick; const n = this._flockN = {}; for (const o of this.creatures) if (!o.dead) n[o.species] = (n[o.species] ?? 0) + 1; }
+    const count = this._flockN[c.species] ?? 0; return Math.max(P.flockBase, Math.min(1, (P.flockRare * 2 - count) / P.flockRare));
+  }
+  // CALLS (Luis, s2427, option B): a willing, fertile body senses willing, fertile kin within callRange (song, scent) and steers to
+  // the nearest, stronger for small species; off when one is already within mating reach.
+  callForce(c, maxForce) {
+    if (!this.fertile(c)) return [0, 0];
+    let best = null, bd = Infinity;
+    const gb = this.graceBoost(c);
+    this.near(c.x, c.y, P.callRange * gb.reach, (o, dx, dy) => { if (o === c || o.dead || !o.willing || !this.interbreeds(c.species, o.species) || !this.fertile(o)) return; const d = dx * dx + dy * dy; if (d < bd) { bd = d; best = [dx, dy]; } });
+    if (!best || Math.sqrt(bd) <= P.mateReach) return [0, 0];
+    const iso = this.rolled('isocalls') ? this.isolation(c) : null, l = Math.sqrt(bd), k = P.callPull * maxForce * (gb.pull > 1 ? 1 : iso ?? this.rarity(c)) * gb.pull; return [best[0] / l * k, best[1] / l * k];
+  }
+  // SAFETY IN NUMBERS (Luis, s2427, option D): each kin within guardRange of a prey cuts a hunter's catch by guardEach, up to guardMax kin.
+  groupGuard(o) {
+    if (!this.rolled('guard')) return 1;
+    let n = 0; this.near(o.x, o.y, P.guardRange, k => { if (k !== o && !k.dead && k.species === o.species) n++; });
+    return 1 / (1 + P.guardEach * Math.min(n, P.guardMax));
+  }
+  alarmForce(c, maxForce) {
+    if (this.tick - (c.alarmLook ?? -1e9) >= P.alarmEvery) { // look for a hunter able to take it, every few ticks
+      c.alarmLook = this.tick; let best = null, bd = Infinity; const r = this.sight(c);
+      this.near(c.x, c.y, r, (o, dx, dy) => { if (o === c || o.dead || o.species === c.species || !this.hasJaws(o)) return; const d = dx * dx + dy * dy; if (d < bd && this.bodySize(o) >= this.bodySize(c)) { bd = d; best = o; } });
+      if (best) { c.alarmAt = this.tick; c.alarmX = best.x; c.alarmY = best.y; c.energy -= P.alarmCost; } // the call costs a little
+    }
+    let hx = null, hy = null, hd = Infinity;
+    if (this.tick - (c.alarmAt ?? -1e9) < P.alarmFresh) { hx = c.alarmX; hy = c.alarmY; hd = 0; }
+    else this.near(c.x, c.y, P.alarmRange, (o, dx, dy) => { if (o === c || o.dead || o.species !== c.species || this.tick - (o.alarmAt ?? -1e9) >= P.alarmFresh) return; const d = dx * dx + dy * dy; if (d < hd) { hd = d; hx = o.alarmX; hy = o.alarmY; } }); // a kin's call
+    if (hx === null) return [0, 0];
+    const dx = delta(hx, c.x, W), dy = delta(hy, c.y, H), l = Math.hypot(dx, dy) || 1, k = P.alarmPull * maxForce; return [dx / l * k, dy / l * k];
+  }
+  followForce(c, maxForce) {
+    if (c.age >= P.maturity * (c.mature ?? 1)) { c.mom = null; return [0, 0]; } // grown: on its own
+    if (this._byIdT !== this.tick) { this._byIdT = this.tick; this._byId = new Map(); for (const o of this.creatures) if (!o.dead) this._byId.set(o.id, o); }
+    const m = this._byId.get(c.mom); if (!m) { c.mom = null; return [0, 0]; } // an orphan fends for itself
+    const dx = delta(c.x, m.x, W), dy = delta(c.y, m.y, H), d = Math.hypot(dx, dy);
+    if (d <= P.followNear || d > P.followRange) return [0, 0];
+    const k = P.followPull * maxForce * Math.min(1, (d - P.followNear) / P.followNear) * (this.rolled('social') ? c.social ?? 1 : 1); return [dx / d * k, dy / d * k];
+  }
+  isolation(c) { let n = 0; this.near(c.x, c.y, P.flockNear, o => { if (o !== c && !o.dead && o.species === c.species) n++; }); return Math.max(0, 1 - n / P.flockSize); } // (isocalls) 1 alone … 0 among a full group
+  graceBoost(c) { const r = this.registry[c.species]; return this.rolled('founders') && r.speciated && this.graceOn(r) ? { pull: P.graceFlock, reach: P.graceReach } : { pull: 1, reach: 1 }; } // (founders) a new kind gathers hard through its grace
+  flockForce(c, maxForce) {
+    if (this._flockT !== this.tick) { this._flockT = this.tick; const n = this._flockN = {}; for (const o of this.creatures) if (!o.dead) n[o.species] = (n[o.species] ?? 0) + 1; }
+    const count = this._flockN[c.species] ?? 0, rare = Math.max(P.flockBase, Math.min(1, (P.flockRare * 2 - count) / P.flockRare));
+    let close = 0, sx = 0, sy = 0, seen = 0; const gb = this.graceBoost(c);
+    this.near(c.x, c.y, P.flockRange * gb.reach, (o, dx, dy) => { if (o === c || o.dead || o.species !== c.species) return; seen++; sx += dx; sy += dy; if (dx * dx + dy * dy < P.flockNear * P.flockNear) close++; });
+    if (!seen || close >= P.flockSize) return [0, 0];
+    const mx = sx / seen, my = sy / seen, l = Math.hypot(mx, my) || 1, k = P.flockPull * maxForce * (gb.pull > 1 ? 1 : rare) * gb.pull * (1 - close / P.flockSize) * (this.rolled('social') ? c.social ?? 1 : 1);
+    return [mx / l * k, my / l * k];
+  }
+  homeForce(c, maxForce) {
+    if (!c.homeSeen) {
+      c.home ??= { x: c.x, y: c.y };
+      // Already mature residents do not all disperse on rollout day.
+      c.homeDispersed ??= c.age > Math.max(P.maturity * (c.mature ?? 1) * (this.rolled('climate') ? 1 + P.waterSlow * (c.water ?? P.waterStart) : 1), P.growTicks * 0.75); c.homeSeen = true;
+    }
+    const R = this.homeRadius(c);
+    if (!c.homeDispersed && this.fertile(c)) this.disperseHome(c, R);
+    const hx = delta(c.x, c.home.x, W), hy = delta(c.y, c.home.y, H), d = Math.hypot(hx, hy), hungry = c.energy / this.capOf(c) < P.homeHunger;
+    c.homeFed = !hungry && d > R ? (c.homeFed ?? 0) + 1 : 0;
+    if (c.homeFed >= P.homeShift) { c.home = { x: c.x, y: c.y }; c.homeFed = 0; return [0, 0]; }
+    if (d <= P.homeInner * R) return [0, 0];
+    const pull = maxForce * P.homePull * (d / R - P.homeInner) / (1 - P.homeInner) * (hungry ? P.homeHungryPull : 1);
+    return [hx / d * pull, hy / d * pull];
+  }
+
+  // Away from flames: a unit-ish vector (length up to 1, stronger the nearer) from burning cells within fireSmoke cells, or null.
+  fireAway(c) {
+    const B = this.burning, R = P.fireSmoke, gx0 = Math.floor(c.x / CELL), gy0 = Math.floor(c.y / CELL);
+    let sx = 0, sy = 0, near = 99;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+      const gx = ((gx0 + dx) % GW + GW) % GW, gy = ((gy0 + dy) % GH + GH) % GH;
+      if (!(B[gy * GW + gx] > 0)) continue;
+      const vx = c.x - (gx0 + dx + 0.5) * CELL, vy = c.y - (gy0 + dy + 0.5) * CELL, d = Math.hypot(vx, vy) / CELL + 0.3;
+      if (d > R + 0.5) continue;
+      sx += vx / d / d / d; sy += vy / d / d / d; near = Math.min(near, d);
+    }
+    const l = Math.hypot(sx, sy); if (!l) return null;
+    const mag = Math.min(1, 1.5 / near);
+    return [sx / l * mag, sy / l * mag];
   }
 
   // Grazing nibbles the cell underfoot; jaws take the first thing touched that is small enough.
@@ -2065,8 +2943,8 @@ export class World {
     if (c.energy >= full) return this.growOn(c, sp);
     const me = this.bodySize(c), eaten = [];
     this.near(c.x, c.y, me * (sp.gulpReach ?? 1) + 20, (o, dx, dy) => {
-      const reach = (me + this.bodySize(o)) * (sp.gulpReach ?? P.gulpReach) + 2;
-      if (eaten.length < (sp.gulp ?? P.gulp) && o !== c && !o.dead && !(this.toxinOf(o) > (c.resist ?? 0.3) + P.tolerate) && this.canOverpower(c, o) && this.wouldEat(c, o) && dx * dx + dy * dy <= reach * reach) eaten.push(o);
+      const reach = (me + this.bodySize(o)) * (sp.gulpReach ?? P.gulpReach) * (this.rolled('footprint') ? P.footprint : 1) + 2;
+      if (eaten.length < (sp.gulp ?? P.gulp) && o !== c && !o.dead && !(this.toxinOf(o) > (c.resist ?? 0.3) + P.tolerate) && this.canCatch(c, o) && this.canOverpower(c, o) && this.wouldEat(c, o) && dx * dx + dy * dy <= reach * reach) eaten.push(o);
     });
     if (P.targetedHunger && this.preyRank && eaten.length) { // targeted hunger: of what is in reach, only the commonest kind
       const best = Math.min(...eaten.map(o => this.preyRank[o.species] ?? 99));
@@ -2111,15 +2989,21 @@ export class World {
     // The stomach empties as it digests; a full one cannot take more (experiment, see P.stomach).
     let full = false;
     if (P.stomach && !sp.unique) { const bite = sp.biteSize * Math.sqrt(k); c.bulk = Math.max(0, (c.bulk ?? 0) - P.stomachEmpty * bite); full = c.bulk >= P.stomachHold * bite; }
+    full ||= this.digestFull(c) || (this.digests(c) && this.isClimbing(c));
     // What a grazer carries: dung dropped as it goes (fertility moves to where it rests), seeds that sprout on bare ground.
-    if (c.dung > 0.001 || c.seeds > 0.05) {
+    if (c.dung > 0.001 || c.seeds > 0.05 || c.dungE > 0.0001) {
       const j = cellAt(c.x, c.y);
       if (c.dung > 0.001) { const d = c.dung * P.dungDrop; c.dung -= d; this.fertility[j] = Math.min(2, this.fertility[j] + d); }
+      if (c.dungE > 0.0001) { const d = c.dungE * P.dungDrop; c.dungE -= d; this.dungMap ??= new Float32Array(GW * GH); this.dungMap[j] += d; this.dungDropped = (this.dungDropped ?? 0) + d; } // (honest dung)
       if (c.seeds > 0.05) {
         if (this.plants[j] === 0 && this.reef[j] < P.reefSolid && Math.random() < P.seedDrop * c.seeds * this.moisture[j]) { this.plants[j] = 0.05; this.rootHealth[j] = Math.max(this.rootHealth[j], 0.5);
           if (this.rolled('grassvar') && c.seedH !== undefined) { this.grassHardy[j] = c.seedH; this.grassSweet[j] = c.seedS; this.mutateGrass(j); } } // the seed carries the strain it came from
         c.seeds *= P.seedCarry;
       }
+    }
+    if (c.tseeds > 0.05) { // fruit seeds in the dung: a sapling where the ground suits it
+      if (Math.random() < P.treeSeedDrop * c.tseeds && this.seedTree(cellAt(c.x, c.y), c.tkind)) this.treesDunged = (this.treesDunged ?? 0) + 1;
+      c.tseeds *= P.seedCarry;
     }
     c.toxStock = (c.toxStock ?? 1) * (1 - P.storeFade); c.minStock = (c.minStock ?? 1) * (1 - P.storeFade); // defences fade without supply
     if (c.eats !== false && !full) {
@@ -2130,81 +3014,131 @@ export class World {
         const quality = Math.min(P.grassQuality[1], Math.max(P.grassQuality[0], 0.5 + this.moisture[i])); // dry grass is poor food
         const otherWays = Math.max(0.2, 1 - P.decompGrass * (c.decomp ?? 0) - P.parasiteGrass * (c.parasitism ?? 0)); // a gut built for dung or hosts grazes worse
         const strain = this.rolled('grassvar') ? (1 - P.hardyEnergy * this.grassHardy[i]) * (1 + P.sweetEnergy * this.grassSweet[i]) : 1; // tough grass is poorer, sweet grass richer
-        this.feed(c, bite * quality * otherWays * strain * (this.grassFood ?? 1) * P.plantEnergy * this.grassGut(c.gut) * (1 - P.browseCost * (c.browse ?? 0)), 1, 'plant'); // a browsing gut grazes worse
+        const raw = bite * quality * otherWays * strain * (this.grassFood ?? 1) * (this.grassLean ?? 1) * P.plantEnergy, dig = raw * this.grassGut(c.gut, c) * (1 - P.browseCost * (c.browse ?? 0));
+        this.feed(c, dig, 1, 'plant'); // a browsing gut grazes worse
+        if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig; // honest dung: what it ate and did not digest goes on as dung
         if (bite > 0) {
           if (this.plants[i] < P.roots + 0.05) this.rootHealth[i] = Math.max(0, this.rootHealth[i] - P.rootWear * (this.rolled('grassvar') ? 1 + P.sweetRoots * this.grassSweet[i] : 1)); // bitten to the roots (sweet grass's roots are weaker)
           c.dung = (c.dung ?? 0) + bite * P.dungShare; c.seeds = 1; c.seedH = this.grassHardy[i]; c.seedS = this.grassSweet[i]; // it carries the meal on as dung, and seeds
         }
-        if (this.rolled('waterfood') && this.aqua[i] > 0.02) { const acc = this.aquaAccess(c, i); if (acc > 0) { // water plants, for waders and swimmers
+        if (!this.digestFull(c) && this.rolled('waterfood') && this.aqua[i] > 0.02) { const acc = this.aquaAccess(c, i); if (acc > 0) { // water plants, for waders and swimmers
           const b2 = Math.min(this.aqua[i], P.aquaBite * Math.sqrt(k) * acc * (1 - c.gut)); this.aqua[i] -= b2;
-          this.feed(c, b2 * P.aquaEnergy * P.plantEnergy * this.grassGut(c.gut) * (this.grassFood ?? 1), 1, 'plant'); } }
-        if (this.rolled('highfood') && this.lichen[i] > 0.02) { // lichen on the heights, worth more to a thick coat
-          const b3 = Math.min(this.lichen[i], P.lichenBite * Math.sqrt(k) * (1 - c.gut)); this.lichen[i] -= b3;
-          this.feed(c, b3 * P.lichenEnergy * (0.5 + (c.coat ?? P.coatStart)) * P.plantEnergy * this.grassGut(c.gut) * (this.grassFood ?? 1), 1, 'plant'); }
+          const nf = this.rolled('nichefood'); // (nichefood) water plants are the waders' and swimmers' own: richer, and not grass
+          this.feed(c, b2 * (nf ? P.nicheAqua : P.aquaEnergy) * P.plantEnergy * this.grassGut(c.gut, c) * (nf ? 1 : this.grassFood ?? 1), 1, 'plant'); } }
+        if (!this.digestFull(c) && this.rolled('highfood') && this.lichen[i] > 0.02) { // lichen on the heights, worth more to a thick coat
+          const nf = this.rolled('nichefood'), acc = nf ? clamp01(((c.climb ?? 0) - P.nicheClimb0) / P.nicheClimbSpan) : 1; // (nichefood) lichen is the climbers' own
+          const b3 = Math.min(this.lichen[i], P.lichenBite * Math.sqrt(k) * (1 - c.gut) * acc); this.lichen[i] -= b3;
+          this.feed(c, b3 * (nf ? P.nicheLichen : P.lichenEnergy) * (0.5 + (c.coat ?? P.coatStart)) * P.plantEnergy * this.grassGut(c.gut, c) * (nf ? 1 : this.grassFood ?? 1), 1, 'plant'); }
+        if (this.trees[i] > 0.05 && this.rolled('trees')) this.eatTrees(c, sp, k, i); // fruit, nuts and cones; saplings
         // Defences from food: hedge plants carry toxin, ground by the reef carries minerals for a shell.
         // Toxin: a body in the hedge nibbles its leaves whether or not there is grass to bite.
-        c.toxStock = Math.min(1, (c.toxStock ?? 1) + P.toxinGain * this.thicket[i]);
+        if (!this.rolled('carcass2')) c.toxStock = Math.min(1, (c.toxStock ?? 1) + P.toxinGain * this.thicket[i]); // (carcass2) toxin comes only from shoots eaten
         if (bite > 0) c.minStock = Math.min(1, (c.minStock ?? 1) + P.mineralGain * Math.min(1, this.reefNear(i) + this.mineral[i] * 4 + (this.rolled('geology') ? P.rockMineral[this.rockOf(i)] : 0))); // limestone country feeds shells
         // Browse: a big enough body with a browsing gut eats thicket shoots, down to a floor (the hedge survives as a refuge).
-        if (this.browses(c) && this.thicket[i] > P.browseFloor) {
-          const shoots = Math.min(this.thicket[i] - P.browseFloor, P.browseBite * Math.sqrt(k) * c.browse);
+        const floor = this.rolled('shrubbrowse') && this.reefNear(i) === 0 ? P.shrubFloor : P.browseFloor; // (s2093) open scrub is browsed lower than the reef's hedge
+        if (!this.digestFull(c) && this.browses(c) && this.thicket[i] > floor) {
+          const shoots = Math.min(this.thicket[i] - floor, P.browseBite * Math.sqrt(k) * c.browse * this.habit(c, 'browse'));
           this.thicket[i] -= shoots;
           const T = this.tempAt(c.y, undefined, c.x), buds = 1 + P.winterBuds * Math.max(0, 0.5 - T) * 2; // in the cold, the hedge's buds are the food
           const juicy = Math.min(P.shootQuality[1], Math.max(P.shootQuality[0], 1.5 - this.moisture[i])) * buds; // shoots are best when the grass is dry
-          this.feed(c, shoots * juicy * P.browseEnergy * (1 - c.gut) * c.browse, 1, 'browse');
-          c.toxStock = Math.min(1, (c.toxStock ?? 1) + P.toxinGain * 2 * this.thicket[i]);
+          this.feed(c, shoots * juicy * P.browseEnergy * this.browseGut(c) * c.browse, 1, 'browse');
+          c.toxStock = Math.min(1, (c.toxStock ?? 1) + (this.rolled('carcass2') ? P.toxinShoot * shoots : P.toxinGain * 2 * this.thicket[i]));
         }
       }
+      if (Math.max(c.snap ?? 0, P.snapBase) > 0.01 && this.insects) this.eatInsects(c, k);
+      if (this.fish && (c.swim ?? 0) > 0.01 && !sp.unique) this.eatFish(c, k); // (fish) a swimmer fishes its own cell // (insects) snap: the swarm on its own cell
       if (sp.filter) this.gulp(c, sp);
-      else if (this.hasJaws(c) && !(c.digesting > 0)) {
+      else if (!this.digestFull(c) && this.hasJaws(c) && !(c.digesting > 0)) {
         let prey = null;
         const me = this.bodySize(c);
         this.near(c.x, c.y, me + 8, (o, dx, dy) => {
-          const reach = (me + this.bodySize(o)) * 0.6 + 2;
-          if (!prey && o !== c && !o.dead && dx * dx + dy * dy <= reach * reach && this.wouldEat(c, o) && this.canOverpower(c, o)) { // cheap checks first
-            if (Math.random() < this.gapeFit(c, o)) prey = o;
+          const reach = (me + this.bodySize(o)) * 0.6 * (this.rolled('footprint') ? P.footprint : 1) + 2;
+          if (!prey && o !== c && !o.dead && dx * dx + dy * dy <= reach * reach && this.canCatch(c, o) && this.wouldEat(c, o) && this.canOverpower(c, o)) { // cheap checks first
+            if (Math.random() < this.gapeFit(c, o) * this.groupGuard(o)) prey = o; // (guard) kin around the prey make it harder to take
             else if (this.rolled('lunge')) c.energy -= P.lungeCost; // it slipped away: a failed attack costs
           } // ill-fitting prey often slip away
         });
         if (prey) {
           const preyMass = mass(this.bodySize(prey)), meat = Math.max(0, prey.energy) + this.bodyHeld(prey), level = this.registry[prey.species].tl;
           this.die(prey, 'eaten');
+          const carcass = this.corpses.at(-1); // (carcass2) what no diner takes stays on this one
           this.stats[c.species].kills++;
           // Everyone with jaws nearby grabs a share, the killer included; the more crowded, the less each gets.
           const diners = [c];
-          this.near(c.x, c.y, P.shareRange, o => { if (o !== c && !o.dead && this.hasJaws(o) && o.eats !== false) diners.push(o); });
+          this.near(c.x, c.y, P.shareRange, o => { if (o !== c && !o.dead && this.hasJaws(o) && o.eats !== false && !this.isClimbing(o)) diners.push(o); });
           // The killer eats first (killerShare); the rest is shared among everyone at the kill, the killer included.
           const served = meat * (1 - P.scraps), rest = served * (1 - P.killerShare) / diners.length, toxin = this.toxinOf(prey);
+          const c2 = this.rolled('carcass2'); let taken = 0;
           for (const d of diners) {
+            if (this.digestFull(d)) continue;
             const bite = Math.max(0, toxin - (d.resist ?? 0)); // only toxin beyond the eater's resistance harms it
-            this.feed(d, (d === c ? served * P.killerShare * this.gapeFit(c, prey) + rest : rest) * this.fleshGut(d) * this.fleshEff(d) * (1 - bite), level, 'flesh'); // the killer gets most from prey its jaws suit
+            let raw = d === c ? served * P.killerShare * this.gapeFit(c, prey) + rest : rest;
+            if (c2) { raw = Math.min(raw, P.mealSize * mass(this.bodySize(d)) / mass(7)); taken += raw; } // a diner takes at most a meal
+            this.feed(d, raw * this.fleshGut(d) * this.fleshEff(d) * (1 - bite), level, 'flesh'); // the killer gets most from prey its jaws suit
             if (bite > 0.05) {
               d.energy -= bite * P.toxinHarm; const hue = shownHue(prey); d.aversion = { hue, s: 1 };
               // Watching one of its own get sick teaches the others nearby too (a little less strongly).
               this.near(d.x, d.y, P.warnRange, o => { if (o !== d && !o.dead && o.species === d.species && !(o.aversion?.s > 0.8)) o.aversion = { hue, s: 0.8 }; });
             }
           }
+          if (c2) { // the rest stays on the carcass, less its toxin like the scraps
+            const left = Math.max(0, served - taken); if (carcass) carcass.energy += left * (1 - toxin);
+            const L = (this.mealLedger ??= { kills: 0, served: 0, taken: 0, left: 0 }); L.kills++; L.served += served; L.taken += taken; L.left += left;
+          }
           c.digesting = Math.round(P.handling * Math.sqrt(preyMass / mass(me)));
         }
       }
       // Carrion does not fight back: a gut barely past grass can already tear at a corpse it touches (a step toward meat).
-      if (c.gut > P.carrionGut) {
+      const opens = this.opens(c); // (insects) a decomposer with a plant gut can still open a carcass
+      if (!this.digestFull(c) && (c.gut > P.carrionGut || opens)) {
         const me = this.bodySize(c), k2 = Math.sqrt(k);
         for (const corpse of this.corpses) {
           if (!(corpse.energy > 0.01)) continue;
           const dx = delta(c.x, corpse.x, W), dy = delta(c.y, corpse.y, H), reach = me * 0.6 + 4;
           if (dx * dx + dy * dy > reach * reach) continue;
-          const bite = Math.min(corpse.energy, (this.rolled('carrion') ? P.carrionBite2 : P.carrionBite) * k2 * (sp.soilEngineer ? 2 : 1)); // beetles break carcasses down fast
+          const bite = Math.min(corpse.energy, (this.rolled('carrion') ? P.carrionBite2 : P.carrionBite) * k2 * this.habit(c, 'carrion') * (sp.soilEngineer ? 2 : 1) * (opens ? 1 + P.openBite * (c.decomp ?? 0) : 1)); // beetles break carcasses down fast; openers tear more off
           if (sp.soilEngineer) { const ci = cellAt(corpse.x, corpse.y); this.fertility[ci] = Math.min(2, this.fertility[ci] + bite * P.beetleSoil); }
           corpse.energy -= bite;
+          if (opens) { corpse.opened = this.tick; this.carcassOpened = (this.carcassOpened ?? 0) + bite; } // (insects) the carcass is opened; its rot slows while they feed
           if (P.carrionDung) { const i = cellAt(corpse.x, corpse.y); this.fertility[i] = Math.min(2, this.fertility[i] + bite * P.carrionDung); }
-          this.feed(c, bite * this.carrionDigests(c.gut) * (1 + (c.decomp ?? 0)) * (this.rolled('carcass') ? P.carcassRich : 1), this.registry[corpse.species]?.tl ?? 2, 'carrion'); // a decomposer's gut gets more from the dead
+          const carrionMult = this.carrionDigests(c.gut, c) * (1 + (c.decomp ?? 0)) * (this.rolled('carcass') ? P.carcassRich : 1), c2 = this.rolled('carcass2');
+          if (c2) this.carrionBitten = (this.carrionBitten ?? 0) + bite; // (carcass2) never more than the bite taken
+          this.feed(c, bite * (c2 ? Math.min(1, carrionMult) : carrionMult), this.registry[corpse.species]?.tl ?? 2, 'carrion'); // a decomposer's gut gets more from the dead
           break;
         }
       }
     }
     const cap = this.capOf(c);
     if (c.energy > cap) { this.store(c, c.energy - cap); c.energy = cap; }
+  }
+
+  // Tree foods under the cell (rollout.trees): each store is bitten by the body's access to it and digested by the plant gut.
+  // Fruit seeds ride along (c.tseeds); a browser also nibbles saplings (canopy under treeSapling).
+  eatTrees(c, sp, k, i) {
+    if (this.digests(c) && this.isClimbing(c)) return;
+    const fv = this.rolled('foodvalues'), food = [[this.fruit, 1, 'fruit', fv ? P.foodValue.fruit : P.fruitEnergy], [this.nuts, 2, 'nut', fv ? P.foodValue.nut : P.nutEnergy], [this.cones, 3, 'cone', fv ? P.foodValue.cone : P.coneEnergy]];
+    for (const [store, kind, name, e] of food) {
+      if (this.digestFull(c)) break;
+      if (!(store[i] > 0.01)) continue;
+      const acc = this.treeAccess(c, kind); if (acc < 0.02) continue;
+      const bite = Math.min(store[i], sp.biteSize * (this.rolled('smallfood') ? 1 : Math.sqrt(k)) * (1 - c.gut) * acc * this.habit(c, 'browse')); // (smallfood) picking is handling-limited, not mass-limited
+      if (!(bite > 0)) continue;
+      store[i] -= bite;
+      const raw = bite * e * P.plantEnergy * (fv ? 1 : this.grassFood ?? 1), dig = raw * this.treeGut(c); // (foodvalues) tree food is not grass: its worth does not fall with the grass's
+      this.feed(c, dig, 1, name);
+      if (this.rolled('honestdung') && raw > dig) c.dungE = (c.dungE ?? 0) + raw - dig;
+      c.dung = (c.dung ?? 0) + bite * P.dungShare;
+      if (kind === 1) { c.tseeds = 1; c.tkind = this.treeKind[i]; }
+    }
+    if (this.rolled('leafbrowse') && !this.digestFull(c) && this.browses(c) && this.trees[i] > P.leafFloor) { // (leafbrowse) leaves of a mature tree, above the floor
+      const reach = clamp01(0.4 + 0.5 * (c.climb ?? 0) + (this.bodySize(c) - 4) / 8), d = Math.min(this.trees[i] - P.leafFloor, P.leafBite * Math.sqrt(k) * c.browse * reach * this.habit(c, 'browse'));
+      if (d > 0) { this.trees[i] -= d; this.leavesBrowsed = (this.leavesBrowsed ?? 0) + d; this.feed(c, d * P.leafEnergy * this.browseGut(c) * c.browse, 1, 'browse'); }
+    }
+    if (!this.digestFull(c) && this.browses(c) && this.trees[i] < P.treeSapling) { // browsing saplings
+      const d = Math.min(this.trees[i], P.treeBrowse * Math.sqrt(k) * c.browse * (this.rolled('trees2') ? Math.max(0, 1 - this.thicket[i] / P.nurseThicket) : 1)); // (trees2) thorny thicket nurses its saplings
+      this.trees[i] -= d; this.saplingsBrowsed = (this.saplingsBrowsed ?? 0) + d;
+      this.feed(c, d * P.treeBrowseEnergy * this.browseGut(c) * c.browse, 1, 'browse');
+    }
   }
 
   // How much energy a body can hold: bigger bodies hold more (mass^¼, like their slower hearts), so size buys
@@ -2228,33 +3162,72 @@ export class World {
   }
 
   // Every meal is booked by its trophic level, so each species' role is measured, not declared.
-  carrionDigests(gut) {
+  carrionDigests(gut, c) {
+    if (this.gutCurves(c)) return P.carrionEfficiency * this.gutFit(gut, 'carrion');
     const peak = this.rolled('carrion') ? P.carrionPeak2 : P.carrionPeak; // (3) a gut barely past grass digests the dead well
     return peak ? P.carrionEfficiency * Math.max(0, 1 - Math.abs(gut - peak) / P.carrionWidth) : gut * P.carrionEfficiency;
   }
 
+  digests(c) { return this.rolled('digest') && !this.registry[c.species].unique; }
+  digestCap(c) { return P.digCap * mass(this.bodySize(c)); }
+  digestFull(c) { return this.digests(c) && (c.gutLoad ?? 0) >= this.digestCap(c); }
+
+  // Each kind retains its own energy, raw load and energy-weighted trophic level.
+  // Host/dung use the carrion time and neutral/default bulk, without changing honest dung at the bite.
+  digest(c) {
+    if (!this.digests(c) || !(c.gutE > 0)) return;
+    let energy = 0, load = 0;
+    for (const [kind, pool] of Object.entries(c.gutPools ?? {})) {
+      const fraction = -Math.expm1(-1 / (P.digTime[kind] ?? P.digTime.carrion));
+      const out = pool.energy * fraction;
+      this.feedNow(c, out, pool.level, kind);
+      pool.energy -= out; pool.load *= 1 - fraction;
+      energy += pool.energy; load += pool.load;
+    }
+    c.gutE = energy; c.gutLoad = load;
+  }
+
   feed(c, energy, foodLevel, kind) {
     if (energy <= 0) return;
+    if (this.rolled('skillpays') && P.skillPay[kind] && !this.registry[c.species].unique) { const [g, a, b] = P.skillPay[kind]; energy *= Math.min(P.skillPayMax, a + b * (g === 'hunt' ? this.huntSkill(c) : c[g] ?? 0)); } // (skillpays) skill extracts more
+    if (!this.digests(c)) return this.feedNow(c, energy, foodLevel, kind);
+    // Intake is gated upstream; food already taken (a diner's share) overfills rather than vanishing.
+    const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut, c) : kind === 'browse' ? P.browseEnergy * this.browseGut(c) * (c.browse ?? 0)
+      : kind === 'fruit' || kind === 'nut' || kind === 'cone' ? P.plantEnergy * this.treeGut(c)
+      : kind === 'flesh' ? this.fleshGut(c) * this.fleshEff(c) : kind === 'carrion' ? this.carrionDigests(c.gut, c) : kind === 'insect' ? this.insectGut(c.gut, c) : 1;
+    const load = energy * (P.digBulk[kind] ?? 0.5) / Math.max(0.05, eff);
+    const pool = (c.gutPools ??= {})[kind] ??= { energy: 0, load: 0, level: foodLevel };
+    pool.level = (pool.level * pool.energy + foodLevel * energy) / (pool.energy + energy);
+    pool.energy += energy; pool.load += load;
+    c.gutE = (c.gutE ?? 0) + energy; c.gutLoad = (c.gutLoad ?? 0) + load;
+  }
+
+  feedNow(c, energy, foodLevel, kind) {
+    if (energy <= 0) return;
     const carrion = kind === 'carrion', max = this.capOf(c);
-    const richness = Math.max(P.stomach, P.fatRich), thrift = c.thrift ?? 0.5, rich = richness && !this.registry[c.species].unique ? 1 + richness * ((P.stomachRich[kind] ?? 1) - 1) : 1;
+    const richness = Math.max(P.stomach, P.fatRich), thrift = c.thrift ?? 0.5, rich = richness && !this.registry[c.species].unique ? 1 + richness * (((this.rolled('foodvalues') && P.foodRich[kind]) || (P.stomachRich[kind] ?? 1)) - 1) : 1;
     const share = P.fatShare * (0.5 + thrift) * rich;
     if (P.stomach && !this.registry[c.species].unique) { // the stomach fills by the food's raw amount: energy ÷ how well this gut extracts it
-      const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut) : kind === 'browse' ? P.browseEnergy * (1 - c.gut) * (c.browse ?? 0)
-        : kind === 'flesh' ? this.fleshGut(c) * this.fleshEff(c) : kind === 'carrion' ? this.carrionDigests(c.gut) : 1;
+      const eff = kind === 'plant' ? P.plantEnergy * this.grassGut(c.gut, c) : kind === 'browse' ? P.browseEnergy * this.browseGut(c) * (c.browse ?? 0)
+        : kind === 'fruit' || kind === 'nut' || kind === 'cone' ? P.plantEnergy * this.treeGut(c)
+        : kind === 'flesh' ? this.fleshGut(c) * this.fleshEff(c) : kind === 'carrion' ? this.carrionDigests(c.gut, c) : kind === 'insect' ? this.insectGut(c.gut, c) : 1;
       c.bulk = (c.bulk ?? 0) + P.stomach * (P.stomachBulk[kind] ?? 0.5) * energy / Math.max(0.05, eff);
     }
     if (c.energy > max * (P.fatAbove + (0.5 - thrift) * 0.4)) { this.store(c, energy * share); c.energy += energy * (1 - share); }
     else c.energy += energy;
     c.ate = (c.ate ?? 0) + energy;
     if (carrion) c.carrion = (c.carrion ?? 0) + energy;
-    if (kind === 'plant' || kind === 'browse') c.grazed = (c.grazed ?? 0) + energy;
+    const treeFood = kind === 'fruit' || kind === 'nut' || kind === 'cone'; // (trees) browsers' foods
+    if (kind === 'plant' || kind === 'browse' || treeFood || kind === 'insect') c.grazed = (c.grazed ?? 0) + energy; // (insects count with plants for dietOf: they are not flesh)
     if (kind === 'browse') c.browsed = (c.browsed ?? 0) + energy;
     // The recent diet: older meals fade (time constant nicheRecent), so it shows how the body lives now.
     const r = c.recent ??= { ate: 0, meat: 0, browse: 0, t: this.tick }, fade = Math.exp(-(this.tick - r.t) / P.nicheRecent);
     r.ate = r.ate * fade + energy; r.meat *= fade; r.browse *= fade; r.carrion = (r.carrion ?? 0) * fade; r.t = this.tick;
-    if (kind === 'flesh' || kind === 'carrion') r.meat += energy; else if (kind === 'browse') r.browse += energy;
+    if (kind === 'flesh' || kind === 'carrion' || kind === 'fish') r.meat += energy; else if (kind === 'browse' || treeFood) r.browse += energy;
+    if (kind === 'fish' || r.fish) r.fish = (r.fish ?? 0) * fade + (kind === 'fish' ? energy : 0); // (fish) its own share too
     if (kind === 'carrion') r.carrion += energy;
     r.dung = (r.dung ?? 0) * fade + (kind === 'dung' ? energy : 0); r.host = (r.host ?? 0) * fade + (kind === 'host' ? energy : 0);
+    if (kind === 'insect' || r.insect) r.insect = (r.insect ?? 0) * fade + (kind === 'insect' ? energy : 0); // (insects) its own share of the recent diet
     r.apex = (r.apex ?? 0) * fade + (kind === 'flesh' && foodLevel >= P.apexPrey ? energy : 0); // meat from other meat-eaters
     const i = cellAt(c.x, c.y);
     this.fertility[i] = Math.min(2, this.fertility[i] + energy * P.dung); // dung: what is digested feeds the soil
@@ -2286,6 +3259,8 @@ export class World {
   }
 
   fertile(c) {
+    if (this.isClimbing(c)) return false;
+    if (this.tissueOn(c) && (c.grownFrac ?? 1) < 0.85) return false;
     const thrifty = this.rolled('climate') ? 1 + P.waterSlow * (c.water ?? P.waterStart) : 1; // water-thrifty bodies grow up slower
     return c.age > Math.max(P.maturity * (c.mature ?? 1) * thrifty, P.growTicks * 0.75) && !(c.cooldown > 0) && !c.broken;
   }
@@ -2295,8 +3270,8 @@ export class World {
   // Children inherit body and genes (from one parent or the other) with a little drift.
   breed(c, sp, k, born) {
     let partner = null;
-    this.near(c.x, c.y, Math.max(P.mateReach, c.size * 2), o => { // tiny bodies still need a little room to find each other
-      if (!partner && o !== c && !o.dead && this.interbreeds(c.species, o.species) && o.willing && this.fertile(o)) {
+    this.near(c.x, c.y, (this.rolled('footprint') ? Math.max(P.mateFloor, Math.max(P.mateReach, c.size * 2) * P.footprint) : Math.max(P.mateReach, c.size * 2)), o => { // tiny bodies still need a little room to find each other
+      if (!partner && o !== c && !o.dead && (this.interbreeds(c.species, o.species) || (this.rolled('hybrid') && !this.registry[o.species].unique && !this.registry[c.species].unique && Math.random() < P.hybridOdds)) && o.willing && this.fertile(o)) {
         // Choosy mating: the more two differ (genes, body, colour), the less likely they pair; past isolation, never.
         // The wish to mate comes first: the longer a body waits, the less it minds, and after a long wait any of its kind will do.
         const gap = this.relatedGap(c, o), hue = Math.abs((c.hueShift ?? 0) - (o.hueShift ?? 0)) / 180 * P.hueChoice;
@@ -2307,10 +3282,15 @@ export class World {
     });
     if (partner) {
       c.longing = 0; partner.longing = 0;
+      if (c.species !== partner.species && !this.interbreeds(c.species, partner.species)) { const key = [c.species, partner.species].sort().join('|'); (this.hybrids ??= {})[key] = (this.hybrids[key] ?? 0) + 1; } // (hybrid) counted per pair
       let gift = c.give * c.energy + partner.give * partner.energy;
+      const fats = this.rolled('condbreed') ? [c, partner].map(q => Math.max(0, (q.fat ?? 0) * q.give * P.condFatGift)) : [0, 0]; // (condbreed) reserves become young
+      gift += (fats[0] + fats[1]) * P.fatEfficiency;
       if (gift < P.minChild) return;
+      c.fat = (c.fat ?? 0) - fats[0]; partner.fat = (partner.fat ?? 0) - fats[1];
+      if (this.tissueOn(c) && (1 - c.give) * c.energy + (1 - partner.give) * partner.energy <= 0) return;
       if (this.rolled('protein')) { // (2) protein: meat in the mother's recent diet makes her young better provisioned
-        const r = c.recent, share = r?.ate > 0.3 ? r.meat / r.ate : 0;
+        const r = c.recent, share = r?.ate > 0.3 ? (r.meat + (this.rolled('foodvalues') ? r.insect ?? 0 : 0)) / r.ate : 0; // (foodvalues) insects build young too
         gift *= 1 + P.proteinBonus * Math.min(1, share / P.proteinShare);
       }
       c.energy -= c.give * c.energy;
@@ -2319,11 +3299,11 @@ export class World {
       for (let i = 0; i < n; i++) {
         const genes = c.genes.map((g, j) => drift(pick(g, partner.genes[j])));
         // Same kind: code numbers mix. Across a slip: the child takes one parent's whole mind.
-        const mind = mixed ? pick(c, partner) : c;
+        const mind = mixed ? this.graceHeir(c, partner) ?? pick(c, partner) : c; // (graceheir) a grace-season cross belongs to the new species
         const k = mixed ? mind.k.map(driftK) : c.k.map((v, j) => driftK(pick(v, partner.k[j])));
         born.push(this.child(mind, (c.x + partner.x) / 2, (c.y + partner.y) / 2, gift / n, genes, (mixed ? mind.gen : Math.max(c.gen, partner.gen)) + 1,
           driftSize(pick(c.sizeGene ?? c.size, partner.sizeGene ?? partner.size), this.rolled('sizevar') ? P.sizeDriftWide : P.sizeDrift), driftGut(pick(this.heritableGut(c), this.heritableGut(partner))), k,
-          this.inherit(c, partner)));
+          this.inherit(c, partner), [c, partner], n - i));
       }
       this.maybeSlip(born.slice(-n));
       partner.cooldown = P.refractory;
@@ -2332,11 +3312,12 @@ export class World {
       c.longing = 0;
       const gift = c.give * c.energy, kept = gift * (1 - P.budLoss);
       if (kept < P.minChild) return;
+      if (this.tissueOn(c) && (1 - c.give) * c.energy <= 0) return;
       c.energy -= gift;
       const n = this.litterOf(c.litter, kept);
       for (let i = 0; i < n; i++)
         born.push(this.child(c, c.x, c.y, kept / n, c.genes.map(drift), c.gen + 1, driftSize(c.sizeGene ?? c.size, this.rolled('sizevar') ? P.sizeDriftWide : P.sizeDrift), driftGut(this.heritableGut(c)), c.k.map(driftK),
-          this.inherit(c, c)));
+          this.inherit(c, c), [c], n - i));
       this.maybeSlip(born.slice(-n));
       this.stats[c.species].budded++;
     } else {
@@ -2357,7 +3338,7 @@ export class World {
       legs: driftLegs(pick(a.legs, b.legs)), wind: driftWind(pick(a.wind, b.wind)), plastic: driftPlastic(pick(a.plastic, b.plastic)),
       thrift: driftThrift(pick(a.thrift, b.thrift)), armor: driftArmor(pick(a.armor, b.armor)), toxin: driftToxin(pick(a.toxin, b.toxin)),
       litter: driftLitter(pick(a.litter, b.litter)), hueShift: driftHue(pick(a.hueShift, b.hueShift)),
-      mature: driftMature(pick(a.mature, b.mature)), browse: driftBrowse(pick(a.browse, b.browse)), gape: driftGape(pick(a.gapeGene ?? a.gape, b.gapeGene ?? b.gape)), resist: driftResist(pick(a.resist, b.resist)), eyes: driftEyes(pick(a.eyes, b.eyes)), decomp: driftAbility(pick(a.decomp, b.decomp), P.decompStart), parasitism: driftAbility(pick(a.parasitism, b.parasitism), P.parasiteStart), coat: driftCoat(pick(a.coat, b.coat)), swim: driftSwim(pick(a.swim, b.swim)), climb: driftClimb(pick(a.climb, b.climb)), water: driftWater(pick(a.water, b.water)),
+      mature: driftMature(pick(a.mature, b.mature)), browse: driftBrowse(pick(a.browse, b.browse)), gape: driftGape(pick(a.gapeGene ?? a.gape, b.gapeGene ?? b.gape)), resist: driftResist(pick(a.resist, b.resist)), eyes: driftEyes(pick(a.eyes, b.eyes)), nose: driftNose(pick(a.nose, b.nose)), stride: driftStride(pick(a.stride, b.stride)), social: driftSocial(pick(a.social, b.social)), decomp: driftAbility(pick(a.decomp, b.decomp), P.decompStart), parasitism: driftAbility(pick(a.parasitism, b.parasitism), P.parasiteStart), coat: driftCoat(pick(a.coat, b.coat)), swim: driftSwim(pick(a.swim, b.swim)), climb: driftClimb(pick(a.climb, b.climb)), bite: driftBite(pick(a.bite, b.bite)), ...(this.rolled('insects') ? { snap: driftSnap(pick(a.snap, b.snap)) } : {}), water: driftWater(pick(a.water, b.water)),
       toxStock: P.storeBirth * ((a.toxStock ?? 1) + (b.toxStock ?? 1)) / 2, minStock: P.storeBirth * ((a.minStock ?? 1) + (b.minStock ?? 1)) / 2,
     };
     if (sports > before) this.noteSport(a.species);
@@ -2398,9 +3379,11 @@ export class World {
     this.log(`A ${name} is born strange: something in its body has leapt far from its parents'.`);
   }
 
-  child(parent, x, y, energy, genes, gen, size, gut, k, traits) {
+  child(parent, x, y, energy, genes, gen, size, gut, k, traits, parents = [parent], remaining = 1) {
     const kid = this.spawn(parent.species, x + Math.random() * 8 - 4, y + Math.random() * 8 - 4, gen, genes, size, gut);
     Object.assign(kid, traits);
+    kid.mom = parents[0]?.id; // (follow) who it keeps near while young
+    { const r = this.registry[kid.species]; if (r?.founders !== undefined && (kid.gen ?? 0) > (r.maxGen ?? 0)) r.maxGen = kid.gen; } // (gracegen) generations born since the split
     // Birth variation: the body differs by chance from the genes it carries (sizeGene, bornGut, gapeGene pass on; the luck does not).
     kid.sizeGene = size; kid.size = Math.min(P.maxSize, Math.max(P.minSize, size * (1 + gauss() * P.birthSize)));
     kid.bornGut = gut; kid.gut = clamp01(gut + gauss() * P.birthGut);
@@ -2408,9 +3391,13 @@ export class World {
     kid.lifespan = Math.round(kid.lifespan * (1 + P.matureLife * ((kid.mature ?? 1) - 1))); // late maturers live longer
     kid.energy = energy * (1 - P.bodyShare);
     kid.body += energy * P.bodyShare;
+    if (this.tissueOn(kid)) { kid.energy = energy; this.birthTissue(kid, parents, remaining); }
     kid.k = k;
+    if (this.isoBox) { const side = this.inIso(parent.x, parent.y); if (this.isoBox.block && this.inIso(kid.x, kid.y) !== side) { kid.x = parent.x; kid.y = parent.y; } kid.isoSide = this.inIso(kid.x, kid.y); } // (isolation) born on the parent's side
+    if (this.rolled('habits') && parent.recent?.ate > 0) { const r = parent.recent, f = P.habitBirth / r.ate; kid.recent = Object.fromEntries(Object.entries(r).map(([key, v]) => [key, key === 't' ? this.tick : v * f])); } // (habits) the young start with the parent's way of life
     kid.morph = parent.morph ?? 0; // the mind it took (its parent's hidden slip, if any)
-    kid.home = { x: kid.x, y: kid.y }; // where it was born
+    kid.home = this.rolled('homerange') ? { x: wrap(x, W), y: wrap(y, H) } : { x: kid.x, y: kid.y };
+    if (this.rolled('homerange')) { kid.homeSeen = true; kid.homeDispersed = false; } // where it was born
     if (!this.registry[parent.species].unique) this.record('parents', parent); // who breeds (the mind-giving parent stands for the pair)
     kid.hue = parent.hue;
     const name = parent.species, sp = this.registry[name], rec = this.records[name];
@@ -2429,6 +3416,7 @@ export class World {
 
   // Energy locked in a body. Creatures restored from before bodies were booked count as born or sent.
   bodyHeld(c) {
+    if (this.digests(c)) return (c.body ?? mass(this.bodySize(c)) * P.bodyEnergy * (c.gen > 0 ? P.bornBody : 1)) + (c.fat ?? 0) + (c.gutE ?? 0);
     return (c.body ?? mass(this.bodySize(c)) * P.bodyEnergy * (c.gen > 0 ? P.bornBody : 1)) + (c.fat ?? 0);
   }
 
@@ -2466,7 +3454,7 @@ export class World {
       const beatenBy = c.age / Math.max(1, rec.oldest);
       rec.oldest = c.age;
       if (c.age > this.registry[c.species].lifespan / 2 && beatenBy > 1.1)
-        this.log(`The oldest ${c.species} ever recorded (age ${c.age.toLocaleString('en')}, generation ${c.gen}) ${cause === 'old' ? 'dies of old age' : cause === 'eaten' ? 'is eaten' : 'starves'}.`);
+        this.log(`The oldest ${c.species} ever recorded (age ${c.age.toLocaleString('en')}, generation ${c.gen}) ${cause === 'old' ? 'dies of old age' : cause === 'eaten' ? 'is eaten' : cause === 'burnt' ? 'burns' : 'starves'}.`);
     }
   }
 
@@ -2537,28 +3525,31 @@ export class World {
         const now = was ? share > 0.4 : share > 0.5;
         sp.scavenging = now;
         // What the species lives on, by measured food: its diet label (shown on the Life panel and logged when it changes).
-        const foods = ['grass', 'browse', 'carrion', 'flesh', 'host', 'dung'], total = foods.reduce((t, k) => t + (d[k] ?? 0), 0) || 1;
+        const foods = ['grass', 'browse', 'carrion', 'flesh', 'host', 'dung', 'insect'], total = foods.reduce((t, k) => t + (d[k] ?? 0), 0) || 1;
         const f = k => (d[k] ?? 0) / total, plants = f('grass') + f('browse');
-        const label = f('host') + f('dung') > 0.5 ? (f('host') >= f('dung') ? 'parasite' : 'decomposer')
+        let label = f('host') + f('dung') > 0.5 ? (f('host') >= f('dung') ? 'parasite' : 'decomposer')
+          : f('insect') > P.niche.insectivore ? 'insectivore'
           : f('carrion') > 0.5 ? 'scavenger'
           : f('flesh') > 0.5 ? (sp.role === 'apex' ? 'apex' : 'hunter')
           // Omnivore only with real meat in the diet (dung and hosts are side foods, shown as 'part decomposer/parasite').
           : f('carrion') + f('flesh') >= P.niche.omnivore ? 'omnivore'
           : f('browse') > 0.6 * plants ? 'browser' : f('browse') > 0.2 * plants ? 'mixed feeder' : 'grazer';
+        if (this.rolled('habitat') && group.length) label = this.habitatLabel(label, { water: group.reduce((s, c) => s + (c.hab?.water ?? 0), 0) / group.length, high: group.reduce((s, c) => s + (c.hab?.high ?? 0), 0) / group.length });
         if (label !== sp.dietLabel && sp.dietLabel && (this.lastCounts[name] ?? 0) >= 5 && this.tick - (sp.labelLogged ?? -1e9) > TICKS_PER_DAY) {
           sp.labelLogged = this.tick; // at most one announcement a day per species, so a borderline diet does not flicker
           const said = { grazer: 'grazers: they live on grass', browser: 'browsers: they live on thicket shoots', 'mixed feeder': 'mixed feeders: grass and thicket shoots alike',
+            aquatic: 'aquatic plant feeders: they live in swim-deep water', highland: 'highland plant feeders: they live in the heights',
             scavenger: 'scavengers: they live on the dead', hunter: 'hunters: they live on what they kill', apex: 'apex predators: they hunt hunters',
-            omnivore: 'omnivores: plants and flesh alike', decomposer: 'decomposers: they live on dung and remains', parasite: 'parasites: they live on infested hosts' }[label];
+            omnivore: 'omnivores: plants and flesh alike', insectivore: 'insectivores: they live on insects', decomposer: 'decomposers: they live on dung and remains', parasite: 'parasites: they live on infested hosts' }[label];
           this.log(`The ${plural(name)} (${sp.lineage}) have become ${said}.`);
         }
         sp.dietLabel = label;
-        sp.food = Object.fromEntries(['grass', 'browse', 'carrion', 'flesh', 'host', 'dung'].map(k => [k, r2(f(k))]));
+        sp.food = Object.fromEntries(['grass', 'browse', 'carrion', 'flesh', 'host', 'dung', 'insect'].map(k => [k, r2(f(k))]));
       }
       // The species' food memory fades over about a day (Luis, s1233), like each body's recent diet (nicheRecent), so its label
       // follows how it lives, not the last shower (it was × 0.95 per measure: a memory of ~1/10 season).
       const fadeDiet = Math.exp(-HISTORY_EVERY / P.nicheRecent);
-      for (const k of ['energy', 'levels', 'carrion', 'grass', 'browse', 'flesh', 'host', 'dung']) d[k] = (d[k] ?? 0) * fadeDiet;
+      for (const k of ['energy', 'levels', 'carrion', 'grass', 'browse', 'flesh', 'host', 'dung', 'insect']) d[k] = (d[k] ?? 0) * fadeDiet;
       // A role changes only once the trophic level is clearly past a boundary (by 0.1), so it does not flicker.
       const role = roleOf(sp.tl - 0.1) === roleOf(sp.tl + 0.1) ? roleOf(sp.tl) : sp.role ?? roleOf(sp.tl);
       sp.role = role; // trophic role (from the food chain); what it is called on screen is its diet label
@@ -2584,13 +3575,16 @@ export class World {
         const carriers = minds[id] ?? [];
         if (!carriers.length) { delete this.registry[name].morphs[id]; continue; } // a mind nobody carries any more
         if (carriers.length < P.splitMin) continue;
+        const s2 = this.rolled('speciate2'), founders = s2 ? this.gather(carriers, P.splitRange) : carriers; // (speciate2) 15–40 carriers gathered in one place, and a body that differs too
+        if (s2 && (founders.length < P.speciateMin || !this.realDifference(name, founders, 'mind'))) continue;
         const g = this.genome[`${name}#${id}`], n = g.consts.length, values = [];
-        for (let j = 0; j < n; j++) values.push(Math.exp(carriers.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / carriers.length));
+        for (let j = 0; j < n; j++) values.push(Math.exp(founders.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / founders.length));
         const what = this.registry[name].morphs[id].what;
-        this.splitSpecies(name, carriers, values, `${name}#${id}`, `${carriers.length} ${plural(name)} who think differently (${what}) have become a kind of their own`);
-        delete this.registry[name].morphs[id];
+        this.splitSpecies(name, founders, values, `${name}#${id}`, `${founders.length} ${plural(name)} who think differently (${what}) have become a kind of their own`);
+        if (founders.length === carriers.length) delete this.registry[name].morphs[id]; // (the carriers left behind keep the mind)
       }
       if (this.rolled('niche')) this.nicheSplit(name);
+      if (this.rolled('genebands')) this.geneSplit(name);
       const group = this.creatures.filter(c => c.species === name && !c.morph && c.k?.length);
       if (group.length < P.splitMin * 2) continue;
       const logs = group.map(c => ({ l: c.k.map(Math.log), g: c.gut, s: Math.log(c.size),
@@ -2618,42 +3612,81 @@ export class World {
         if (here.length > local.length) local = here;
       }
       if (local.length < P.splitMin) continue;
+      if (this.rolled('speciate2')) { // (speciate2) at most speciateMax founders from the densest spot, and the body test
+        local = this.gather(cluster, P.splitRange);
+        if (local.length < P.speciateMin || !this.realDifference(name, local, 'drift')) continue;
+      }
       this.splitSpecies(name, local, (smallIsA ? a : b).l.map(Math.exp));
     }
   }
 
+  // Habitat observations fade over a day and share the movement test for swim-deep water, including ice.
+  rememberHabitat(c) {
+    const h = c.hab ??= { water: 0, high: 0, t: this.tick }, a = 1 - Math.exp(-Math.max(0, this.tick - h.t) / P.habRecent);
+    const w = this.waterAt(c.x, c.y), water = w.d * P.depthPx > Math.max(1, (c.legs ?? 1) * this.bodySize(c)) ? 1 : 0;
+    h.water += a * (water - h.water); h.high += a * ((this.elevMap()[w.i] >= P.habHeight ? 1 : 0) - h.high); h.t = this.tick;
+  }
+  habitatLabel(label, hab) {
+    if (!this.rolled('habitat') || (label !== 'grazer' && label !== 'mixed feeder')) return label;
+    return (hab?.water ?? 0) >= P.habAquatic ? 'aquatic' : (hab?.high ?? 0) >= P.habHigh ? 'highland' : label;
+  }
   // How a body lives now (rollout 3, label-based since 11:45 Oct 15), from its RECENT diet: hunter (meat ≥ 60%, mostly live
   // prey), scavenger (meat ≥ 30%, mostly carrion), omnivore (meat 20–60%), browser (browse ≥ 50%), mixed feeder (grass and
   // browse ≥ 20% each), else grazer.
   nicheOf(c) {
-    const r = c.recent; if (!r || r.ate < 0.3) return 'grazer';
+    const r = c.recent; if (!r || r.ate < 0.3) return this.habitatLabel('grazer', c.hab);
     if ((r.host ?? 0) / r.ate >= P.niche.parasite) return 'parasite';
     if ((r.dung ?? 0) / r.ate >= P.niche.decomposer) return 'decomposer';
+    if ((r.insect ?? 0) / r.ate >= P.niche.insectivore) return 'insectivore'; // lives on insects (snap + a middle gut)
     if (this.rolled('apexniche') && (r.apex ?? 0) / r.ate >= P.niche.apex) return 'apex'; // lives mostly on other meat-eaters
-    const meat = r.meat / r.ate, browse = r.browse / r.ate, grass = 1 - meat - browse - ((r.dung ?? 0) + (r.host ?? 0)) / r.ate, dead = r.meat > 0 ? (r.carrion ?? 0) / r.meat : 0;
+    const meat = r.meat / r.ate, browse = r.browse / r.ate, grass = 1 - meat - browse - ((r.dung ?? 0) + (r.host ?? 0) + (r.insect ?? 0)) / r.ate, dead = r.meat > 0 ? (r.carrion ?? 0) / r.meat : 0;
     if (meat >= P.niche.hunter) return dead >= 0.5 ? 'scavenger' : 'hunter';
     if (meat >= P.niche.scavenger && dead >= 0.5) return 'scavenger';
     if (meat >= P.niche.omnivore) return 'omnivore';
     if (browse >= P.niche.browser) return 'browser';
-    if (browse >= P.niche.mixed && grass >= P.niche.mixed) return 'mixed feeder';
-    return 'grazer';
+    if (browse >= P.niche.mixed && grass >= P.niche.mixed) return this.habitatLabel('mixed feeder', c.hab);
+    return this.habitatLabel('grazer', c.hab);
   }
   // A local group of splitMin bodies of a species living differently (browsing, or eating meat), seen on nicheDays daily
   // checks in a row, becomes a kind of its own.
+  // (genebands, Luis s2369: option A) Bands by inherited genes, not passing behaviour: meat-leaning guts (gut ≥ jaws), and the
+  // top of a skill or the ends of size (≥ geneBandZ SDs from the species' mean). Genes run in families, so these bands are
+  // lineages; they still need geneFounders together, nicheMin left behind and a real difference (a syndrome, not one trait).
+  geneBands(name, group) {
+    const z = (get, sign = 1) => { const v = group.map(get), m = v.reduce((a, x) => a + x, 0) / v.length, sd = Math.sqrt(v.reduce((a, x) => a + (x - m) ** 2, 0) / v.length) || 1; return c => sign * (get(c) - m) / sd >= P.geneBandZ; };
+    const tests = [['meat-leaning guts', c => c.gut >= P.valleyJaws], ['top climbers', z(c => c.climb ?? 0)], ['top swimmers', z(c => c.swim ?? 0)], ['top browsers', z(c => c.browse ?? 0)],
+      ['top dung-eaters', z(c => c.decomp ?? 0)], ['insect catchers', z(c => c.snap ?? 0)], ['hard biters', z(c => c.bite ?? 0)], ['small bodies', z(c => c.sizeGene ?? c.size, -1)], ['big bodies', z(c => c.sizeGene ?? c.size)]];
+    return tests.map(([label, t]) => [label, group.filter(t)]);
+  }
+  geneSplit(name) {
+    const group = this.creatures.filter(c => !c.dead && c.species === name && !c.morph && c.k?.length); if (group.length < P.speciateMin * 2) return;
+    for (const [label, them] of this.geneBands(name, group)) {
+      if (them.length < P.geneFounders || group.length - them.length < P.nicheMin) continue;
+      if (P.splitCooldown && this.tick - (this.registry[name].geneSplitAt?.[label] ?? -Infinity) < P.splitCooldown) continue; // (s2408, Luis) the same kind of band rests after a split
+      const local = this.gather(them, this.foundRange());
+      if (local.length < P.geneFounders || !this.realDifference(name, local, 'gene')) continue;
+      const values = local[0].k.map((_, j) => Math.exp(local.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / local.length));
+      (this.registry[name].geneSplitAt ??= {})[label] = this.tick;
+      this.splitSpecies(name, local, values, name, `${local.length} ${plural(name)} with ${label} have become a kind of their own`);
+      return;
+    }
+  }
   nicheSplit(name) {
     const sp = this.registry[name], group = this.creatures.filter(c => !c.dead && c.species === name && !c.morph && c.k?.length);
     sp.nicheSeen ??= {};
     const of = new Map(group.map(c => [c, this.nicheOf(c)])), count = {};
     for (const n of of.values()) count[n] = (count[n] ?? 0) + 1;
     const usual = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0];
-    const near = (p, q) => Math.hypot(delta(p.x, q.x, W), delta(p.y, q.y, H)) < P.splitRange;
-    for (const niche of Object.keys(P.niche).concat('grazer', 'mixed feeder').filter((n, i, a) => a.indexOf(n) === i)) {
+    const near = (p, q) => Math.hypot(delta(p.x, q.x, W), delta(p.y, q.y, H)) < P.nicheRange;
+    for (const niche of Object.keys(P.niche).concat('grazer', 'mixed feeder', ...(this.rolled('habitat') ? ['aquatic', 'highland'] : [])).filter((n, i, a) => a.indexOf(n) === i)) {
       const them = group.filter(c => of.get(c) === niche);
-      if (niche === usual || them.length < P.splitMin || group.length - them.length < P.splitMin) { delete sp.nicheSeen[niche]; continue; }
+      const s2 = this.rolled('speciate2'), floor = s2 ? (P.nicheFounders || P.speciateMin) : P.nicheMin; // (speciate2) the founders' floor falls 30 → 15 (nicheFounders, s2315: a stricter floor for niche splits); the rest left behind still needs nicheMin
+      if (niche === usual || them.length < floor || group.length - them.length < P.nicheMin) { delete sp.nicheSeen[niche]; continue; }
       let local = [];
       for (const centre of them) { const here = them.filter(c => near(centre, c)); if (here.length > local.length) local = here; }
-      if (local.length < P.splitMin) { delete sp.nicheSeen[niche]; continue; }
+      if (local.length < floor) { delete sp.nicheSeen[niche]; continue; }
       if ((sp.nicheSeen[niche] = (sp.nicheSeen[niche] ?? 0) + 1) < (P.nicheHold[niche] ?? P.nicheDays + 1)) continue;
+      if (s2) { local = this.gather(them, this.foundRange()); if (local.length < floor || !this.realDifference(name, local, 'niche')) continue; } // (the count keeps running: it is tried again on the next check)
       const values = local[0].k.map((_, j) => Math.exp(local.reduce((a, c) => a + Math.log(Math.max(1e-9, c.k[j])), 0) / local.length));
       this.splitSpecies(name, local, values, name, `${local.length} ${plural(name)} that live as ${niche === 'omnivore' ? 'omnivores' : niche === 'apex' ? 'apex predators' : niche + 's'} have become a kind of their own`);
       delete sp.nicheSeen[niche];
@@ -2706,13 +3739,19 @@ export class World {
       if (!r) { rows.push(Math.round(this.tempAt((gy + 2) * CELL, era) * 100) / 100); continue; }
       let t = 0; for (let gx = 0; gx < GW; gx += 4) t += this.tempAt((gy + 2) * CELL, era, (gx + 2) * CELL); rows.push(Math.round(t / (GW / 4) * 100) / 100);
     }
-    const relief = r ? { rise: Math.round(r * 1000) / 1000, low: P.tempLow, lapse: P.lapse, ns: [P.tempNorth, P.tempSouth], elev: Buffer.from(Uint8Array.from(this.reliefMap(), (v, i) => Math.round(Math.min(1, Math.max(0, v + ((this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0)) / Math.max(r, 0.05))) * 255))).toString('base64') } : null;
+    const relief = r ? { rise: Math.round(r * 1000) / 1000, low: P.tempLow, lapse: this.lapseNow(), ns: [P.tempNorth, P.tempSouth], elev: Buffer.from(Uint8Array.from(this.reliefMap(), (v, i) => Math.round(Math.min(1, Math.max(0, v + ((this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0)) / Math.max(r, 0.05))) * 255))).toString('base64') } : null;
     if (relief && this.rolled('geology')) { // GEOLOGY for the viewer (s1544): rock per cell (0 hard, 1 soft, 2 soluble, 3 sediment, 4 basement), alluvium 0–255, and the full height −1 … 1.5 as 0–255 (elev above stays 0 … 1 for old viewers)
       const R = this.reliefMap(), n = GW * GH, rock = new Uint8Array(n), al = new Uint8Array(n), e2 = new Uint8Array(n);
       for (let i = 0; i < n; i++) { rock[i] = this.rockOf(i); al[i] = Math.round(Math.min(1, this.alluv?.[i] ?? 0) * 255); e2[i] = Math.round(Math.min(1, Math.max(0, (R[i] * r + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0) + 1) / 2.5)) * 255); }
       const N = this.climbNeed(), need = Uint8Array.from(N, v => Math.round(Math.min(1, v) * 255)), carve = Uint8Array.from(this.carve ?? [], v => Math.round(Math.min(1, Math.max(0, v)) * 255));
-      Object.assign(relief, { rock: Buffer.from(rock).toString('base64'), alluv: Buffer.from(al).toString('base64'), elev2: Buffer.from(e2).toString('base64'), elev2Range: [-1, 1.5],
-        need: Buffer.from(need).toString('base64'), carve: Buffer.from(carve).toString('base64'), quakes: (this.quakeLog ?? []).slice(-20) }); // for the viewer's X-ray (s1560): climbing need 0…1, carved depth 0…1, quake faults {season, x, y, ang, len, mag, big}
+      Object.assign(relief, { rock: Buffer.from(rock).toString('base64'), alluv: Buffer.from(al).toString('base64'), elev2: Buffer.from(e2).toString('base64'), elev2Range: [-1, 1.5], elev3: Buffer.from(Uint8Array.from(R, (v, i) => Math.round(Math.min(1, Math.max(0, (v * r + (this.tectonic?.[i] ?? 0) - (this.carve?.[i] ?? 0) + 1) / 3.5)) * 255))).toString('base64'), elev3Range: [-1, 2.5], // (s1642: the upheaval lifts the peak past 1.5)
+        need: Buffer.from(need).toString('base64'), carve: Buffer.from(carve).toString('base64'), quakes: (this.quakeLog ?? []).slice(-20) });
+      if (this.rolled('sections')) { // the four sections per cell, as the crossing counter reads them (viewer request, s1611): 0 NW, 1 NE, 2 SW, 3 SE, 4 the heights (range, meseta, wall), 5 a river channel
+        const S = new Uint8Array(GW * GH), R2 = this.reliefMap(), rr = this.reliefRise();
+        for (let i = 0; i < GW * GH; i++) { const x = (i % GW + 0.5) * CELL, y = ((i / GW | 0) + 0.5) * CELL, xs = wrap(x - P.seamX, W), rx = wrap(P.riverX * W + 22 * Math.sin(y / 70) - P.seamX, W);
+          S[i] = Math.min(xs, W - xs, Math.abs(xs - rx)) < this.bandHalf() ? 5 : R2[i] * rr + (this.tectonic?.[i] ?? 0) >= 0.5 ? 4 : (wrap(y, H) < P.ridgeY * H ? 0 : 2) + (xs < rx ? 0 : 1); }
+        relief.section = Buffer.from(S).toString('base64'); relief.sectionNames = ['north-west', 'north-east', 'south-west', 'south-east', 'heights', 'river'];
+      } // for the viewer's X-ray (s1560): climbing need 0…1, carved depth 0…1, quake faults {season, x, y, ang, len, mag, big}
     }
     // For the viewer's climate dial: where the world sits now on both axes (wetness of the slow climate, mean warmth),
     // and the path it took over the last 30 seasons, every half season (both are clocks, so the past is recomputed).
@@ -2730,6 +3769,7 @@ export class World {
   // The next great divide, as the world stands: the species over divideShare of all life now, and the ticks until its
   // rest after its last divide is over (0: it divides at the next check). Null when no species is that dominant.
   nextDivide() {
+    if (this.rolled('speciate2')) return null; // (speciate2) no great divide
     const [name, share] = this.leader();
     if (!name || share <= P.divideShare) return null;
     return { name, ticks: Math.max(0, (this.registry[name].dividedAt ?? -Infinity) + P.divideRest - this.tick) }; // 0: as soon as it is checked
@@ -2744,6 +3784,7 @@ export class World {
   // The great divide (Luis, 09:05 Oct 15): at any time, a species holding over a third of all life is divided, unless
   // it (or the split it came from) was divided less than divideRest ago.
   greatDivide() {
+    if (this.rolled('speciate2')) return; // (speciate2) cancelled: its pieces were near-copies told apart only by place
     const [name, share] = this.leader();
     if (!name || share <= P.divideShare || this.tick - (this.registry[name].dividedAt ?? -Infinity) < P.divideRest) return;
     const before = new Set(this.speciesNames);
@@ -2832,17 +3873,173 @@ export class World {
     return parts;
   }
 
+  // (speciate2) The counters of the speciation rule (not saved): splits let through and blocked by kind, merges, kin spared, and the body gaps seen.
+  spStat() { return (this.speciate ??= { passed: {}, blocked: {}, merged: 0, spared: 0, gaps: [] }); }
+  // The densest spot of a pool (within range; 80 random centres at most), and the speciateMax members nearest to it.
+  // How differently a species eats from the commonest one (0 = the same, 1 = nothing in common), from recent diets; cached 30 ticks.
+  dietDiff(name) {
+    if (!this._dietT || this.tick - this._dietT >= 30) {
+      this._dietT = this.tick; const sums = {}, count = {};
+      for (const c of this.creatures) { if (c.dead || !c.recent || !(c.recent.ate > 0)) continue; const r = c.recent, s = (sums[c.species] ??= [0, 0, 0, 0, 0, 0, 0]);
+        const o = [r.browse ?? 0, r.meat ?? 0, r.insect ?? 0, r.dung ?? 0, r.fish ?? 0]; s[1] += o[0]; s[2] += o[1]; s[3] += o[2]; s[4] += o[3]; s[5] += o[4]; s[0] += Math.max(0, r.ate - o.reduce((a, b) => a + b, 0)); s[6] += r.ate; count[c.species] = (count[c.species] ?? 0) + 1; }
+      const top = Object.keys(count).sort((a, b) => count[b] - count[a])[0], v = n => sums[n] ? sums[n].slice(0, 6).map(x => x / (sums[n][6] || 1)) : null, T = v(top);
+      this._diet = {}; for (const n of Object.keys(sums)) { const V = v(n); this._diet[n] = T && V ? 0.5 * V.reduce((a, x, i) => a + Math.abs(x - T[i]), 0) : 0; }
+    }
+    return this._diet?.[name] ?? 0;
+  }
+  dietEdge(c) {
+    const K = ['browse', 'meat', 'insect', 'dung', 'fish'], G = { browse: x => x.browse ?? 0, meat: x => this.huntSkill(x), insect: x => x.snap ?? 0, dung: x => x.decomp ?? 0, fish: x => x.swim ?? 0 };
+    const vec = x => { const r = x.recent; if (!r || !(r.ate > 0.3)) return null; const o = K.map(k => (r[k] ?? 0) / r.ate); return [Math.max(0, 1 - o.reduce((a, b) => a + b, 0)), ...o]; };
+    if (!this._edgeT || this.tick - this._edgeT >= 30) { // species means of diet shares and skills, every 30 ticks
+      this._edgeT = this.tick; const S = {};
+      for (const o of this.creatures) { if (o.dead) continue; const v = vec(o); if (!v) continue; const s = (S[o.species] ??= { n: 0, d: [0, 0, 0, 0, 0, 0], g: {} }); s.n++; v.forEach((x, i) => s.d[i] += x); for (const k of K) s.g[k] = (s.g[k] ?? 0) + G[k](o); }
+      for (const s of Object.values(S)) { s.d = s.d.map(x => x / s.n); for (const k of K) s.g[k] /= s.n; } this._edge = S;
+    }
+    const s = this._edge?.[c.species], v = vec(c); if (!s || !v) return 1;
+    const diff = 0.5 * v.reduce((a, x, i) => a + Math.abs(x - s.d[i]), 0);
+    let best = -1, bk = null; K.forEach((k, i) => { const dev = v[i + 1] - s.d[i + 1]; if (dev > best) { best = dev; bk = k; } });
+    if (!bk || best <= 0 || G[bk](c) < s.g[bk]) return 1; // leaning on a food it is not built for: no edge
+    return Math.min(P.edgeMax, 1 + P.edgeGain * diff);
+  }
+  // (hybrid) at a season's end: pairs of kinds that hybridised and are no more different across than within become one kind.
+  mergeKinds() {
+    const H = this.hybrids ?? {}; this.hybrids = {};
+    for (const [key, n] of Object.entries(H).sort((a, b) => b[1] - a[1])) {
+      if (n < P.hybridMergeMin) continue;
+      const [a, b] = key.split('|'), A = this.creatures.filter(c => !c.dead && c.species === a), B = this.creatures.filter(c => !c.dead && c.species === b);
+      if (!A.length || !B.length) continue;
+      const kin = (X, Y, m = 120) => { let s = 0, k = 0; for (let i = 0; i < m; i++) { const x = X[Math.random() * X.length | 0], y = Y[Math.random() * Y.length | 0]; if (x === y) continue; s += this.relatedGap(x, y); k++; } return k ? s / k : 0; };
+      const across = kin(A, B), within = (kin(A, A) + kin(B, B)) / 2;
+      if (across > within * P.mergeRatio) continue;
+      const [big, small] = A.length >= B.length ? [a, b] : [b, a], from = this.registry[small], to = this.registry[big];
+      for (const c of this.creatures) if (!c.dead && c.species === small) { c.species = big; c.hue = to.hue; }
+      from.extinct = this.season; from.blended = true; from.mergedInto = big; this.touchRegistry(); delete this.behaviors[small]; delete this.lastCounts[small];
+      this.log(`The ${plural(small)} and the ${plural(big)} have become one kind again: ${n} young between them this season, and no more different across than within.`);
+      this.onSpecies?.();
+    }
+  }
+  // KPIs (Luis, s2653): (1) up the food chain — mean trophic level of the energy eaten (2 = all plants; meat, carrion, fish and insects
+  // count one level up) and the share of bodies with gut ≥ 0.3; (2) real diversity — mean diet difference between species and the ways
+  // of life holding ≥ 10 bodies; (3) cost is measured by the server. A point every call; the last kpiKeep points are kept in the save.
+  kpi() {
+    const cs = this.creatures.filter(c => !c.dead && !this.registry[c.species].unique); let ate = 0, up = 0;
+    for (const c of cs) { const r = c.recent; if (!r) continue; ate += r.ate ?? 0; up += (r.meat ?? 0) + (r.insect ?? 0); }
+    const names = [...new Set(cs.map(c => c.species))], vec = n => { const S = [0, 0, 0, 0, 0, 0]; let t = 0; for (const c of cs) { if (c.species !== n || !c.recent?.ate) continue; const r = c.recent, o = [r.browse ?? 0, r.meat ?? 0, r.insect ?? 0, r.dung ?? 0, r.fish ?? 0]; o.forEach((v, j) => S[j + 1] += v); S[0] += Math.max(0, r.ate - o.reduce((a, b) => a + b, 0)); t += r.ate; } return S.map(v => v / (t || 1)); };
+    const V = Object.fromEntries(names.map(n => [n, vec(n)])); let dsum = 0, dn = 0;
+    for (let i = 0; i < names.length; i++) for (let j = i + 1; j < names.length; j++) { dsum += 0.5 * V[names[i]].reduce((a, x, k) => a + Math.abs(x - V[names[j]][k]), 0); dn++; }
+    const ways = {}; for (const c of cs) { const n = this.nicheOf(c); ways[n] = (ways[n] ?? 0) + 1; }
+    const point = { season: this.season, t: this.tick, tl: +(2 + up / (ate || 1)).toFixed(3), gut3: +(cs.filter(c => c.gut >= 0.3).length / (cs.length || 1)).toFixed(3), diet: +(dn ? dsum / dn : 0).toFixed(3), ways: Object.values(ways).filter(n => n >= 10).length, wayNames: Object.entries(ways).filter(([, n]) => n >= 10).map(([k]) => k), species: names.length };
+    (this.kpiLog ??= []).push(point); if (this.kpiLog.length > 400) this.kpiLog.splice(0, this.kpiLog.length - 400);
+    return point;
+  }
+  foundRange() { return this.rolled('founders') ? P.founderRange : P.nicheRange; } // (founders) how close a split's founders must live
+  gather(pool, range) {
+    let best = [], at = null;
+    for (const centre of pool.length > 80 ? Array.from({ length: 80 }, () => pool[Math.floor(Math.random() * pool.length)]) : pool) {
+      const here = pool.filter(c => Math.hypot(delta(centre.x, c.x, W), delta(centre.y, c.y, H)) < range);
+      if (here.length > best.length) { best = here; at = centre; }
+    }
+    if (best.length <= P.speciateMax) return best;
+    const d = c => Math.hypot(delta(at.x, c.x, W), delta(at.y, c.y, H));
+    return best.sort((a, b) => d(a) - d(b)).slice(0, P.speciateMax);
+  }
+  // The body traits a new species must differ in (the 11 the great divide used).
+  bodyTraits(c, way = false) { return [this.bodySize(c), c.gut, this.armorOf(c), this.toxinOf(c), c.legs ?? 1, c.wind ?? 0.5, c.mature ?? 1, c.browse ?? 0, c.gape ?? 0.5, c.resist ?? P.resistStart, c.litter ?? 1, ...(this.rolled('bodytest2') ? [c.swim ?? 0, c.climb ?? 0, c.bite ?? 0, c.snap ?? 0, c.coat ?? P.coatStart ] : []), ...(way ? this.wayTraits(c) : [])]; } // (s2235, bodytest2) the skills the newest rules select on
+  // (lifediff, Luis s2298: "that should count as difference") how a body lives, for the split test alongside its body: the recent
+  // diet's shares (meat, browse and tree food, dung, insects, hosts) and its habitat (time in swim-deep water, on the heights).
+  // Ways of life, not mere place, so groups that only live apart still need a real difference.
+  // Which splits weigh ways of life: mind splits (does a new way of thinking lead to a new way of living?); niche splits only with
+  // P.lifeDiffNiche, since a niche band is chosen by its way of life and would always pass.
+  // The split bar above random founders: gene bands (lineages by inherited genes) may use a lower bar (Luis, s2383).
+  // (habits) foraging skill from experience: a body gathers a side food faster the more of its recent diet it has been.
+  habit(c, kind) { if (!this.rolled('habits')) return 1; const r = c.recent; if (!r || !(r.ate > 0)) return 1; return 1 + P.habitGain * Math.min(1, (r[kind] ?? 0) / r.ate); }
+  splitGap(kind) { return kind === 'gene' && P.geneGap ? P.geneGap : P.speciateGap; }
+  wayCounts(kind) { return this.rolled('lifediff') && (kind === 'mind' || (kind === 'niche' && P.lifeDiffNiche)); }
+  wayTraits(c) {
+    const r = c.recent, a = r && r.ate > 0.3 ? r.ate : 0, sh = v => a ? (v ?? 0) / a : 0;
+    return [sh(r?.meat), sh(r?.browse), sh(r?.dung), sh(r?.insect), sh(r?.host), c.hab?.water ?? 0, c.hab?.high ?? 0];
+  }
+  // Do these founders differ from the rest of their species in body, beyond chance? The rms over the traits of (founders' mean − rest's mean) in the species' SDs,
+  // against the median of speciateNull random groups of the same size; it must beat the null by speciateGap.
+  // How far founders' bodies stand from the rest of their species, and what random founders of the same number would give
+  // (the median of speciateNull draws). Shared by the split rule and the viewer's bands (which pass their own random source).
+  bodyDifference(name, founders, rand = Math.random, way = false) {
+    const all = this.creatures.filter(c => !c.dead && c.species === name), n = all.length, f = founders.length;
+    const raw = all.map(c => this.bodyTraits(c, way)), m = raw[0].length, mean = [], sd = [];
+    for (let j = 0; j < m; j++) { mean[j] = raw.reduce((a, r) => a + r[j], 0) / n; const v = Math.sqrt(raw.reduce((a, r) => a + (r[j] - mean[j]) ** 2, 0) / n); sd[j] = v > 1e-6 ? v : Infinity; }
+    const rms = pick => { // pick: indexes of the founders
+      let s = 0; for (let j = 0; j < m; j++) { const sf = pick.reduce((a, i) => a + raw[i][j], 0), mf = sf / f, mr = (mean[j] * n - sf) / Math.max(1, n - f); s += ((mf - mr) / sd[j]) ** 2; }
+      return Math.sqrt(s / m);
+    };
+    const set = new Set(founders), real = rms(all.map((c, i) => set.has(c) ? i : -1).filter(i => i >= 0)), idx = all.map((_, i) => i), nulls = [];
+    for (let r = 0; r < P.speciateNull; r++) { for (let i = 0; i < f; i++) { const j = i + Math.floor(rand() * (n - i)); [idx[i], idx[j]] = [idx[j], idx[i]]; } nulls.push(rms(idx.slice(0, f))); }
+    nulls.sort((a, b) => a - b);
+    return { real, nul: nulls[nulls.length >> 1], n, f };
+  }
+  realDifference(name, founders, kind) {
+    const st = this.spStat(), { real, nul, n, f } = this.bodyDifference(name, founders, Math.random, this.wayCounts(kind)), ok = n > f && real >= nul + this.splitGap(kind);
+    st.gaps.push({ kind, season: this.season, name, founders: f, of: n, rms: +real.toFixed(3), nul: +nul.toFixed(3), ok });
+    if (st.gaps.length > 200) st.gaps.splice(0, st.gaps.length - 200); // (s2235) keep the latest 200 in the save
+    (ok ? st.passed : st.blocked)[kind] = ((ok ? st.passed : st.blocked)[kind] ?? 0) + 1;
+    return ok;
+  }
+  // (s2261, Luis) Bands inside each species for the viewer: groups living differently (ways of life and habitats other than the
+  // usual one) and mind variants, with how many stand together, how different their bodies are against random founders, and
+  // how ready they are to split (0 … 1 of speciateGap above random). Read-only: a private random source, nothing recorded.
+  bands() {
+    let seed = this.tick >>> 0; const rand = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+    const out = {}, st = this.spStat();
+    for (const name of this.living()) {
+      const group = this.creatures.filter(c => !c.dead && c.species === name && c.k?.length); if (group.length < P.speciateMin * 2) continue;
+      const list = [], of = new Map(group.map(c => [c, this.nicheOf(c)])), count = {};
+      for (const v of of.values()) count[v] = (count[v] ?? 0) + 1;
+      const usual = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0];
+      const add = (kind, label, members, range) => {
+        if (members.length < 5) return;
+        const together = members.length >= P.speciateMin ? this.gather(members, range) : members, d = this.bodyDifference(name, together, rand, this.wayCounts(kind));
+        list.push({ kind, label, n: members.length, together: together.length, needTogether: kind === 'niche' ? (P.nicheFounders || P.speciateMin) : P.speciateMin, rms: +d.real.toFixed(3), nul: +d.nul.toFixed(3), need: +(d.nul + this.splitGap(kind)).toFixed(3),
+          ready: +Math.max(0, Math.min(1, (d.real - d.nul) / this.splitGap(kind))).toFixed(3), ids: members.map(c => c.id), seen: this.registry[name].nicheSeen?.[label] ?? 0,
+          range, rest: group.length - members.length, needRest: kind === 'niche' ? P.nicheMin : 0, needSeen: kind === 'niche' ? (P.nicheHold[label] ?? P.nicheDays + 1) : 0 });
+      };
+      for (const [label, k] of Object.entries(count)) if (label !== usual) add('niche', label, group.filter(c => of.get(c) === label), this.foundRange());
+      if (this.rolled('genebands')) for (const [label, members] of this.geneBands(name, group)) add('gene', label, members, this.foundRange());
+      for (const [id, m] of Object.entries(this.registry[name].morphs ?? {})) add('mind', m.what ?? `mind ${id}`, group.filter(c => String(c.morph) === String(id)), P.splitRange);
+      list.sort((a, b) => b.ready - a.ready || b.n - a.n);
+      const tries = st.gaps.filter(g => g.name === name).slice(-20).map(({ kind, season, founders, rms, nul, ok }) => ({ kind, season, founders, rms, nul, ok }));
+      out[name] = { usual, bands: list, tries, passed: st.passed, blocked: st.blocked, gap: P.speciateGap };
+    }
+    return out;
+  }
+
+  // (speciate2) At the end of its first season, a new species under speciateMin bodies blends back into its parent (if that still lives); mind-born ones do not (their numbers are another layout).
+  blendBack() {
+    for (const name of this.living()) {
+      const sp = this.registry[name]; if (!sp.speciated || this.graceOn(sp)) continue;
+      delete sp.speciated;
+      const mine = this.creatures.filter(c => !c.dead && c.species === name), parent = this.registry[sp.parent];
+      if (!mine.length || mine.length >= P.speciateMin || (this.rolled('gracegen') && sp.founders !== undefined && mine.length >= sp.founders) || sp.mindBorn || !parent || parent.extinct !== null || parent.waiting) continue; // (gracegen) one that has grown since its split stays
+      for (const c of mine) { c.species = sp.parent; c.hue = parent.hue; }
+      this.lastCounts[sp.parent] = (this.lastCounts[sp.parent] ?? 0) + mine.length;
+      sp.extinct = this.season; sp.blended = true; this.touchRegistry();
+      delete this.behaviors[name]; delete this.lastCounts[name];
+      this.spStat().merged++;
+      this.log(`The ${plural(name)} blend back into the ${plural(sp.parent)}: too few to stand apart.`);
+      this.onSpecies?.();
+    }
+  }
+
   splitSpecies(parent, members, values, mindKey = parent, story = null) {
     const p = this.registry[parent], g = this.genome[mindKey];
     let name;
     do { name = inventName(); } while (this.speciesNames.includes(name) || this.isTaken?.(name));
     p.branches = (p.branches ?? 0) + 1;
-    this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, waiting: false, lastBranchGen: 0,
+    this.touchRegistry(); this.registry[name] = { ...p, ...this.distinctLook(p.tl >= 2.5), parent, born: this.season, extinct: null, waiting: false, lastBranchGen: 0,
       lineage: `${p.lineage}.${p.branches}`, branches: 0, meanK: undefined, drift: 0, releasedAt: this.tick,
       // A split keeps its parent's reference body: physiology scales from it, and a new reference at the members' own size
       // would make a split pay more upkeep per meal than its parents, beside them, and starve.
       morphs: undefined, morphSeq: 0, size: p.size, gut: r2(members.reduce((a, c) => a + c.gut, 0) / members.length),
-      avgSize: undefined, avgGut: undefined, slip: undefined, variant: false, graduated: undefined };
+      avgSize: undefined, avgGut: undefined, slip: undefined, variant: false, graduated: undefined,
+      ...(this.rolled('speciate2') ? { bornAt: this.tick, speciated: true, mindBorn: mindKey !== parent, founders: members.length, maxGen: 0 } : {}) };
     this.code[name] = fillTemplate(g.template, values); // its own evolved numbers become its written code
     this.compile(name);
     this.ensureBooks();
@@ -2863,7 +4060,7 @@ export class World {
   updateWater() {
     const Wt = this.water, D = this.carve, Sn = this.snow, F = this.flow, FD = this.flowDir, E = this.reliefMap(), r = this.reliefRise(), n = GW * GH;
     const rain = this.rain(), era = this.tempEra(), at = (x, y) => ((y + GH) % GH) * GW + ((x + GW) % GW);
-    const sTilt = this.sectionsRise();
+    const sTilt = this.sectionsRise(), tr = this.rolled('trees') ? this.trees : null; // roots hold the bed and the reef
     if (!this.grooved) { // the first time: a faint groove along the river line, so water has a path to start from (it finds its own way after)
       for (let gy = 0; gy < GH; gy++) { const crx = P.riverX * W + 22 * Math.sin((gy + 0.5) * CELL / 70); for (let dx = -1; dx <= 1; dx++) { const i = at(Math.floor(crx / CELL) + dx, gy); D[i] = Math.max(D[i], P.grooveDepth * (dx ? 0.5 : 1)); } }
       this.grooved = true;
@@ -2883,6 +4080,7 @@ export class World {
       surf[i] = e - D[i] + Wt[i] + P.valleyTilt * toRiver;
       F[i] *= 0.9;
     }
+    if (this.rolled('bigriver')) this.feedSprings(Wt, E, r, D, temp); // perennial water at the head of the big river
     const W2 = Float32Array.from(Wt);
     const dep = this.rolled('deposition'), Sd = (this.sed ??= new Float32Array(n)), Sd2 = new Float32Array(n), geo = this.rolled('geology'), Al = (this.alluv ??= new Float32Array(n));
     if (geo) for (let i = 0; i < n; i++) Al[i] *= P.alluvFade; // alluvium fades where nothing new is laid down
@@ -2900,7 +4098,7 @@ export class World {
       if (f <= 0) { if (dep && Sd[i] > 0) { const d = Sd[i] * P.pondDrop; Sd[i] -= d; D[i] = Math.max(-P.fillMax, D[i] - d); if (geo) Al[i] = Math.min(1, Al[i] + P.alluvGain * d); } continue; } // still water lets its load settle
       W2[i] -= f; W2[best] += f; F[i] += f; FD[i * 2] = bdx; FD[i * 2 + 1] = bdy;
       // Flowing water carves its bed and wears the reef in it; what it takes enriches the ground downstream.
-      let carve = P.carveRate * f * (1 - Math.min(1, this.reef[i])) * (geo ? P.rockErode[this.rockOf(i)] : 1); // the rock decides how fast
+      let carve = P.carveRate * f * (1 - Math.min(1, this.reef[i])) * (geo ? P.rockErode[this.rockOf(i)] : 1) * (tr ? 1 - P.rootHold * tr[i] : 1); // the rock decides how fast
       if (dep) {
         const cap = P.sedCap * f * Math.min(1, steepest / P.sedDropRef); // fast water carries more
         carve = Math.max(0, Math.min(carve, cap - Sd[i])); // it carves only into spare capacity
@@ -2909,9 +4107,9 @@ export class World {
       const cmax = geo ? P.geoCarveMax : P.carveMax; // geology: the basement is the base level, not a cap
       if (D[i] < cmax) { const c = Math.min(carve, cmax - D[i]); D[i] += c; if (dep) Sd[i] += c; }
       if (dep && Sd[i] > 0) { const m = Sd[i] * f / Wt[i]; Sd[i] -= m; Sd2[best] += m; } // the load travels with the water
-      if (this.reef[i] > 0) { const wash = Math.min(this.reef[i], P.reefWash * f); this.reef[i] -= wash; this.fertility[best] = Math.min(2, this.fertility[best] + wash); }
+      if (this.reef[i] > 0) { const wash = Math.min(this.reef[i], P.reefWash * f * (tr ? 1 - P.rootHold * tr[i] : 1)); this.reef[i] -= wash; this.fertility[best] = Math.min(2, this.fertility[best] + wash); }
     }
-    this.water = W2;
+    this.water = W2; this.landChanged(); // carving and deposits moved the land
     if (dep) for (let i = 0; i < n; i++) Sd[i] += Sd2[i]; // what arrived this update
     if (this.rolled('waterfood')) for (let i = 0; i < n; i++) { // water plants: grow where water stands and is not frozen, wither where it dries
       if (W2[i] > 0.01 && temp[i] >= P.freezeAt) this.aqua[i] += P.aquaGrow * (1 - this.aqua[i]) * (0.5 + temp[i]);
@@ -2924,21 +4122,50 @@ export class World {
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const j = at(gx + dx, gy + dy); B[j] = Math.max(B[j], dx || dy ? P.bankWet : 1); }
     }
   }
+  // Springs of the big river: at bigSprings rows along its course, springFlow of water enters the lowest cell near the river's line.
+  // (The line is the lowest relief of each row near the seam, found once.)
+  feedSprings(Wt, E, r, D, temp) {
+    const k = this.riverRise(), R = this.reliefMap(), x0 = Math.round(P.seamX / CELL), far = Math.round(P.bigFloodHalf / CELL);
+    if (this._springRel !== R) { // the line of the bed in each spring row, remembered per relief
+      this._springRel = R; this._springAt = [];
+      for (let s = 0; s < P.bigSprings; s++) { const gy = Math.round((0.03 + (P.bigSpringReach - 0.03) * s / Math.max(1, P.bigSprings - 1)) * GH) % GH; let best = x0, low = Infinity;
+        for (let dx = -far; dx <= far; dx++) { const gx = (x0 + dx + GW) % GW, z = R[gy * GW + gx]; if (z < low) { low = z; best = gx; } }
+        this._springAt.push([best, gy]); }
+    }
+    for (const [gx, gy] of this._springAt) {
+      let best = -1, low = Infinity;
+      for (let dx = -2; dx <= 2; dx++) { const i = gy * GW + ((gx + dx + GW) % GW), z = E[i] * r + this.tectonic[i] - D[i] + Wt[i]; if (z < low) { low = z; best = i; } }
+      if (temp[best] >= P.freezeAt) Wt[best] += P.springFlow * k;
+    }
+  }
   // FOUR SECTIONS: a step onto harder ground than a body stands on — crags or cliffs past its climbing, water deeper
   // past its swimming — is refused (it turns back), with a soft margin either side of the need. Bodies already on hard
   // ground may always move toward easier. Counts lowland section changes (crossings) for the readout.
   crossGate(c) {
     const i0 = cellAt(c.x, c.y), i1 = cellAt(c.x + c.vx, c.y + c.vy), n0 = this.climbNeed()[i0], climb = c.climb ?? 0;
-    if (n0 > P.needFloor && n0 > climb + P.skillMargin) { // on crags or a cliff beyond its climbing (the land rose under it): it falls, a cell a tick, down the steepest way
+    const physics = this.rolled('physics') && !this.registry[c.species].unique, N = this.climbNeed();
+    const descending = physics && i0 !== i1 && Math.max(n0, N[i1]) > P.needFloor && this.elevAt(c.x + c.vx, c.y + c.vy) < this.elevAt(c.x, c.y);
+    const fall = descending && Math.random() < P.downFall * (1 - climb) * Math.max(n0, N[i1]);
+    if (fall || (n0 > P.needFloor && n0 > climb + P.skillMargin)) { // on crags or a cliff beyond its climbing (the land rose under it): it falls, a cell a tick, down the steepest way
       const gx = i0 % GW, gy = (i0 / GW) | 0, x = (gx + 0.5) * CELL, y = (gy + 0.5) * CELL; let bx = 0, by = 0, low = this.elevAt(x, y);
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const e = this.elevAt(x + dx * CELL, y + dy * CELL); if ((dx || dy) && e < low) { low = e; bx = dx; by = dy; } }
       if (bx || by) {
         c.x = wrap(c.x + bx * CELL, W); c.y = wrap(c.y + by * CELL, H); c.vx = 0; c.vy = 0;
-        c.energy -= P.fallCost * (n0 - climb) * (mass(this.bodySize(c)) / mass(7)); // heavier bodies are hurt more
+        c.energy -= P.fallCost * (fall ? Math.max(n0, N[i1]) : n0 - climb) * (mass(this.bodySize(c)) / mass(7)); // heavier bodies are hurt more
+        if (physics) c.climbing = null;
         this.fell = (this.fell ?? 0) + 1; return;
       }
     }
-    if (i0 !== i1 && !this.canStep(c, i0, i1, true)) {
+    if (physics && c.climbEntry !== i0 && c.climbEntry !== i1) c.climbEntry = undefined;
+    const committed = physics && (this.isClimbing(c) || c.climbEntry === i1);
+    const allowed = i0 === i1 || committed || this.canStep(c, i0, i1, true);
+    if (physics && i0 !== i1 && allowed && !committed && N[i1] > P.needFloor && N[i1] > n0 && this.elevAt(c.x + c.vx, c.y + c.vy) > this.elevAt(c.x, c.y)) {
+      const rise = Math.max(P.climbMinRise, (this.elevAt(c.x + c.vx, c.y + c.vy) - this.elevAt(c.x, c.y)) * P.heightMetres);
+      c.climbing = { left: Math.min(P.climbMaxTicks, Math.ceil(rise / (P.climbUp * P.tickSeconds * climb * (this.rolled('climbweight') ? this.strength(c) / (mass(this.bodySize(c)) / mass(5)) : this.strength(c))))) };
+      c.climbEntry = i1;
+      const stamina = c.stamina; this.steer(c, 0, 0); c.stamina = stamina; // Limit the first step without a second wind recovery.
+    }
+    if (i0 !== i1 && !allowed) {
       // Like water round a rock (the reef rule): the smallest turn either way that finds passable ground; it remembers
       // the wall for a while, so its steering stops pressing into it and it walks along or away.
       const speed = Math.hypot(c.vx, c.vy), h = Math.atan2(c.vy, c.vx), side = Math.random() < 0.5 ? 1 : -1;
@@ -2955,7 +4182,7 @@ export class World {
     if (this.tick % 30 === 0) { // which lowland section it is in: north/south of the ridge line, west/east of the river (seam river to river)
       const xs = wrap(c.x - P.seamX, W), rx = wrap(P.riverX * W + 22 * Math.sin(c.y / 70) - P.seamX, W);
       const sec = (wrap(c.y, H) < P.ridgeY * H ? 'N' : 'S') + (xs < rx ? 'W' : 'E'), i = cellAt(c.x, c.y);
-      const nearLine = Math.min(xs, W - xs, Math.abs(xs - rx)) < P.chanHalf + 8; // inside a channel bed it is on neither side yet
+      const nearLine = Math.min(xs, W - xs, Math.abs(xs - rx)) < this.bandHalf(); // inside a channel bed it is on neither side yet
       if (!nearLine && this.reliefMap()[i] * this.reliefRise() + (this.tectonic?.[i] ?? 0) < 0.5) { // lowland by the land's shape (an eroded bed on the meseta is still the meseta)
         if (c.sec && c.sec !== sec) { const k = `${c.sec}>${sec}`; (this.crossings ??= {})[k] = (this.crossings[k] ?? 0) + 1; (this.crossAt ??= []).push([Math.round(c.x), Math.round(c.y), k]); if (this.crossAt.length > 60) this.crossAt.shift(); }
         c.sec = sec;
@@ -2966,6 +4193,7 @@ export class World {
   canStep(c, i0, i1, chance) {
     if (i0 === i1) return true;
     const N = this.climbNeed(), m = P.skillMargin, pass = (skill, need) => chance ? Math.random() < clamp01((skill - need + m) / (2 * m)) : skill >= need;
+    if (this.rolled('physics') && !this.registry[c.species].unique && N[i1] > P.needFloor && N[i1] > N[i0] && (c.climb ?? 0) <= N[i1]) return false;
     if (N[i1] > P.needFloor && N[i1] > N[i0] && !pass(c.climb ?? 0, N[i1])) return false; // gentle ground (a need under needFloor) asks nothing
     const s = this.sectionsRise(), legs = Math.max(1, (c.legs ?? 1) * this.bodySize(c));
     const need = i => { const d = this.water?.[i] ?? 0; if (d < 0.005) return 0; const w = this.waterAt(((i % GW) + 0.5) * CELL, (((i / GW) | 0) + 0.5) * CELL); return s * clamp01((w.d * P.depthPx / legs - 1) / P.swimSpan); };
@@ -3036,10 +4264,22 @@ export class World {
     this.quakeNow = { x: Math.round(x0), y: Math.round(y0), ang: +ang.toFixed(3), len: Math.round(len), mag: +mag.toFixed(3), big, until: this.tick + 300 };
     (this.quakeLog ??= []).push({ season: this.season, x: this.quakeNow.x, y: this.quakeNow.y, ang: this.quakeNow.ang, len: this.quakeNow.len, mag: this.quakeNow.mag, big }); // for the reports' orography view
     if (this.quakeLog.length > 50) this.quakeLog.shift();
-    this._reliefKey = null; this._needKey = null; this._rock = null;
+    this._reliefKey = null; this._needKey = null; this._rock = null; this.landChanged();
     return this.quakeNow;
   }
 
+  // GRASS RAMP (Luis, s2013; proposal s2008 decision 7; rollout.grassramp): grass alone (not fruit, nuts, water plants or lichen)
+  // grows poorer by grassRampCut over grassRampSeasons, so richer foods pay relatively more. The ramp freezes (what is applied stays)
+  // if bodies fall under grassRampFloor or starvation is over grassRampStarve of a season's deaths: a brake on the change, not a rescue.
+  grassRampSeason() {
+    if (!this.rolled('grassramp') || this.grassRampFrozen) return;
+    const tot = k => Object.values(this.stats).reduce((a, s) => a + (s[k] ?? 0), 0), now = { starved: tot('starved'), all: tot('starved') + tot('eaten') + tot('old') };
+    const last = this.grassRampLast ?? now; this.grassRampLast = now;
+    const died = now.all - last.all, starvedShare = died > 0 ? (now.starved - last.starved) / died : 0, bodies = this.creatures.filter(c => !c.dead).length;
+    if ((this.grassLean ?? 1) < 1 && (bodies < P.grassRampFloor || starvedShare > P.grassRampStarve)) { this.grassRampFrozen = true; this.log(`The grass stops growing poorer: it holds at ${Math.round(this.grassLean * 100)}% (${bodies} bodies, ${Math.round(starvedShare * 100)}% of the season's deaths by hunger).`); return; }
+    const f = Math.min(1, (this.season - this.rollout.grassramp + 1) / P.grassRampSeasons), lean = Math.round((1 - P.grassRampCut * f) * 1000) / 1000;
+    if (lean !== this.grassLean) { this.grassLean = lean; this.log(`The grass grows poorer: it is worth ${Math.round(lean * 100)}% of what it was a few seasons ago.`); }
+  }
   // Leaner grass, once a season: step the grass's worth down every leanEvery seasons until the room ceiling stops being touched.
   leanSeason() {
     if (!this.rolled('leaner') || this.leanDone) return;
@@ -3054,7 +4294,9 @@ export class World {
   }
 
   endSeason() {
+    if (this.rolled('hybrid')) this.mergeKinds();
     this.leanSeason();
+    this.grassRampSeason();
     this.quakeSeason();
     if (this.rollout?.sections !== undefined) { // the four sections: the season's crossings, and the chronicle of the change
       const s0 = this.rollout.sections, done = s0 + P.sectionsSeasons;
@@ -3122,7 +4364,7 @@ export class World {
         mature: r2(group.reduce((a, c) => a + (c.mature ?? 1), 0) / n), browse: r2(group.reduce((a, c) => a + (c.browse ?? 0), 0) / n), gape: r2(group.reduce((a, c) => a + (c.gape ?? 0.5), 0) / n), browsers: group.filter(c => this.browses(c)).length,
         minds: Object.entries(group.reduce((m, c) => { if (c.morph) m[c.morph] = (m[c.morph] ?? 0) + 1; return m; }, {})).map(([id, count]) => ({ what: sp.morphs?.[id]?.what, count })).sort((a, b) => b.count - a.count),
         decomp: r2(group.reduce((a, c) => a + (c.decomp ?? 0.03), 0) / n), parasitism: r2(group.reduce((a, c) => a + (c.parasitism ?? 0.03), 0) / n),
-        swim: r2(group.reduce((a, c) => a + (c.swim ?? 0), 0) / n), climb: r2(group.reduce((a, c) => a + (c.climb ?? 0), 0) / n), coat: r2(group.reduce((a, c) => a + (c.coat ?? P.coatStart), 0) / n), water: r2(group.reduce((a, c) => a + (c.water ?? P.waterStart), 0) / n),
+        swim: r2(group.reduce((a, c) => a + (c.swim ?? 0), 0) / n), climb: r2(group.reduce((a, c) => a + (c.climb ?? 0), 0) / n), bite: r2(group.reduce((a, c) => a + (c.bite ?? 0), 0) / n), snap: r2(group.reduce((a, c) => a + (c.snap ?? 0), 0) / n), coat: r2(group.reduce((a, c) => a + (c.coat ?? P.coatStart), 0) / n), water: r2(group.reduce((a, c) => a + (c.water ?? P.waterStart), 0) / n),
         resist: r2(group.reduce((a, c) => a + (c.resist ?? P.resistStart), 0) / n), eyes: r2(group.reduce((a, c) => a + (c.eyes ?? P.eyesStart), 0) / n),
         litter: r1(group.reduce((a, c) => a + (c.litter ?? 1), 0) / n), thrift: r2(group.reduce((a, c) => a + (c.thrift ?? 0.5), 0) / n), turning: group.filter(c => c.turning).length,
         // Who is what, one by one: bodies by gut (no jaws / both / meat only) and what each has mostly been eating.
@@ -3134,7 +4376,8 @@ export class World {
 
   // Compact snapshot: [id, species, x, y, angle, energy, hue, flags (1 broken, 2 willing, 4 sprinting), size, legs, fatness, armour, heart rate] per creature.
   frame() {
-    const index = Object.fromEntries(this.speciesNames.map((n, i) => [n, i]));
+    if (this._idxV !== (this._regVer ?? 0) || !this._idx) { this._idx = Object.fromEntries(this.speciesNames.map((n, i) => [n, i])); this._idxV = this._regVer ?? 0; } // cached per registry version
+    const index = this._idx;
     const c = [];
     for (const k of this.creatures)
       c.push(k.id, index[k.species], r2(k.x), r2(k.y), r2(Math.atan2(k.vy, k.vx)), r2(k.energy / this.capOf(k)),
@@ -3143,21 +4386,21 @@ export class World {
     const corpses = [];
     for (const k of this.corpses) corpses.push(Math.round(k.x), Math.round(k.y), r2(k.age / CORPSE_TICKS), k.cause === 'eaten' ? 1 : 0);
     const eggs = (this.eggs ?? []).flatMap(e => [Math.round(e.x), Math.round(e.y), Math.round((this.tick - e.laid) / (e.hatch - e.laid) * 1e4) / 1e4, index[e.species] ?? -1]); // progress, fine enough for a countdown
-    return { t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide(), kraken: this.krakenClock(), food: this.grassFood ?? 1, quake: this.quakeNow && this.tick < this.quakeNow.until ? this.quakeNow : undefined, temp: this.tick % 300 === 0 ? this.tempFrame() : undefined, mind: this.tick % 30 === 0 ? this.mindFrame() : undefined };
+    return { iso: this.isoBox?.block ? this.isoBox : null, t: this.tick, season: this.season, rain: r2(this.rain()), c, corpses, eggs, cap: this.maxCreatures, divide: this.nextDivide(), kraken: this.krakenClock(), food: this.grassFood ?? 1, quake: this.quakeNow && this.tick < this.quakeNow.until ? this.quakeNow : undefined, temp: this.tick % 300 === 0 ? this.tempFrame() : undefined, mind: this.tick % 30 === 0 ? this.mindFrame() : undefined };
   }
 
   // Plants, moisture and fertility per cell, as base64 bytes.
   // The river for the viewer: depth per cell (0 to 127), +128 where it is frozen; and snow cover (0 to 255).
   waterFrame() {
     if (!this.rolled('water')) return null;
-    const n = GW * GH, w = new Uint8Array(n), sn = new Uint8Array(n), era = this.tempEra();
+    const n = GW * GH, w = new Uint8Array(n), w2 = new Uint8Array(n), sn = new Uint8Array(n), era = this.tempEra();
     for (let i = 0; i < n; i++) {
       const d = this.water[i];
-      if (d > 0.005) { const gx = i % GW, gy = (i / GW) | 0; w[i] = Math.min(127, Math.round(d * 600)) + (this.tempAt((gy + 0.5) * CELL, era, (gx + 0.5) * CELL) < P.freezeAt ? 128 : 0); }
+      if (d > 0.005) { const gx = i % GW, gy = (i / GW) | 0, ice = this.tempAt((gy + 0.5) * CELL, era, (gx + 0.5) * CELL) < P.freezeAt ? 128 : 0; w[i] = Math.min(127, Math.round(d * 600)) + ice; w2[i] = Math.min(127, Math.round(Math.sqrt(Math.min(1.5, d) / 1.5) * 127)) + ice; } // w2 (s1706, viewer request): finer, sqrt over 0…1.5
       sn[i] = Math.min(255, Math.round(this.snow[i] * 2000));
     }
     const aq = Uint8Array.from(this.aqua ?? [], v => Math.round(Math.min(1, v) * 255)), li = Uint8Array.from(this.lichen ?? [], v => Math.round(Math.min(1, v) * 255));
-    return { w: Buffer.from(w).toString('base64'), snow: Buffer.from(sn).toString('base64'), aqua: Buffer.from(aq).toString('base64'), lichen: Buffer.from(li).toString('base64') };
+    return { w: Buffer.from(w).toString('base64'), w2: Buffer.from(w2).toString('base64'), w2Enc: 'sqrt1.5', snow: Buffer.from(sn).toString('base64'), aqua: Buffer.from(aq).toString('base64'), lichen: Buffer.from(li).toString('base64') };
   }
 
   terrain() {
@@ -3175,11 +4418,18 @@ export class World {
   toJSON() {
     const round = a => Array.from(a, v => Math.round(v * 1000) / 1000);
     return {
+      ...(this.rolled('physics') ? { climbTicks: this.climbTicks ?? 0 } : {}),
+      ...(this.rollout?.tissue !== undefined ? { tissueLevel: this.tissueLevel, tissueFrozen: this.tissueFrozen, tissueSeasonAt: this.tissueSeasonAt } : {}),
       version: 3, tick: this.tick, season: this.season, nextId: this.nextId,
       registry: this.registry, code: this.code,
       plants: round(this.plants), fertility: round(this.fertility), reef: round(this.reef), mineral: round(this.mineral), grains: this.grains,
-      creatures: this.creatures.map(c => ({ ...c, memory: safeMemory(c.memory) })),
-      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
+      creatures: this.creatures.map(c => { const { strengthTick, strengthNow, ...body } = c; return { ...body, memory: safeMemory(c.memory) }; }),
+      corpses: this.corpses, eggs: this.eggs ?? [], waves: this.waves ?? [], satiation: this.satiation, grassFood: this.grassFood ?? 1, grassLean: this.grassLean, grassRampFrozen: this.grassRampFrozen, grassRampLast: this.grassRampLast, leanLast: this.leanLast, leanDone: this.leanDone ?? false, ceilingAt: this.ceilingAt, dominance: this.dominance ?? {}, rollout: this.rollout, ledger: this.ledger, mindBook: this.mindBook ?? [], maxCreatures: this.maxCreatures, thicket: round(this.thicket ?? []), rootHealth: round(this.rootHealth ?? []), grassHardy: round(this.grassHardy ?? []), grassSweet: round(this.grassSweet ?? []), water: Array.from(this.water ?? [], v => Math.round(v * 10000) / 10000), carve: Array.from(this.carve ?? [], v => Math.round(v * 10000) / 10000), sed: Array.from(this.sed ?? [], v => Math.round(v * 100000) / 100000), upheaval: this.upheaval ? { ...this.upheaval, applied: Array.from(this.upheaval.applied ?? [], v => Math.round(v * 10000) / 10000), byQuake: Array.from(this.upheaval.byQuake ?? [], v => Math.round(v * 10000) / 10000) } : undefined, alluv: Array.from(this.alluv ?? [], v => Math.round(v * 1000) / 1000), dungMap: Array.from(this.dungMap ?? [], v => Math.round(v * 100000) / 100000), snow: Array.from(this.snow ?? [], v => Math.round(v * 10000) / 10000), tectonic: Array.from(this.tectonic ?? [], v => Math.round(v * 10000) / 10000), aqua: Array.from(this.aqua ?? [], v => Math.round(v * 1000) / 1000), lichen: Array.from(this.lichen ?? [], v => Math.round(v * 1000) / 1000), insects: this.rolled('insects') ? Array.from(this.insects ?? [], v => Math.round(v * 1000) / 1000) : undefined, bloom: this.rolled('insects') ? Array.from(this.bloom ?? [], v => Math.round(v * 1000) / 1000) : undefined, trees: Array.from(this.trees ?? [], v => Math.round(v * 1000) / 1000), treeKind: Array.from(this.treeKind ?? []), fruit: Array.from(this.fruit ?? [], v => Math.round(v * 1000) / 1000), nuts: Array.from(this.nuts ?? [], v => Math.round(v * 1000) / 1000), cones: Array.from(this.cones ?? [], v => Math.round(v * 1000) / 1000), nextQuake: this.nextQuake, lastBigQuake: this.lastBigQuake, quakeLog: this.quakeLog ?? [], grooved: this.grooved ?? false, history: this.history, events: this.events,
+      speciate: this.speciate ?? null,
+      ...(this.fish ? { fish: Array.from(this.fish, v => Math.round(v * 1e4) / 1e4), fishLedger: this.fishLedger } : {}),
+      ...(this.kpiLog ? { kpiLog: this.kpiLog } : {}),
+      ...(this.isoBox ? { isoBox: this.isoBox, isoBlocked: this.isoBlocked ?? 0, isoIn: this.isoIn ?? 0, isoOut: this.isoOut ?? 0 } : {}),
+      ...(this.tune ? { tune: this.tune } : {}), // (s2235) the split counters survive restarts
       stats: this.stats, records: this.records, diet: this.diet, lastCounts: this.lastCounts, since: this.since, lessons: this.lessons, pendingStudies: this.pendingStudies,
     };
   }
@@ -3187,9 +4437,15 @@ export class World {
   restore(s) {
     Object.assign(this, {
       tick: s.tick, season: s.season, nextId: s.nextId, registry: s.registry, code: s.code,
-      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, grassFood: s.grassFood ?? 1, leanLast: s.leanLast, leanDone: s.leanDone ?? false, ceilingAt: s.ceilingAt, dominance: s.dominance ?? {}, rollout: s.rollout, ledger: s.ledger, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
+      creatures: s.creatures, corpses: s.corpses, eggs: s.eggs ?? [], waves: s.waves ?? [], maxCreatures: s.maxCreatures, satiation: s.satiation ?? 0.9, grassFood: s.grassFood ?? 1, grassLean: s.grassLean, grassRampFrozen: s.grassRampFrozen, grassRampLast: s.grassRampLast, leanLast: s.leanLast, leanDone: s.leanDone ?? false, ceilingAt: s.ceilingAt, dominance: s.dominance ?? {}, rollout: s.rollout, ledger: s.ledger, mindBook: s.mindBook ?? [], history: s.history, events: s.events,
       stats: s.stats, records: s.records, diet: s.diet, lastCounts: s.lastCounts, since: s.since, lessons: s.lessons ?? [], pendingStudies: s.pendingStudies ?? [],
     });
+    this.tissueLevel = s.tissueLevel; this.tissueFrozen = s.tissueFrozen; this.tissueSeasonAt = s.tissueSeasonAt;
+    this.climbTicks = s.climbTicks ?? 0;
+    if (s.tune) { this.tune = s.tune; Object.assign(P, s.tune); } // (s2303, Luis's food-loop directive) live tuning saved with the world: parameter overrides, set by tools/restart.sh key=value
+    if (s.speciate) this.speciate = s.speciate;
+    if (s.kpiLog) this.kpiLog = s.kpiLog;
+    if (s.isoBox) { this.isoBox = s.isoBox; this.isoBlocked = s.isoBlocked ?? 0; this.isoIn = s.isoIn ?? 0; this.isoOut = s.isoOut ?? 0; }
     this.plants = Float32Array.from(s.plants);
     this.fertility = Float32Array.from(s.fertility);
     if (s.thicket?.length) this.thicket = Float32Array.from(s.thicket);
@@ -3199,11 +4455,17 @@ export class World {
     if (s.water?.length) this.water = Float32Array.from(s.water);
     if (s.carve?.length) this.carve = Float32Array.from(s.carve);
     if (s.sed?.length) this.sed = Float32Array.from(s.sed);
+    if (s.upheaval) this.upheaval = { ...s.upheaval, applied: Float32Array.from(s.upheaval.applied ?? []), byQuake: Float32Array.from(s.upheaval.byQuake ?? []) };
     if (s.alluv?.length) this.alluv = Float32Array.from(s.alluv);
+    if (s.dungMap?.length) this.dungMap = Float32Array.from(s.dungMap);
     if (s.snow?.length) this.snow = Float32Array.from(s.snow);
     if (s.tectonic?.length) this.tectonic = Float32Array.from(s.tectonic);
     if (s.aqua?.length) this.aqua = Float32Array.from(s.aqua);
     if (s.lichen?.length) this.lichen = Float32Array.from(s.lichen);
+    if (s.insects?.length) this.insects = Float32Array.from(s.insects);
+    if (s.fish?.length) { this.fish = Float32Array.from(s.fish); this.fishLedger = s.fishLedger ?? {}; }
+    if (s.bloom?.length) this.bloom = Float32Array.from(s.bloom);
+    if (s.trees?.length) { this.trees = Float32Array.from(s.trees); this.treeKind = Uint8Array.from(s.treeKind ?? []); this.fruit = Float32Array.from(s.fruit ?? []); this.nuts = Float32Array.from(s.nuts ?? []); this.cones = Float32Array.from(s.cones ?? []); }
     this.nextQuake = s.nextQuake; this.lastBigQuake = s.lastBigQuake; this.quakeNow = null; this.quakeLog = s.quakeLog ?? [];
     this.grooved = s.grooved ?? false;
     if (s.reef) { this.reef = Float32Array.from(s.reef); this.mineral = Float32Array.from(s.mineral); this.grains = s.grains ?? []; }
@@ -3223,7 +4485,7 @@ export class World {
     for (const [name, seed] of Object.entries(loadSeed())) {
       if (!this.registry[name]) {
         // A seed species new to this world: it joins the registry, extinct until the god sets it down.
-        this.registry[name] = { ...seed, mark: 'none', parent: null, born: this.season, extinct: this.season, lastBranchGen: 0,
+        this.touchRegistry(); this.registry[name] = { ...seed, mark: 'none', parent: null, born: this.season, extinct: this.season, lastBranchGen: 0,
           lineage: this.rootLineage(name), branches: 0, role: roleOf(seed.tl), established: true };
         this.code[name] = readCode(name);
         this.ensureBooks();

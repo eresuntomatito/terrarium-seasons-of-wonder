@@ -31,7 +31,7 @@ The viewer lets you follow a body, magnify a patch, inspect the ground with X-ra
 - [Questions and turning points](docs/wiki/history.md): how earlier worlds led here.
 - [Start a separate world](docs/RUNNING.md): startup instructions for the published source.
 
-The introduction describes the **continuing local world**. The public simulation source currently remains at local `d1ad73d` / public `370995a`; newer source and the complete wiki reader await a separate reviewed import. Cloning this repository starts from that published version and does not recreate today's world. The optional [season-1561 saved world](docs/SAVED-WORLD.md) is an older, source-pinned historical download. See [publication status](docs/PUBLICATION.md).
+The introduction describes the **continuing local world**. The published source now includes the reviewed season-2806 boundary (local `34d66d7`, public `68e670c`) and the shared wiki/report reader. Cloning starts a separate world with its own rollout state; it does not recreate today's continuing world. The optional [season-1561 saved world](docs/SAVED-WORLD.md) is an older, source-pinned historical download. See [publication status](docs/PUBLICATION.md).
 
 ## How it is made
 

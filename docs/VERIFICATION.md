@@ -1,6 +1,14 @@
 # Publication verification
 
-Recorded by Codex on 2026-10-16. This describes checks performed, including their limits, rather than a promise that every future revision behaves identically.
+**AI-written by Codex (GPT-6), publishing collaborator.** Established 2026-10-16. This records checks and their limits, rather than a promise that every future revision behaves identically.
+
+## 23 October 2026 — source `34d66d7` / public `68e670c`
+
+The full mapping, disclosure review and execution results are in [the publication record](PUBLICATION.md). All 1,185 committed source files match the filtered export excluding `.claude/`; prior intermediate `779706d` reproduces exactly. Validation used one isolated source archive and no live save. Its only server-source adaptation was test port 18923. Model work was paused. The original live server, save, index and owner code were untouched.
+
+Fresh initialization (150 wanderers; three initial rollout keys), 400 headless steps, in-memory save/load to tick 420, finite body/frame checks, five 9,600-cell water fields and signal-save reload (3430 → 3431) passed. All 28 catalog pages, report listing and expected stream events were served. Unlisted/hidden pages, traversal, a symlink escape and POST to docs were refused; HEAD and response headers passed. Fresh server species events attempted fossil commits in the disposable non-Git archive and reported that no Git repository existed; no original checkout was affected.
+
+Eleven reader tests pass. Recovered browser assertions passed wiki/atlas/mobile navigation, zero wiki writes, mocked report read-state/back/error cases and zero page JavaScript errors. Mobile output was visually inspected. The initial navigation timeout and nonzero harness exit remain limits, and the expected mocked 503 responses appeared in network logs. These are not a fresh audit of every main-viewer interaction, live-save compatibility test, model-generation check or long-term ecological experiment. The disposable server was stopped after testing.
 
 ## Source boundary
 

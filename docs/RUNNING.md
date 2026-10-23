@@ -1,6 +1,6 @@
 # Start a world of your own
 
-Written and checked by Codex. Initial checks used revision `39359c9`; startup and persistence were checked again against the redesign at `1d7ced1`, on macOS with Node.js `v23.9.0`. These checks do not establish the minimum supported Node version or long-term ecological stability. See [verification](VERIFICATION.md).
+**AI-written by Codex (GPT-6), publishing collaborator.** Startup, fresh initialization, persistence and reader routes checked on 23 October 2026 against local `34d66d7` / public `68e670c`, using Node.js `v23.9.0`. Earlier verification boundaries are retained in [the verification record](VERIFICATION.md). These checks do not establish the minimum supported Node version or long-term ecological stability.
 
 The [publication record](PUBLICATION.md) maps those local test revisions to their corresponding revisions in the public history.
 
@@ -35,11 +35,11 @@ Do not use `--fresh` when you mean to resume. That flag starts over and subseque
 
 ## Reading while the world runs
 
-In the current local development viewer, **wiki** and **reports** are separate header entries. Wiki is for unhurried explanations and [help using the viewer](wiki/using-the-viewer.md); Reports retains its unread badge and marks a report read when opened. Wiki reading does not change report read state. Both use the same reading page and original Markdown sources; there is no additional service, model invocation or database to start.
+In this published viewer, **wiki** and **reports** are separate header entries. Wiki is for unhurried explanations and [help using the viewer](wiki/using-the-viewer.md); Reports retains its unread badge and marks a report read when opened. Wiki reading does not change report read state. Both use the same reading page and original Markdown sources; there is no additional service, model invocation or database to start.
 
 The local reader opens at **http://localhost:8000/reports.html?section=wiki**. It features world guides, concepts, traits, places, species and history rather than project-management documents. GitHub renders those same Markdown pages directly through [the wiki entrance](wiki/README.md).
 
-**Version boundary, 17 October 2026:** the new docs route, main-viewer Wiki button and shared reader are available in the working local project but are not yet a completed source handoff to the public repository. Older checkouts, including the pinned season-1561 release source, may lack these controls. Their bundled Markdown remains readable on GitHub. Do not mix in another revision's viewer/server files merely to match a guide.
+**Version boundary, 23 October 2026:** the safe docs route, Wiki button and complete shared reader are included in public source following local `34d66d7`. Older checkouts, including the pinned season-1561 download source, may lack these controls. Public navigation has 28 reviewed world-reading pages. Local social-media drafts remain outside this publication batch; their separate catalog entries have not been copied into the public reading list.
 
 ### Maintaining the shared reading foundation
 
@@ -55,11 +55,11 @@ node --test docs/scripts/reader-links.test.mjs docs/scripts/reader-markdown.test
 
 To continue a particular published moment instead, follow [the optional saved-world guide](SAVED-WORLD.md). It pins its own compatible source and refuses to overwrite an existing save. It is a separate download, not the fresh initialization described below.
 
-At both checked revisions, a fresh `World(null)` starts with **150 wanderers**. Other seed species are defined in `species/registry.json` but start with zero bodies. The progenitor that founded Luis's documented genesis era is not released by a fresh start.
+At the latest checked revision, a fresh `World(null)` starts with **150 wanderers**. Other seed species are defined in `species/registry.json` but start with zero bodies. The progenitor that founded Luis's documented genesis era is not released by a fresh start.
 
 Most later mechanics depend on saved rollout state. A fresh world initially schedules only `kin`, `home`, and `niche`; it does not automatically reproduce the live world's climate, mountain and river rollout, food changes, or descendants. The screenshots in this repository show a world with that accumulated history. This difference is part of the current implementation, not a setup error.
 
-The updated source includes the four-section terrain, climbing, and apex mechanisms. Their presence in code does not automatically activate them in a fresh save. In the continuing world, the steward enabled the four-section rollout at season 1396 and it rises over ten seasons; the README's season-1445 photograph shows the fully risen terrain. Its live-world provenance is recorded separately from source verification.
+The updated source includes later terrain, trees/fire, insects, fish, digestion, physics and splitting systems. Their presence in code does not automatically activate them in a fresh save. The README's season-2812 screenshot belongs to the continuing world; its [dated account](wiki/current-world.md) separates the active world, committed source and image provenance.
 
 The simulation targets 30 ticks per second. One simulated day is 1,800 ticks and one season 5,400 ticks: nominally one and three minutes. Actual wall time increases if the machine cannot keep up. Closing the browser does not stop the Node process; stopping the process or sleeping the computer pauses its progress.
 

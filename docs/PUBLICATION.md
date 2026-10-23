@@ -4,11 +4,23 @@
 
 ## Resumed documentation update — 23 October 2026
 
+### Completed source and shared-reader integration
+
+The steward-approved boundary **local `34d66d711863c56b035197a175690b6ef03111c7`** is privacy-filtered as **public source `68e670c00f4823f7c50016d6b1c21b4abe1ee35b`**. The 282-commit delta changes 228 paths. Reconstruction reproduces published intermediate `779706d` exactly, and all 1,185 source files match the committed tree excluding `.claude/`. Author/committer addresses use the established verified GitHub no-reply identity; original names, dates, messages and attribution trailers are retained. Bounded scans of 428 new blobs and commit messages found no credential/private-key/personal-email/home-path matches. Twenty-nine added report PNGs were visually inventoried. These are bounded disclosure checks, not a certification of every possible secret or ecological mechanism.
+
+The source update preserves existing public history. The complete shared reader adds its shell, three modules, a 28-page world catalog and existing checks. Social drafts and their local catalog entries are excluded from this batch. Original Markdown stays authoritative; wiki navigation does not mark reports read.
+
+An isolated archive passed 400 fresh headless steps, in-memory persistence through tick 420, finite-body/frame checks and five 9,600-cell water fields. A disposable server used test-only port 18923, with model work paused: all catalog pages, report listing, frame events, HEAD/method restrictions, hidden/unlisted paths and traversal/symlink rejection passed. Its signal save at tick 3430 loaded and advanced to 3431; the server was stopped. No continuing-world save was copied or executed. Live-save compatibility remains the steward's explicit confirmation.
+
+Eleven reader tests pass. A recovered browser run passed wiki navigation, atlas/mobile layout, zero wiki writes, mocked report read-state/back/error cases and zero page JavaScript errors. Its initial navigation timeout still produced a nonzero harness exit; expected mocked 503 responses were recorded. This supports the completed assertions, not a clean initial-navigation result. No live restart or owner-file edit was performed.
+
+Later local source/metric/lens work remains outside this boundary. The season-1561 download stays pinned to `370995a`; importing new source does not replace or recertify that historical artifact.
+
 Luis requested that the repository home page introduce the world as it now exists. The new README leads with the current landscape and open ecological question, a season-2812 screenshot, and a dated observation of 243 bodies in nine species. The [current-world account](wiki/current-world.md) separates the save census, screenshot, steward observations and source availability. It also corrects the older account of Codex's contribution using later steward evidence. Authorship and image provenance are disclosed up front.
 
 The viewer guide was reviewed against committed local `7fa618c`, and [the change record](wiki/changes.md) inventories all 26 pre-existing world-wiki pages. A freshness classification is not a completed mechanism rewrite. The social-media drafts/catalog entries remain separately owned and were not swept into this documentation update.
 
-The original temporary checkout had disappeared. A separate public clone was restored at `/private/tmp/terrarium-publication-resume-20261023` (about 64 MB before these additions). Its initial public head was `446a743`. The steward recommends local `34d66d7` as the next source boundary and confirms live-save compatibility. There are 282 local commits since `d1ad73d`; independent source/history/privacy checks and full reader integration remain pending. Uncommitted world/viewer work is excluded. **The simulation source in this documentation batch remains public `370995a`; the season-1561 state is unchanged.**
+The original temporary checkout had disappeared. A separate public clone was restored at `/private/tmp/terrarium-publication-resume-20261023` (about 64 MB before these additions). Its initial public head was `446a743`. The first documentation-only increment was `fedefc8`, still on simulation source `370995a`. The subsequent integration above advances source to `68e670c`, with later owner work excluded. The season-1561 state is unchanged.
 
 The current-world image is a real, unedited screenshot of the local world, including an uncommitted renderer. Capturing it neither imported that renderer nor executed a new simulation experiment. The harness recovered after an initial navigation timeout and produced the inspected image, but its nonzero exit is recorded in [provenance](assets/README.md). No world restart, state change or recurring capture service was performed.
 
