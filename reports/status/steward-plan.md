@@ -30,10 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **carrionfit keeps working:** carrion ≥ 2.5%, eaters ≥ 15, gut p90 keeps rising (0.094 now) — the first gut ≥ 0.3 bodies within ~10 seasons.
-- **Carcasses become the limit** (only 9 lie unused now, from 20–60) — if carrion share plateaus while eaters grow, next lever = carrion supply (carcasses last longer / are richer), via Codex.
-- **Grass steps:** may resume (one 3% step) once carrionfit has had ~2 checks and fat ≥ 0.3 — scarcity now has a meat outlet.
-- **Trees, speed:** hold.
+- **Grass step 5 (s2748)** now that hunger has a meat outlet: fat dips but stays ≥ 0.3; carrion share rises above 3%; gut p90 keeps rising (0.113) and max crosses 0.3 (now 0.282).
+- **Assumption 1 re-tested:** this time scarcity should push bodies onto carrion, not only browse — if browse takes it all again and carrion stays ~3%, carrion SUPPLY is the limit (next lever).
+- **KPI2:** 3 ways of life (grazer, mixed feeder, aquatic), 9 species — hold.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -57,3 +56,4 @@
 - **s2732:** the Codex task had not run (wrong CLI flag) — restarted with `codex exec -s workspace-write`; review next check-in. Meanwhile KPI2 rose: diet difference 0.083 → 0.127 (record), browse 12.6%; KPI1 tl 2.018 (gut≥0.3 still 0%); fat 0.46; trees records (fruit canopy 86.1, mature nut 40, conifer 74). No other action.
 - **s2737:** Codex delivered 'carrionfit' (gut 0.05: 0.17 → 0.82 of carrion's value; copy smoke: carrion share 0.91% → 1.39%, no errors). Reviewed the diff (2 lines) — RELEASED, live s2738. Numbers: fat 0.455, carrion 1.2%, browse 10.2%, KPI1 tl 2.016 / gut≥0.3 0%, KPI2 diet 0.094 ways 2, trees high.
 - **s2742 (carrionfit 4 seasons):** BETTER THAN EXPECTED — carrion 1.2% → 2.9%, carrion eaters 4 → 17, carcasses unused 20+ → 9; KPI1 tl 2.016 → 2.027, gut p90 0.067 → 0.094, max 0.208 (gut≥0.3 still 0%); fat 0.536; KPI2 diet 0.082 ways 2; trees records (mature conifer 85). No action.
+- **s2748:** carrionfit holding: carrion 3.0%, eaters 21; KPI1 tl 2.027 → 2.035, gut p90 0.113, max 0.282; KPI2 ways 3 (+ aquatic), diet 0.103, 9 species; fat 0.38; trees records (fruit canopy 92.2). Action A resumed: grass −3% (0.420 → 0.407).
