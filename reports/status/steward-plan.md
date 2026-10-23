@@ -30,9 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Codex task3** finishes (new KPI2 + rain belt test): review the diff; commit the KPI; bring the rain-belt numbers to Luis.
-- **No restarts while Codex edits code** (my s2785 restart loaded its in-progress world.mjs; it runs fine — new KPI2 fields already appear live — but that was luck).
-- **KPI1** holds ≥ 2.05; carrion ≥ 4%; fat ≥ 0.3.
+- **Codex:** rain-belt diagnostic finishes (belt arm, seasons 2–6), then task4 (new KPI2 'distinct species') runs — review both; commit with the lens fix; bring rain-belt results to Luis.
+- **KPI1:** holds ≥ 2.045 after step 11; next step (12) when ≥ 4 seasons have passed and fat ≥ 0.3, at a safe moment (Codex not editing).
+- **KPI3:** recovers ≥ 15 ticks/s once the Codex runs end.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -67,3 +67,4 @@
 - **s2789:** KPI1 strong (tl 2.058, carrion 5.2% record, eaters 32, meat 5.8%); KPI2 ways 4 incl. SCAVENGER; NEW KPI2 already live (partial Codex code loaded at my restart): proven 0, contact pairs 4, diet apart in contact 0.095, waysAvg 2.95. Carcass longevity test (Codex): carrion +0.1 pp only, no harm → NOT released (supply is limited by deaths, not by rot). No action.
 - **s2793:** plenty (fat 0.535) → KPI1 sagged to tl 2.035 (carrion 3.1%, eaters 25); KPI2 ways 3, waysAvg 3.0; trees records (fruit canopy 93.3). Step 11 due but HELD: no restarts while Codex edits code (task3 still measuring, task4 queued). Do step 11 once Codex is done.
 - **s2797:** Codex task3 is only measuring now (its code edits are done and load cleanly), so the restart is safe: grass step 11 (0.350 → 0.340). Task4 (new KPI2) still queued.
+- **s2802:** step 11 worked as the pattern predicts: carrion 1.9% → 3.5% (eaters 32), fish 1.1% (8 fishers), tl 2.025 → 2.049; KPI2 ways 4 (avg 3.0), diet 0.125; fat 0.423; trees records (fruit canopy 101.5). No action (Codex measuring).
