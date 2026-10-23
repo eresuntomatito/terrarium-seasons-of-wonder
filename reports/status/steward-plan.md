@@ -30,10 +30,10 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Assumption 1 has failed for now** (4 grass steps: gut ≥ 0.3 stays 0%, max gut 0.18; the woods feed every dip). Fallback in progress: **raise carrion's payoff for low and middle guts** (rollout 'carrionfit' — carrion fits guts 0.05–0.3 well, as 'gutvalley' did for meat), delegated to Codex; review its diff and copy checks, then release.
-- **Grass steps paused** while the payoff change is tested (no more hunger; payoff instead).
-- **Expect after release:** carrion share up from ~0.6%; gut flex pulls meat-eaters' guts up → gut ≥ 0.3 share starts to move (KPI1).
-- **Lake country:** 10 bodies (liligals) — back.
+- **carrionfit live from s2738:** carrion share rises from ~1.2% toward 1.5–2%; carrion eaters (≥10%) increase; gut flex pulls those bodies' guts up slowly.
+- **KPI1:** tl edges up (> 2.02); gut ≥ 0.3 share may stay ~0% for several checks (guts move slowly) — judge over ~10 seasons, not one.
+- **Grass steps:** stay paused while carrionfit is judged.
+- **Trees, speed:** hold.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -55,3 +55,4 @@
 - **s2721:** fat recovered 0.320 → 0.382; canopy recovered (fruit 73.4, conifer 45.8); KPI2: 3 ways of life (aquatic back ≥ 10, grazer, mixed feeder), diet difference 0.081; KPI1 flat (tl 2.010, gut≥0.3 0%); lake country 0 bodies (from 14). Action A: grass −3% (0.433 → 0.420), step 4.
 - **s2727:** fat 0.382 → 0.514 after step 4 (woods again); KPI1 flat (tl 2.008, gut≥0.3 0%, max gut 0.18) → ASSUMPTION 1 FAILS FOR NOW: scarcity yields browsing, not meat. Action (its fallback): carrion payoff for low/middle guts (rollout 'carrionfit'), delegated to Codex; grass steps paused. KPI2 diet 0.083, ways 1–2; lake country 10 (liligals); trees records (conifer 73 mature).
 - **s2732:** the Codex task had not run (wrong CLI flag) — restarted with `codex exec -s workspace-write`; review next check-in. Meanwhile KPI2 rose: diet difference 0.083 → 0.127 (record), browse 12.6%; KPI1 tl 2.018 (gut≥0.3 still 0%); fat 0.46; trees records (fruit canopy 86.1, mature nut 40, conifer 74). No other action.
+- **s2737:** Codex delivered 'carrionfit' (gut 0.05: 0.17 → 0.82 of carrion's value; copy smoke: carrion share 0.91% → 1.39%, no errors). Reviewed the diff (2 lines) — RELEASED, live s2738. Numbers: fat 0.455, carrion 1.2%, browse 10.2%, KPI1 tl 2.016 / gut≥0.3 0%, KPI2 diet 0.094 ways 2, trees high.
