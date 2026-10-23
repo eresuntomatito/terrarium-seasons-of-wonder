@@ -30,10 +30,10 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Fat:** dips again after step 3 (s2711), recovers ≥ 0.3 as before; starvation < 300/season.
-- **KPI2:** 3 ways of life holding (grazer, mixed feeder, highland); diet difference back ≥ 0.10.
-- **KPI1:** the first gut ≥ 0.3 bodies (0.4%) — watch whether that share grows or vanishes.
-- **Woods:** keep booming; watch browsing of saplings as grass thins.
+- **Fat:** recovers ≥ 0.3 again via the woods; no step until it settles.
+- **A finding to check:** the booming woods buffer every grass cut (bodies browse and eat fruit, which are plants), so KPI2 gains and KPI1 stays flat. If gut ≥ 0.3 stays ~0% after 2 more steps, assumption 1 is failing *for now* → its action: measure what meat pays a gut-0.3 body against browse/fruit, and raise the payoff of meat or carrion (prey and carrion access), not more hunger.
+- **Trees:** canopy dipped with browsing (fruit 71.6 → 66.5, conifer 48.9 → 44.3) — must not fall 2 more checks in a row.
+- **Speed:** ≥ 15 ticks/s.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -51,3 +51,4 @@
 - **s2699:** fat held 0.453 after step 1 (assumption 1 not yet tested — no hunger yet); KPI2 diet diff 0.067 → 0.090, ways 2 (grazer + mixed feeder; aquatic dipped under 10), lake country 20; KPI1 flat. Trees boom (fruit 69 mature, conifer 53); nut mature 24 → 22 (canopy up). Action A: grass −3% (0.460 → 0.446).
 - **s2705:** fat 0.453 → 0.311 after step 2 (starvation ~45/season, fine); bodies turned to the booming woods: BROWSE 13.5% (record), diet difference 0.090 → 0.110 (KPI2 ↑), tl 2.009 → 2.016 (KPI1 ticks up), gut≥0.3 still 0%; lake country 28; nut mature recovered 22 → 28. Action: none — hold step A until fat settles ≥ 0.3.
 - **s2711:** fat recovered 0.311 → 0.474 (the woods fed the dip: fruit store used up, browse back to 6.5%); KPI2 ways 2 → 3 (+ highland), diet difference 0.110 → 0.080 (eased as browse fell); KPI1: first bodies with gut ≥ 0.3 (0.4%), tl 2.010; lake country 26; trees at records (fruit canopy 71.6, conifer 68 mature). Action A: grass −3% (0.446 → 0.433).
+- **s2716:** fat 0.474 → 0.320 after step 3; bodies switched to browse 10.5% and fruit (store 26.3, record) — the woods buffer the cuts; KPI2 diet difference 0.080 → 0.102 (ways back to 2); KPI1 tl 2.012, gut≥0.3 0% (the 0.4% vanished); lake country 26 → 14; canopy dipped (fruit 66.5, conifer 44.3) under browsing. No action (fat at the threshold). Thesis note: scarcity feeds browsing (KPI2) before meat (KPI1).
