@@ -30,9 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Grass step 5 (s2748)** now that hunger has a meat outlet: fat dips but stays ≥ 0.3; carrion share rises above 3%; gut p90 keeps rising (0.113) and max crosses 0.3 (now 0.282).
-- **Assumption 1 re-tested:** this time scarcity should push bodies onto carrion, not only browse — if browse takes it all again and carrion stays ~3%, carrion SUPPLY is the limit (next lever).
-- **KPI2:** 3 ways of life (grazer, mixed feeder, aquatic), 9 species — hold.
+- **Trees:** a cold, dry spell (T 0.29, moisture 0.26) cut canopy hard (fruit 92 → 71, nut 31 → 18, conifer 59 → 41; mature nut 48 → 27, conifer 84 → 55). Still far above pre-boom levels, so not a collapse; climate, not insects (insects ~0), no rescue. If they fall again next check → hold all grass steps until they recover (less browsing pressure).
+- **KPI1 keeps rising:** carrion ≥ 4%, gut max crosses 0.3.
+- **Grass step 6:** held this check (trees stressed); reconsider when trees steady and fat ≥ 0.3.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -57,3 +57,4 @@
 - **s2737:** Codex delivered 'carrionfit' (gut 0.05: 0.17 → 0.82 of carrion's value; copy smoke: carrion share 0.91% → 1.39%, no errors). Reviewed the diff (2 lines) — RELEASED, live s2738. Numbers: fat 0.455, carrion 1.2%, browse 10.2%, KPI1 tl 2.016 / gut≥0.3 0%, KPI2 diet 0.094 ways 2, trees high.
 - **s2742 (carrionfit 4 seasons):** BETTER THAN EXPECTED — carrion 1.2% → 2.9%, carrion eaters 4 → 17, carcasses unused 20+ → 9; KPI1 tl 2.016 → 2.027, gut p90 0.067 → 0.094, max 0.208 (gut≥0.3 still 0%); fat 0.536; KPI2 diet 0.082 ways 2; trees records (mature conifer 85). No action.
 - **s2748:** carrionfit holding: carrion 3.0%, eaters 21; KPI1 tl 2.027 → 2.035, gut p90 0.113, max 0.282; KPI2 ways 3 (+ aquatic), diet 0.103, 9 species; fat 0.38; trees records (fruit canopy 92.2). Action A resumed: grass −3% (0.420 → 0.407).
+- **s2753:** assumption 1 now CONFIRMING: after step 5 bodies turned to carrion, not only browse — carrion 3.0 → 4.1%, eaters 21 → 36, KPI1 tl 2.035 → 2.054 (best yet), gut p90 0.133; KPI2: OMNIVORE is now a way of life (≥ 10 bodies; ways: omnivore, grazer, mixed feeder), 9 species; fat held 0.506. Trees hit by cold + drought (see above). Action: none — step 6 held for the trees.
