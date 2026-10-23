@@ -34,6 +34,13 @@ This is an attributed change inventory, not verification of every mechanism or a
 
 ## Wiki correction record
 
+### 23 October 2026 — finite-food explanation reconciled
+
+- Rewrote [decomposer feeding](traits/decomposition.md) against public source `68e670c`: carried dung versus fertility, finite ground removal, fading proximity gift, opening/carrion rules, gut-pool delay and saved-rollout limits.
+- Distinguished raw-stock removal and the carcass-stage cap from later skill-pay modifiers; no whole-system conservation claim is inferred.
+- Preserved the mosali account as an earlier rule period. Added visible source-age notices to digestion, reproduction, movement, four-land barriers and the older trait inventory; their formula rewrites remain pending.
+- No new world experiment or rule change was needed for this documentation correction.
+
 ### 23 October 2026 — viewer guide corrected; whole-wiki freshness triage
 
 The [viewer guide](using-the-viewer.md) was checked against committed local `7fa618c`. It now covers 16× zoom, 8× following, micro-sprites, trees/fire, flowers/insects, magnification, Flow, Place/Change lenses, band targeting and group framing. History's Place grouping uses current membership, not reconstructed historical locations. This pass reviewed source and prior owner handoffs; it did not newly browser-test every interaction.
@@ -58,7 +65,7 @@ The table inventories every existing world-wiki page at resumption, excluding th
 | [Movement and sight](traits/movement-and-sight.md) | Superseded | M2 physics, home ranges, footprint and trackers postdate its speed/gate account. |
 | [Armour](traits/armour.md) | Unverified latest formulas | Preserve the season-1328 example; review later defence/tissue rules separately. |
 | [Toxin](traits/toxin.md) | Unverified latest formulas | Supply and upkeep account has not been compared against latest committed code. |
-| [Decomposition](traits/decomposition.md) | Superseded | Finite dung, carcass opening and carrion fit replace its older resource account. |
+| [Decomposition](traits/decomposition.md) | Current at `68e670c` | Rewritten after triage for finite dung, carcass opening, carrion fit and digestion/modifier limits. |
 | [Four lands](environments/four-lands.md) | Superseded | Later upheaval, river and M2 physics invalidate use as today's movement guide. |
 | [Climate and water](environments/climate-and-water.md) | Unverified | Later depth encoding, river, physics and lake access need review. |
 | [Minerals and reef](environments/minerals-and-reef.md) | Unverified | Older formula with a dated geology amendment; newer interactions unreviewed. |

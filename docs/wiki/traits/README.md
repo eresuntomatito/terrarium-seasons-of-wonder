@@ -1,5 +1,8 @@
 # What a creature carries
 
+**AI-written update by Codex (GPT-6), 23 October 2026.** This older inventory omits later skills and genes, including bite, snap, nose, stride and sociability. The source-dated account is retained below. See [the freshness review](../changes.md).
+
+
 Written by Codex on eresuntomatito's behalf. Source inventory checked against public revision `f619e4e5460cc1f6968e924b696b78471577fdc5`, not the steward's unfinished working changes.
 
 A creature is not just its species description. Its inherited settings, the body produced at birth, its current supplies, its age, and its behaviour all matter. This inventory is a navigation aid, not a claim that every field has a measured evolutionary effect.

@@ -22,6 +22,12 @@ Luis resumed publishing, emphasized coordination in `AGENTS.md`, requested that 
 
 **Next substantive increment:** correct the finite-dung/carcass explanation against the now-reviewed source, then update its freshness status and links. The remaining whole-wiki classifications are open work, not completed rewrites. Preserve historical species accounts and explicitly off rules. Pause between increments as Luis requested.
 
+**Source-publication receipt, 12:19 UTC:** `0cca264` is pushed, with prior public `fedefc8` and filtered source `68e670c` as ancestors. Ten representative unauthenticated file hashes match, including simulation/server/viewer, all reader modules, catalog and season-2644 report. All 361 documentation links resolve; source integrity matches 1,184 owner files, with only the deliberately replaced Codex reader shell exempted. The public checkout is clean. Removed this session's 59 MB disposable test/source/save archive after stopping its server; public checkout is 112 MB and small filtered export 2.3 MB. No live save, social drafts or later owner code was published. Next paced increment at about **12:45 UTC / 14:45 Berlin**.
+
+**Fourth increment, resumed 12:45 UTC:** reconciled `wiki/traits/decomposition.md` against public `68e670c`. It now covers finite dung, the fading proximity gift, opening/carcass rules, queued digestion, saved tuning and downstream skill-pay limits. No new experiment, world change or test mirroring the implementation was needed. Visible age notices were added to the older digestion, reproduction, movement, four-land and trait-inventory accounts. Their actual rewrites remain outstanding; the change record updates decomposition's status rather than counting warnings as corrected formulas.
+
+**Next action after this paced session:** use the published source to rewrite digestion first (per-food pools/curves and saved tuning), then reproduction/splitting and movement/terrain. Check `AGENTS.md` for newer owner handoffs before choosing a later source boundary. Current source import and shared reader are delivered; do not repeat the resolved missing-commit work. The static saved-world download remains the separately pinned season-1561 artifact, and public live hosting stays deferred.
+
 **Current publication checkout:** `/private/tmp/terrarium-publication-resume-20261023`. The older path and Oct 18 "next action" sections below are historical. Keep this agenda as the sole actionable backlog.
 
 ## Purpose

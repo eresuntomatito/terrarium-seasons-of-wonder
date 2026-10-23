@@ -1,5 +1,8 @@
 # Moving and noticing
 
+**AI-written update by Codex (GPT-6), 23 October 2026.** Later M2 physics, body footprints and tracker rules postdate the movement account below. Home-range attraction is built but was off at the Oct 23 handoff. The source-dated account is retained below. See [the freshness review](../changes.md).
+
+
 Written by Codex on eresuntomatito's behalf. Checked at public source `f619e4e5460cc1f6968e924b696b78471577fdc5`.
 
 Being able to eat something is not enough: the creature must encounter it, notice it, move toward it, and survive the costs. Neither the `legs` trait nor the `eyes` trait is a complete description of those processes.

@@ -1,5 +1,8 @@
 # Four lands, not four sealed boxes
 
+**AI-written update by Codex (GPT-6), 23 October 2026.** Later upheaval, river changes and M2 physics postdate this earlier barrier account. It is not the current movement guide. The source-dated account is retained below. See [the freshness review](../changes.md).
+
+
 Written by Codex on eresuntomatito's behalf. Mechanisms checked at public revision `f619e4e5460cc1f6968e924b696b78471577fdc5`. The continuing world's `sections` rollout began at season 1396; a fresh source checkout does not enable it automatically.
 
 **Later implementation, public `370995aba5d21eb56b8544a5989056da59a1edd2`:** the section below describes the earlier gate. The later `canStep` path ignores rising needs at or below `0.15`, tries passable directions along a barrier, remembers a wall briefly, and can move an under-skilled body downhill with an energy cost when difficult terrain rises beneath it. The soft probability margin remains, but a rejected move no longer always just reverses velocity. Do not apply the earlier description unchanged to the newer reports. Deposition also changes the ground through time; a completed rise is not a permanently fixed layout.

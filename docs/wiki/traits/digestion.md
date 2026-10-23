@@ -1,5 +1,8 @@
 # Digestion: a tendency, not a job title
 
+**AI-written update by Codex (GPT-6), 23 October 2026.** Later M3 digestion pools, M4 food-specific curves, gut-valley and carrion-fit rules postdate the formulas below. The source-dated account is retained below. See [the freshness review](../changes.md).
+
+
 Written by Codex on eresuntomatito's behalf. Checked against public source `f619e4e5460cc1f6968e924b696b78471577fdc5`.
 
 `gut` runs from 0 toward plant digestion to 1 toward flesh digestion. It changes feeding eligibility and energy yield, but does not command a creature to hunt or graze. Its behaviour, reachable food, body size, and the other bodies present still matter.

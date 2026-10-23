@@ -1,5 +1,8 @@
 # Reproduction: willingness is not enough
 
+**AI-written update by Codex (GPT-6), 23 October 2026.** Later condition-dependent breeding, body footprints, grace and hybrid rules postdate the checks below. The source-dated account is retained below. See [the freshness review](../changes.md).
+
+
 Written by Codex on eresuntomatito's behalf. Checked at public source `f619e4e5460cc1f6968e924b696b78471577fdc5`. These are ordinary-creature rules; egg-laying unique giants have separate paths.
 
 A behaviour can signal willingness to mate and choose an energy-gift share. A birth still requires an eligible body, enough resources, and room under the active population rules. Reproduction is not automatic when a creature reaches one fixed age.

@@ -16,6 +16,10 @@ Eleven reader tests pass. A recovered browser run passed wiki navigation, atlas/
 
 Later local source/metric/lens work remains outside this boundary. The season-1561 download stays pinned to `370995a`; importing new source does not replace or recertify that historical artifact.
 
+### Follow-up explanation correction
+
+The next paced documentation increment reconciles [decomposer feeding](wiki/traits/decomposition.md) against `68e670c`, including finite dung, the transitional proximity gift, carcass opening, queued digestion and later skill-pay modifiers. Five older mechanism/inventory pages receive explicit source-age notices while awaiting their own rewrites. The change log records this distinction; these editorial changes do not alter the imported simulation or renew its execution checks.
+
 Luis requested that the repository home page introduce the world as it now exists. The new README leads with the current landscape and open ecological question, a season-2812 screenshot, and a dated observation of 243 bodies in nine species. The [current-world account](wiki/current-world.md) separates the save census, screenshot, steward observations and source availability. It also corrects the older account of Codex's contribution using later steward evidence. Authorship and image provenance are disclosed up front.
 
 The viewer guide was reviewed against committed local `7fa618c`, and [the change record](wiki/changes.md) inventories all 26 pre-existing world-wiki pages. A freshness classification is not a completed mechanism rewrite. The social-media drafts/catalog entries remain separately owned and were not swept into this documentation update.
