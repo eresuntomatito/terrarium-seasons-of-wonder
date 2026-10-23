@@ -221,6 +221,7 @@ export const PHYSICS = {
   // GUT VALLEY (Luis, s2626; rollout.gutvalley): (1) fresh meat's fit peaks at gut 0.7 with wide shoulders (was 0.8, narrow), so a
   // halfway gut is not punished at both ends; (2) a body's gut drifts within its life toward what it eats (target 0.05 + 0.8 × its
   // recent meat share, at gutFlex × plasticity per tick, at most gutFlexMax from its born gut; half of the drift is inherited).
+  // CARRION FIT (Luis, s2727; rollout.carrionfit): raise meat/carrion payoff, not hunger; carrion fit peaks at 0.40, flat top 0.15, width 0.45.
   // NO CANNIBALS (Luis: "let it be killing, just prevent killing their own"; rollout.nocannibal): no body eats its own species.
   gutFlex: 0.00004, gutFlexMax: 0.15,
   // TRACKERS (Luis, s2634; rollout.track): (1) a jawed body's nose also follows the prey scent left by plant-eaters (same nose gene);
@@ -1101,6 +1102,7 @@ export class World {
   // the same curve squeezed onto what is left — so the first steps toward meat cost nothing.
   // M4 (Codex): Gaussian shoulders begin at the flat top's edge, so fits stay continuous.
   gutFit(g, kind) {
+    if (kind === 'carrion' && this.rolled('carrionfit')) return Math.exp(-((Math.max(0, Math.abs(g - 0.40) - 0.15) / 0.45) ** 2)); // (carrionfit) wide shoulders for low and middle guts
     if (kind === 'flesh' && this.rolled('gutvalley')) return Math.exp(-((Math.max(0, Math.abs(g - 0.7) - 0.1) / 0.4) ** 2)); // (gutvalley) wide shoulders for fresh meat
     const ff = this.rolled('foodvalues') && P.foodFit[kind]; if (ff) return Math.exp(-((Math.max(0, Math.abs(g - ff[0]) - ff[1]) / ff[2]) ** 2)); // (foodvalues) insects and fish suit most guts
     const [peak, top, width] = kind === 'plant' ? [0.05, 0.10, 0.35]
