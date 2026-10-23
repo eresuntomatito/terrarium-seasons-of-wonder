@@ -30,9 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Grass steps held** until conifers stop falling (2nd fall: canopy 40.5 → 34.7, mature 55 → 50; fruit and nut steady/up). If conifers fall a 3rd time, run a copy check for the cause (climate vs browsing).
-- **KPI2:** 4 ways of life hold (grazer, aquatic, mixed feeder, omnivore).
-- **KPI1:** tl ≥ 2.04, carrion ≥ 3%; gut max needs to cross 0.3.
+- **Grass step 6 (s2764):** carrion rebounds above 3% (it fell to 1.9% in plenty), tl back above 2.04; fat stays ≥ 0.3.
+- **Pattern to confirm:** KPI1 rises only under some pressure; in plenty it sags. If so, keep gentle steps as the steady lever (with the trees watched).
+- **Trees:** conifers recovered (36.3, mature 53); keep.
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -59,3 +59,4 @@
 - **s2748:** carrionfit holding: carrion 3.0%, eaters 21; KPI1 tl 2.027 → 2.035, gut p90 0.113, max 0.282; KPI2 ways 3 (+ aquatic), diet 0.103, 9 species; fat 0.38; trees records (fruit canopy 92.2). Action A resumed: grass −3% (0.420 → 0.407).
 - **s2753:** assumption 1 now CONFIRMING: after step 5 bodies turned to carrion, not only browse — carrion 3.0 → 4.1%, eaters 21 → 36, KPI1 tl 2.035 → 2.054 (best yet), gut p90 0.133; KPI2: OMNIVORE is now a way of life (≥ 10 bodies; ways: omnivore, grazer, mixed feeder), 9 species; fat held 0.506. Trees hit by cold + drought (see above). Action: none — step 6 held for the trees.
 - **s2758:** KPI2 RECORD — 4 ways of life (grazer, aquatic, mixed feeder, omnivore), 9 species (quiomush new); KPI1 tl 2.054 → 2.041 (carrion 3.5%, eaters 25, gut p90 0.115, max 0.246); fat 0.527; conifers fell a 2nd time (cold/dry spell), fruit (93 mature, 237 saplings) and nut steady. Action: none — steps held for the conifers.
+- **s2764:** plenty again (fat 0.517) and KPI1 sagged: carrion 3.5% → 1.9%, eaters 25 → 11, tl 2.041 → 2.031, gut p90 0.103; KPI2 diet 0.117, ways 2 (aquatic and omnivore dipped under 10); conifers recovered (canopy 36.3, mature 53). Action A: grass −3% (0.407 → 0.395), step 6.
