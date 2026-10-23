@@ -30,10 +30,9 @@
 - **C. No new rules for now.** Let selection work on what is live, and protect KPI3. Development, if needed, goes to Codex, and I review it.
 
 ## Expected by the next check-in
-- **Step 7 (s2769):** carrion ≥ 3.5%, tl ≥ 2.045, fat ≥ 0.3. Gut max (0.262) creeping toward 0.3.
-- **Watch the floor of this lever:** each step trims grass worth (now 0.383); if fat falls under 0.3 for 2 checks, pause steps.
-- **KPI2:** diet difference ~0.09–0.12; ways 2–4 (aquatic, omnivore hover around 10).
-- **Trees:** holding/up.
+- **Step 8 (s2775).** The first gut ≥ 0.3 bodies (1.2%, max 0.384) — expect that share to hold or grow (KPI1), carrion ≥ 3%, fat ≥ 0.3.
+- **Assumption 2 (meat pays) now testable:** compare fat of gut ≥ 0.25 bodies with the world mean next check.
+- **Trees:** holding (mature fruit 109, conifer 65).
 
 ## Riskiest assumptions, and what I'd do if each fails
 
@@ -62,3 +61,4 @@
 - **s2758:** KPI2 RECORD — 4 ways of life (grazer, aquatic, mixed feeder, omnivore), 9 species (quiomush new); KPI1 tl 2.054 → 2.041 (carrion 3.5%, eaters 25, gut p90 0.115, max 0.246); fat 0.527; conifers fell a 2nd time (cold/dry spell), fruit (93 mature, 237 saplings) and nut steady. Action: none — steps held for the conifers.
 - **s2764:** plenty again (fat 0.517) and KPI1 sagged: carrion 3.5% → 1.9%, eaters 25 → 11, tl 2.041 → 2.031, gut p90 0.103; KPI2 diet 0.117, ways 2 (aquatic and omnivore dipped under 10); conifers recovered (canopy 36.3, mature 53). Action A: grass −3% (0.407 → 0.395), step 6.
 - **s2769:** pattern CONFIRMED — after step 6, carrion 1.9% → 3.5% (eaters 11 → 21), tl 2.031 → 2.043, gut p90 0.117 max 0.262; fat 0.472; trees up (conifer canopy 44.2, mature 63). Gentle steps are the steady lever. Action A: grass −3% (0.395 → 0.383), step 7.
+- **s2775:** KPI1 MILESTONE — first bodies with gut ≥ 0.3 (1.2%, max 0.384); carrion 3.3% (eaters 28); tl 2.038; KPI2 diet 0.109, ways 2 (grazer, aquatic); fat 0.456; trees up (mature fruit 109). Action A: grass −3% (0.383 → 0.372), step 8.
